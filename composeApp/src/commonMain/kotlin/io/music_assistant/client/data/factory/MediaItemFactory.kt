@@ -21,6 +21,9 @@ import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.ServerMediaItemChapter
 import io.music_assistant.client.data.model.server.ServerMediaItemImage
+import io.music_assistant.client.data.model.client.CriticalReception
+import io.music_assistant.client.data.model.client.ReviewSource
+import io.music_assistant.client.data.model.server.ServerCriticalReception
 import io.music_assistant.client.data.model.server.ServerMetadata
 import io.music_assistant.client.data.repository.SearchResultData
 
@@ -210,7 +213,28 @@ class MediaItemFactory(
             images = it.images?.map(::createImageInfo).orEmpty(),
             releaseDate = it.releaseDate,
             chapters = it.chapters?.map(::createChapter).orEmpty(),
+            dynamicRange = it.dynamicRange?.toFloat(),
+            criticalReception = createCriticalReception(it.criticalReception),
         )
+    }
+
+    private fun createCriticalReception(server: ServerCriticalReception?): CriticalReception? {
+        if (server == null) return null
+        val sources = server.sources
+            ?.filter { it.source.isNotBlank() && it.source != "None" }
+            ?.map { entry ->
+                ReviewSource(
+                    source = entry.source,
+                    rating = entry.rating?.toFloat(),
+                    favorite = entry.favorite,
+                    types = entry.types.orEmpty(),
+                    labels = entry.labels.orEmpty(),
+                    authors = entry.authors.orEmpty(),
+                )
+            }
+            .orEmpty()
+        if (server.amgDr == null && sources.isEmpty()) return null
+        return CriticalReception(amgDr = server.amgDr?.toFloat(), sources = sources)
     }
 
     private fun createChapter(server: ServerMediaItemChapter): Chapter =

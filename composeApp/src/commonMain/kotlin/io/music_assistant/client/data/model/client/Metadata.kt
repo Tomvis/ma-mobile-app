@@ -11,4 +11,6 @@ data class Metadata(
     val images: List<ImageInfo>,
     val releaseDate: String?,
     val chapters: List<Chapter>,
+    val dynamicRange: Float? = null,
+    val criticalReception: CriticalReception? = null,
 )
