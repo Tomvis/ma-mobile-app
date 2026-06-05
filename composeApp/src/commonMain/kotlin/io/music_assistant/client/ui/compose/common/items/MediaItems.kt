@@ -184,6 +184,13 @@ fun AlbumGridItem(
                 item = item,
                 providerIconFetcher = providerIconFetcher,
             )
+            AlbumReceptionBadges(
+                album = item,
+                style = ReceptionBadgeStyle.Tile,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(4.dp),
+            )
         }
         Spacer(Modifier.height(4.dp))
         Text(
