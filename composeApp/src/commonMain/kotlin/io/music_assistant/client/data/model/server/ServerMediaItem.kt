@@ -82,7 +82,27 @@ data class ServerMetadata(
     @SerialName("release_date") val releaseDate: String? = null,
     // @SerialName("languages") val languages: List<String>? = null,
     @SerialName("chapters") val chapters: List<ServerMediaItemChapter>? = null,
+    @SerialName("dynamic_range") val dynamicRange: Double? = null,
+    @SerialName("critical_reception") val criticalReception: ServerCriticalReception? = null,
     @SerialName("last_refresh") val lastRefresh: Long?,
+)
+
+@Serializable
+data class ServerCriticalReception(
+    @SerialName("amg_dr") val amgDr: Double? = null,
+    @SerialName("sources") val sources: List<ServerReviewSourceEntry>? = null,
+)
+
+@Serializable
+data class ServerReviewSourceEntry(
+    // Defaults to "" so a null/missing source still decodes; we drop unusable
+    // (blank-source) entries later, at the client-mapping boundary (Task 2).
+    @SerialName("source") val source: String = "",
+    @SerialName("rating") val rating: Double? = null,
+    @SerialName("favorite") val favorite: Boolean? = null,
+    @SerialName("types") val types: List<String>? = null,
+    @SerialName("labels") val labels: List<String>? = null,
+    @SerialName("authors") val authors: List<String>? = null,
 )
 
 @Serializable
