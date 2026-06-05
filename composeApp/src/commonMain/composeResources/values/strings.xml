@@ -230,4 +230,20 @@
   <string name="reception_label_honorable_mention">Honorable Mention %1$d</string>
   <string name="reception_label_record_of_the_month">Record of the Month</string>
   <string name="reception_label_score_revised">Score Revised</string>
+  <string name="filter_title">Reception filters</string>
+  <string name="filter_match">Match</string>
+  <string name="filter_match_all">All</string>
+  <string name="filter_match_any">Any</string>
+  <string name="filter_dr">Dynamic Range</string>
+  <string name="filter_amg">AMG</string>
+  <string name="filter_tps">TPS</string>
+  <string name="filter_personal_pick">Personal pick</string>
+  <string name="filter_untagged">Untagged</string>
+  <string name="filter_clear_all">Clear all</string>
+  <string name="filter_dr_untagged">Untagged</string>
+  <string name="filter_label_aoty">Album of the Year</string>
+  <string name="filter_label_aotm">Album of the Month</string>
+  <string name="filter_label_honorable_mention">Honorable Mention</string>
+  <string name="filter_label_record_of_the_month">Record of the Month</string>
+  <string name="cd_reception_filter">Reception filters</string>
 </resources>
