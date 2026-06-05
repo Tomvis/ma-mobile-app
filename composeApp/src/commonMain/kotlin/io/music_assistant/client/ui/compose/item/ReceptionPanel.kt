@@ -24,6 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.music_assistant.client.data.model.client.AmgDrInfo
@@ -124,13 +126,16 @@ private fun DrRow(dr: DrInfo, amgDr: AmgDrInfo?) {
                 )
             }
         }
+        val verdict = drVerdict(dr.quality)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(text = formatDr(dr.value), style = MaterialTheme.typography.headlineSmall)
             LinearProgressIndicator(
                 progress = { (dr.value / 20f).coerceIn(0f, 1f) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { stateDescription = "${formatDr(dr.value)} / 20 — $verdict" },
             )
-            Text(text = drVerdict(dr.quality), style = MaterialTheme.typography.labelLarge)
+            Text(text = verdict, style = MaterialTheme.typography.labelLarge)
         }
         amgDr?.let {
             Text(
@@ -159,7 +164,9 @@ private fun SourceRow(s: SourceTags) {
                 )
                 LinearProgressIndicator(
                     progress = { (s.rating / s.scale).coerceIn(0f, 1f) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { stateDescription = "${formatScore(s.rating)} / ${s.scale}" },
                 )
             } else if (s.favorite) {
                 Icon(Icons.Default.AutoAwesome, contentDescription = null,
@@ -184,17 +191,28 @@ private fun SourceRow(s: SourceTags) {
 }
 
 @Composable
+private fun typeLabelText(raw: String): String = when (raw) {
+    "Review" -> stringResource(Res.string.reception_type_review)
+    "TYMHM" -> stringResource(Res.string.reception_type_tymhm)
+    "SITF" -> stringResource(Res.string.reception_type_sitf)
+    "YMIO" -> stringResource(Res.string.reception_type_ymio)
+    "LIT" -> stringResource(Res.string.reception_type_lit)
+    "RFU" -> stringResource(Res.string.reception_type_rfu)
+    else -> raw
+}
+
+@Composable
 private fun labelText(label: ParsedLabel): String = when (label.kind) {
     LabelKind.AOTY -> stringResource(Res.string.reception_label_aoty, label.year ?: 0)
     LabelKind.AOTM -> stringResource(Res.string.reception_label_aotm, label.year ?: 0, label.month ?: 0)
     LabelKind.HONORABLE_MENTION -> stringResource(Res.string.reception_label_honorable_mention, label.year ?: 0)
     LabelKind.RECORD_OF_THE_MONTH -> stringResource(Res.string.reception_label_record_of_the_month)
     LabelKind.SCORE_REVISED -> stringResource(Res.string.reception_label_score_revised)
-    LabelKind.TYMHM -> stringResource(Res.string.reception_type_tymhm)
-    LabelKind.SITF -> stringResource(Res.string.reception_type_sitf)
-    LabelKind.YMIO -> stringResource(Res.string.reception_type_ymio)
-    LabelKind.LIT -> stringResource(Res.string.reception_type_lit)
-    LabelKind.RFU -> stringResource(Res.string.reception_type_rfu)
+    LabelKind.TYMHM -> typeLabelText(label.raw)
+    LabelKind.SITF -> typeLabelText(label.raw)
+    LabelKind.YMIO -> typeLabelText(label.raw)
+    LabelKind.LIT -> typeLabelText(label.raw)
+    LabelKind.RFU -> typeLabelText(label.raw)
     LabelKind.UNKNOWN -> label.raw
 }
 
@@ -216,15 +234,7 @@ private fun LabelChip(label: ParsedLabel) {
 
 @Composable
 private fun TypeChip(type: String) {
-    val text = when (type) {
-        "Review" -> stringResource(Res.string.reception_type_review)
-        "TYMHM" -> stringResource(Res.string.reception_type_tymhm)
-        "SITF" -> stringResource(Res.string.reception_type_sitf)
-        "YMIO" -> stringResource(Res.string.reception_type_ymio)
-        "LIT" -> stringResource(Res.string.reception_type_lit)
-        "RFU" -> stringResource(Res.string.reception_type_rfu)
-        else -> type
-    }
+    val text = typeLabelText(type)
     AssistChip(onClick = {}, enabled = false, label = { Text(text) })
 }
 
@@ -238,4 +248,10 @@ private fun ReceptionPanelPreview() {
 @Composable
 private fun ReceptionPanelEmptyPreview() {
     AlbumReceptionPanel(AppMediaItemFixtures.album())
+}
+
+@Preview
+@Composable
+private fun ReceptionPanelFallbackPreview() {
+    AlbumReceptionPanel(AppMediaItemFixtures.album(metadata = AppMediaItemFixtures.receptionMetadataFallback()))
 }

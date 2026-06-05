@@ -55,6 +55,21 @@ object AppMediaItemFixtures {
         ),
     )
 
+    fun receptionMetadataFallback(): Metadata = Metadata(
+        explicit = false,
+        images = emptyList(),
+        releaseDate = null,
+        chapters = emptyList(),
+        dynamicRange = null, // no measured DR -> AMG-reported DR fallback
+        criticalReception = CriticalReception(
+            amgDr = 9f,
+            sources = listOf(
+                ReviewSource("AMG", rating = null, favorite = true,
+                    types = emptyList(), labels = emptyList(), authors = emptyList()),
+            ),
+        ),
+    )
+
     fun artist(name: String = "Artist ${uniqueIdGenerator.nextInt()}"): Artist {
         return Artist(
             itemId = "blah",
