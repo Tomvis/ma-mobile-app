@@ -20,10 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -58,6 +61,7 @@ import compose.icons.TablerIcons
 import compose.icons.tablericons.Plus
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
+import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
@@ -76,6 +80,7 @@ import io.music_assistant.client.ui.compose.nav.Screen
 import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_add_playlist
+import musicassistantclient.composeapp.generated.resources.cd_reception_filter
 import musicassistantclient.composeapp.generated.resources.cd_toggle_view_mode
 import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.common_cancel
@@ -134,6 +139,8 @@ fun ItemListScreen(
                 sortOption = state.sortOption,
                 onlyFavorites = state.onlyFavorites,
                 onToggleFavorites = itemListViewModel::toggleFavorites,
+                receptionFilter = state.receptionFilter,
+                onReceptionFilterChanged = itemListViewModel::onReceptionFilterChanged,
             )
         },
     ) {
@@ -176,6 +183,8 @@ private fun ItemListTopBar(
     sortOption: SortOption,
     onlyFavorites: Boolean,
     onToggleFavorites: () -> Unit,
+    receptionFilter: ReceptionFilter,
+    onReceptionFilterChanged: (ReceptionFilter) -> Unit,
 ) {
     var showSearch by remember { mutableStateOf(searchQuery.isNotEmpty()) }
 
@@ -292,6 +301,30 @@ private fun ItemListTopBar(
                     )
 
                     Row {
+                        if (mediaType == MediaType.ALBUM) {
+                            var showFilter by rememberSaveable { mutableStateOf(false) }
+                            BadgedBox(
+                                badge = {
+                                    if (receptionFilter.isActive) {
+                                        Badge { Text("${receptionFilter.activeCount}") }
+                                    }
+                                },
+                            ) {
+                                IconButton(onClick = { showFilter = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.FilterList,
+                                        contentDescription = stringResource(Res.string.cd_reception_filter),
+                                    )
+                                }
+                            }
+                            if (showFilter) {
+                                ReceptionFilterSheet(
+                                    filter = receptionFilter,
+                                    onChange = onReceptionFilterChanged,
+                                    onDismiss = { showFilter = false },
+                                )
+                            }
+                        }
                         SortChip(
                             currentSort = sortOption,
                             availableFields = SortConfig.fieldsFor(mediaType),
