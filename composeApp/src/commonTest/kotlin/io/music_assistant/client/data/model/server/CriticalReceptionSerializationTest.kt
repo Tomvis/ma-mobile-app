@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class CriticalReceptionSerializationTest {
-
     private val metadataJson = """
         {
           "dynamic_range": 12.0,

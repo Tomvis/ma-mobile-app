@@ -4,9 +4,9 @@ package io.music_assistant.client.ui.compose.item
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -169,8 +169,11 @@ private fun SourceRow(s: SourceTags) {
                         .semantics { stateDescription = "${formatScore(s.rating)} / ${s.scale}" },
                 )
             } else if (s.favorite) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
                 Text(stringResource(Res.string.reception_personal_pick), style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -226,9 +229,16 @@ private fun LabelChip(label: ParsedLabel) {
         enabled = false,
         label = { Text(labelText(label)) },
         leadingIcon = if (isAccolade(label.kind)) {
-            { Icon(Icons.Default.EmojiEvents, contentDescription = null,
-                tint = AssistChipDefaults.assistChipColors().labelColor) }
-        } else null,
+            {
+                Icon(
+                Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = AssistChipDefaults.assistChipColors().labelColor,
+            )
+            }
+        } else {
+                null
+            },
     )
 }
 

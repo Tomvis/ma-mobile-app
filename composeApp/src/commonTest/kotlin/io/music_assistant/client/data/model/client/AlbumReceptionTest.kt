@@ -2,12 +2,11 @@ package io.music_assistant.client.data.model.client
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 
 class AlbumReceptionTest {
-
     private fun cr(
         amgDr: Float? = null,
         sources: List<ReviewSource> = emptyList(),

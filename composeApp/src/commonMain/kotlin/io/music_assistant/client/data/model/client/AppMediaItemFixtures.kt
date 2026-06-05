@@ -47,10 +47,22 @@ object AppMediaItemFixtures {
         criticalReception = CriticalReception(
             amgDr = 11f,
             sources = listOf(
-                ReviewSource("AMG", rating = 4.5f, favorite = null,
-                    types = listOf("Review", "TYMHM"), labels = listOf("AOTY-2024"), authors = listOf("J. Smith")),
-                ReviewSource("TPS", rating = 8.4f, favorite = null,
-                    types = emptyList(), labels = listOf("RECORD_OF_THE_MONTH"), authors = listOf("A. Jones")),
+                ReviewSource(
+                    "AMG",
+                    rating = 4.5f,
+                    favorite = null,
+                    types = listOf("Review", "TYMHM"),
+                    labels = listOf("AOTY-2024"),
+                    authors = listOf("J. Smith"),
+                ),
+                ReviewSource(
+                    "TPS",
+                    rating = 8.4f,
+                    favorite = null,
+                    types = emptyList(),
+                    labels = listOf("RECORD_OF_THE_MONTH"),
+                    authors = listOf("A. Jones"),
+                ),
             ),
         ),
     )
@@ -64,8 +76,14 @@ object AppMediaItemFixtures {
         criticalReception = CriticalReception(
             amgDr = 9f,
             sources = listOf(
-                ReviewSource("AMG", rating = null, favorite = true,
-                    types = emptyList(), labels = emptyList(), authors = emptyList()),
+                ReviewSource(
+                    "AMG",
+                    rating = null,
+                    favorite = true,
+                    types = emptyList(),
+                    labels = emptyList(),
+                    authors = emptyList(),
+                ),
             ),
         ),
     )

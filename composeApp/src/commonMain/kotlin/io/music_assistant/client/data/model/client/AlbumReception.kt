@@ -34,7 +34,11 @@ data class ReceptionTags(
     val hasAny: Boolean get() = dr != null || amgDr != null || amg != null || tps != null
 }
 
-private object DrThresholds { const val EXCELLENT = 14f; const val GOOD = 10f; const val FAIR = 7f }
+private object DrThresholds {
+    const val EXCELLENT = 14f
+    const val GOOD = 10f
+    const val FAIR = 7f
+}
 
 fun drQuality(value: Float): DrQuality = when {
     value >= DrThresholds.EXCELLENT -> DrQuality.EXCELLENT
@@ -106,7 +110,9 @@ private fun parseSource(entry: ReviewSource): SourceTags? {
 fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): ReceptionTags {
     val measured = if (isPositiveFinite(albumDynamicRange)) {
         DrInfo(albumDynamicRange!!, drQuality(albumDynamicRange), DrSource.MEASURED)
-    } else null
+    } else {
+        null
+    }
     val amgRaw = cr?.amgDr?.takeIf { isPositiveFinite(it) }?.let {
         DrInfo(it, drQuality(it), DrSource.AMG)
     }
@@ -115,7 +121,9 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
         round(amgRaw.value) != round(measured.value)
     ) {
         AmgDrInfo(amgRaw.value, drQuality(amgRaw.value))
-    } else null
+    } else {
+        null
+    }
 
     val sources = cr?.sources.orEmpty()
     val amg = sources.firstOrNull { it.source == "AMG" }?.let(::parseSource)

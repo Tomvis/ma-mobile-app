@@ -1,9 +1,9 @@
 package io.music_assistant.client.data.model.client
 
 import io.music_assistant.client.data.factory.MediaItemFactory
+import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.server.FakeClient
 import io.music_assistant.client.data.model.server.ServerMediaItem
-import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.utils.myJson
 import kotlin.test.Test
 import kotlin.test.assertEquals

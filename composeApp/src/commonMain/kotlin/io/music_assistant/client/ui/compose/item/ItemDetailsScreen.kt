@@ -358,11 +358,14 @@ private fun ItemContent(
     val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
 
     val heroSlot: @Composable () -> Unit = {
-        ItemHeader(
-            item = item,
-            providerIconFetcher = providerIconFetcher,
-            onPlayClick = onPlayItemClick,
-        )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ItemHeader(
+                item = item,
+                providerIconFetcher = providerIconFetcher,
+                onPlayClick = onPlayItemClick,
+            )
+            (item as? Album)?.let { AlbumReceptionPanel(it, modifier = Modifier.fillMaxWidth()) }
+        }
     }
 
     Screen(
