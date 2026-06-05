@@ -123,7 +123,7 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
     return ReceptionTags(dr, amgDr, amg, tps)
 }
 
-/** Mirrors the web `formatScore`: integers render with one decimal (4 -> "4.0"). */
+/** Formats a rating to exactly one decimal place for display (4f -> "4.0", 8.4f -> "8.4"). */
 fun formatScore(n: Float): String {
     val rounded = round(n * 10f) / 10f
     val whole = rounded.toInt()

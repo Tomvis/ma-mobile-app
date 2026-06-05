@@ -112,6 +112,18 @@ class AlbumReceptionTest {
         assertEquals("8.4", formatScore(8.4f))
     }
 
+    @Test fun formatDrWholeVsDecimal() {
+        assertEquals("12", formatDr(12f))
+        assertEquals("12.3", formatDr(12.3f))
+    }
+
+    @Test fun sortLabelsTieBreaksByYearDesc() {
+        val sorted = sortLabels(
+            listOf(parseLabel("AOTY-2019"), parseLabel("AOTY-2024"), parseLabel("AOTY-2021")),
+        )
+        assertEquals(listOf(2024, 2021, 2019), sorted.map { it.year })
+    }
+
     @Test fun hasAnyFalseForEmpty() {
         assertFalse(parseAlbumReception(null, null).hasAny)
     }
