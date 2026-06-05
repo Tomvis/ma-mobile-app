@@ -209,4 +209,25 @@
   <string name="toast_marked_played">Marked as played</string>
   <string name="toast_marked_unplayed">Marked as unplayed</string>
   <string name="toast_no_uri">Media item has no URI</string>
+  <string name="reception_title">Reception</string>
+  <string name="reception_dynamic_range">Dynamic Range</string>
+  <string name="reception_dr_excellent">Excellent</string>
+  <string name="reception_dr_good">Good</string>
+  <string name="reception_dr_fair">Fair</string>
+  <string name="reception_dr_poor">Poor</string>
+  <string name="reception_amg_dr_fallback">AMG</string>
+  <string name="reception_amg_dr_reported">AMG reported %1$s</string>
+  <string name="reception_personal_pick">Personal pick</string>
+  <string name="reception_score_with_max">%1$s / %2$d</string>
+  <string name="reception_type_review">Review</string>
+  <string name="reception_type_tymhm">They Might Have Missed</string>
+  <string name="reception_type_sitf">Stuck in the Future</string>
+  <string name="reception_type_ymio">You Missed It Originally</string>
+  <string name="reception_type_lit">Lost in Time</string>
+  <string name="reception_type_rfu">Recommended For You</string>
+  <string name="reception_label_aoty">Album of the Year %1$d</string>
+  <string name="reception_label_aotm">Album of the Month %1$d-%2$d</string>
+  <string name="reception_label_honorable_mention">Honorable Mention %1$d</string>
+  <string name="reception_label_record_of_the_month">Record of the Month</string>
+  <string name="reception_label_score_revised">Score Revised</string>
 </resources>

@@ -17,13 +17,14 @@ object AppMediaItemFixtures {
         name: String = "Album $itemId",
         artist: Artist? = artist(),
         version: String? = null,
+        metadata: Metadata? = null,
     ): Album {
         return Album(
             itemId = itemId,
             provider = "blah",
             name = name,
             providerMappings = emptyList(),
-            metadata = null,
+            metadata = metadata,
             favorite = null,
             uri = null,
             images = emptyMap(),
@@ -36,6 +37,23 @@ object AppMediaItemFixtures {
             },
         )
     }
+
+    fun receptionMetadata(): Metadata = Metadata(
+        explicit = false,
+        images = emptyList(),
+        releaseDate = null,
+        chapters = emptyList(),
+        dynamicRange = 12f,
+        criticalReception = CriticalReception(
+            amgDr = 11f,
+            sources = listOf(
+                ReviewSource("AMG", rating = 4.5f, favorite = null,
+                    types = listOf("Review", "TYMHM"), labels = listOf("AOTY-2024"), authors = listOf("J. Smith")),
+                ReviewSource("TPS", rating = 8.4f, favorite = null,
+                    types = emptyList(), labels = listOf("RECORD_OF_THE_MONTH"), authors = listOf("A. Jones")),
+            ),
+        ),
+    )
 
     fun artist(name: String = "Artist ${uniqueIdGenerator.nextInt()}"): Artist {
         return Artist(
