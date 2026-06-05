@@ -957,6 +957,9 @@ internal fun AlbumRowItem(
         },
         onClick = { onClick(item) },
         onLongClick = { onLongClick(item) },
+        subtitleAccessory = {
+            AlbumReceptionBadges(item, style = ReceptionBadgeStyle.Row)
+        },
     )
 }
 
@@ -1214,6 +1217,7 @@ private fun RowItem(
     imageContent: @Composable BoxScope.() -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    subtitleAccessory: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -1244,6 +1248,7 @@ private fun RowItem(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            subtitleAccessory?.invoke()
         }
     }
 }
