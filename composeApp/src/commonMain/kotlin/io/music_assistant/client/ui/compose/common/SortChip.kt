@@ -83,7 +83,7 @@ fun SortDropdownMenu(
                     } else if (field == currentSort.field) {
                         onSortChanged(SortOption(field, !currentSort.descending))
                     } else {
-                        onSortChanged(SortOption(field))
+                        onSortChanged(SortOption(field, descending = field.defaultDescending))
                     }
                 },
                 trailingIcon = if (field == currentSort.field && field != SortField.ORIGINAL) {
@@ -119,4 +119,7 @@ private fun SortField.localizedName(): String = when (this) {
     SortField.POSITION -> stringResource(Res.string.sort_position)
     SortField.ARTIST_NAME -> stringResource(Res.string.sort_artist)
     SortField.RELEASE_DATE -> stringResource(Res.string.sort_release_date)
+    SortField.DR -> stringResource(Res.string.sort_dr)
+    SortField.AMG_RATING -> stringResource(Res.string.sort_amg)
+    SortField.TPS_RATING -> stringResource(Res.string.sort_tps)
 }

@@ -246,4 +246,7 @@
   <string name="filter_label_honorable_mention">Honorable Mention</string>
   <string name="filter_label_record_of_the_month">Record of the Month</string>
   <string name="cd_reception_filter">Reception filters</string>
+  <string name="sort_dr">DR</string>
+  <string name="sort_amg">AMG</string>
+  <string name="sort_tps">TPS</string>
 </resources>

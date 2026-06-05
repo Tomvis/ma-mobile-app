@@ -6,7 +6,11 @@ import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.Track
 
-enum class SortField(val serverKey: String, val displayName: String) {
+enum class SortField(
+    val serverKey: String,
+    val displayName: String,
+    val defaultDescending: Boolean = false,
+) {
     ORIGINAL("original", "Original"),
     NAME("sort_name", "Name"),
     DURATION("duration", "Duration"),
@@ -18,6 +22,9 @@ enum class SortField(val serverKey: String, val displayName: String) {
     POSITION("position", "Position"),
     ARTIST_NAME("artist_name", "Artist"),
     RELEASE_DATE("release_date", "Release date"),
+    DR("dr", "DR", defaultDescending = true),
+    AMG_RATING("amg_rating", "AMG", defaultDescending = true),
+    TPS_RATING("tps_rating", "TPS", defaultDescending = true),
 }
 
 data class SortOption(
@@ -37,6 +44,9 @@ object SortConfig {
             SortField.DATE_ADDED,
             SortField.LAST_PLAYED,
             SortField.PLAY_COUNT,
+            SortField.DR,
+            SortField.AMG_RATING,
+            SortField.TPS_RATING,
         )
         MediaType.TRACK -> listOf(
             SortField.NAME,
