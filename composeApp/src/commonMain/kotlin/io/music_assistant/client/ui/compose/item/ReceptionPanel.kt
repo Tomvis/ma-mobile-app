@@ -231,14 +231,14 @@ private fun LabelChip(label: ParsedLabel) {
         leadingIcon = if (isAccolade(label.kind)) {
             {
                 Icon(
-                Icons.Default.EmojiEvents,
-                contentDescription = null,
-                tint = AssistChipDefaults.assistChipColors().labelColor,
-            )
+                    Icons.Default.EmojiEvents,
+                    contentDescription = null,
+                    tint = AssistChipDefaults.assistChipColors().labelColor,
+                )
             }
         } else {
-                null
-            },
+            null
+        },
     )
 }
 
