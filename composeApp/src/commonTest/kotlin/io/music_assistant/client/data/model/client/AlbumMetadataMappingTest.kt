@@ -21,7 +21,8 @@ class AlbumMetadataMappingTest {
              "amg_dr": 11.0,
              "sources": [
                {"source":"AMG","rating":4.5},
-               {"source":"","rating":9.9}
+               {"source":"","rating":9.9},
+               {"source":"None","rating":7.0}
              ]
            },
            "last_refresh": null

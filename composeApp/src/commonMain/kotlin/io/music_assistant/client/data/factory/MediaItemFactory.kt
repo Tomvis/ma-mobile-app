@@ -2,10 +2,12 @@ package io.music_assistant.client.data.factory
 
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.client.Chapter
+import io.music_assistant.client.data.model.client.CriticalReception
 import io.music_assistant.client.data.model.client.ImageInfo
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
+import io.music_assistant.client.data.model.client.ReviewSource
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -18,12 +20,10 @@ import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.SearchResult
+import io.music_assistant.client.data.model.server.ServerCriticalReception
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.ServerMediaItemChapter
 import io.music_assistant.client.data.model.server.ServerMediaItemImage
-import io.music_assistant.client.data.model.client.CriticalReception
-import io.music_assistant.client.data.model.client.ReviewSource
-import io.music_assistant.client.data.model.server.ServerCriticalReception
 import io.music_assistant.client.data.model.server.ServerMetadata
 import io.music_assistant.client.data.repository.SearchResultData
 
@@ -221,6 +221,8 @@ class MediaItemFactory(
     private fun createCriticalReception(server: ServerCriticalReception?): CriticalReception? {
         if (server == null) return null
         val sources = server.sources
+            // Drop unusable entries: the server may serialize a missing source as
+            // blank or the literal "None" (Python None -> "None").
             ?.filter { it.source.isNotBlank() && it.source != "None" }
             ?.map { entry ->
                 ReviewSource(
