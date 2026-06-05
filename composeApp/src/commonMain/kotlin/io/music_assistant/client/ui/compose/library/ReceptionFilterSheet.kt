@@ -118,25 +118,14 @@ fun ReceptionFilterSheet(
                     )
                 }
             }
-            ChipRow {
-                ReceptionFilter.ACCOLADE_LABELS.forEach { l ->
-                    FilterChip(
-                        selected = l in filter.amgLabels,
-                        onClick = { onChange(filter.copy(amgLabels = filter.amgLabels.toggle(l))) },
-                        label = { Text(accoladeLabel(l)) },
-                    )
-                }
-                FilterChip(
-                    selected = filter.amgFavorite,
-                    onClick = { onChange(filter.copy(amgFavorite = !filter.amgFavorite)) },
-                    label = { Text(stringResource(Res.string.filter_personal_pick)) },
-                )
-                FilterChip(
-                    selected = filter.amgUntagged,
-                    onClick = { onChange(filter.copy(amgUntagged = !filter.amgUntagged)) },
-                    label = { Text(stringResource(Res.string.filter_untagged)) },
-                )
-            }
+            SourceAccoladeRow(
+                labels = filter.amgLabels,
+                favorite = filter.amgFavorite,
+                untagged = filter.amgUntagged,
+                onToggleLabel = { onChange(filter.copy(amgLabels = filter.amgLabels.toggle(it))) },
+                onToggleFavorite = { onChange(filter.copy(amgFavorite = !filter.amgFavorite)) },
+                onToggleUntagged = { onChange(filter.copy(amgUntagged = !filter.amgUntagged)) },
+            )
 
             SectionLabel(stringResource(Res.string.filter_tps))
             ChipRow {
@@ -148,26 +137,45 @@ fun ReceptionFilterSheet(
                     )
                 }
             }
-            ChipRow {
-                ReceptionFilter.ACCOLADE_LABELS.forEach { l ->
-                    FilterChip(
-                        selected = l in filter.tpsLabels,
-                        onClick = { onChange(filter.copy(tpsLabels = filter.tpsLabels.toggle(l))) },
-                        label = { Text(accoladeLabel(l)) },
-                    )
-                }
-                FilterChip(
-                    selected = filter.tpsFavorite,
-                    onClick = { onChange(filter.copy(tpsFavorite = !filter.tpsFavorite)) },
-                    label = { Text(stringResource(Res.string.filter_personal_pick)) },
-                )
-                FilterChip(
-                    selected = filter.tpsUntagged,
-                    onClick = { onChange(filter.copy(tpsUntagged = !filter.tpsUntagged)) },
-                    label = { Text(stringResource(Res.string.filter_untagged)) },
-                )
-            }
+            SourceAccoladeRow(
+                labels = filter.tpsLabels,
+                favorite = filter.tpsFavorite,
+                untagged = filter.tpsUntagged,
+                onToggleLabel = { onChange(filter.copy(tpsLabels = filter.tpsLabels.toggle(it))) },
+                onToggleFavorite = { onChange(filter.copy(tpsFavorite = !filter.tpsFavorite)) },
+                onToggleUntagged = { onChange(filter.copy(tpsUntagged = !filter.tpsUntagged)) },
+            )
         }
+    }
+}
+
+@Composable
+private fun SourceAccoladeRow(
+    labels: Set<String>,
+    favorite: Boolean,
+    untagged: Boolean,
+    onToggleLabel: (String) -> Unit,
+    onToggleFavorite: () -> Unit,
+    onToggleUntagged: () -> Unit,
+) {
+    ChipRow {
+        ReceptionFilter.ACCOLADE_LABELS.forEach { l ->
+            FilterChip(
+                selected = l in labels,
+                onClick = { onToggleLabel(l) },
+                label = { Text(accoladeLabel(l)) },
+            )
+        }
+        FilterChip(
+            selected = favorite,
+            onClick = onToggleFavorite,
+            label = { Text(stringResource(Res.string.filter_personal_pick)) },
+        )
+        FilterChip(
+            selected = untagged,
+            onClick = onToggleUntagged,
+            label = { Text(stringResource(Res.string.filter_untagged)) },
+        )
     }
 }
 
@@ -192,6 +200,7 @@ private fun drBucketLabel(bucket: String): String {
         "good" -> Res.string.reception_dr_good
         "fair" -> Res.string.reception_dr_fair
         "poor" -> Res.string.reception_dr_poor
+        "untagged" -> Res.string.filter_dr_untagged
         else -> Res.string.filter_dr_untagged
     }
     return stringResource(res)
@@ -203,6 +212,7 @@ private fun accoladeLabel(label: String): String {
         "aoty" -> Res.string.filter_label_aoty
         "aotm" -> Res.string.filter_label_aotm
         "honorable_mention" -> Res.string.filter_label_honorable_mention
+        "record_of_the_month" -> Res.string.filter_label_record_of_the_month
         else -> Res.string.filter_label_record_of_the_month
     }
     return stringResource(res)
