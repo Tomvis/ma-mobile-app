@@ -8,6 +8,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
+import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
@@ -45,7 +46,7 @@ class ItemListViewModel(
 
     init {
         viewModelScope.launch {
-            _state.map { Triple(it.searchQuery, it.sortOption, it.onlyFavorites) }
+            _state.map { listOf(it.searchQuery, it.sortOption, it.onlyFavorites, it.receptionFilter) }
                 .distinctUntilChanged()
                 .debounce { Timings.INPUT_DEBOUNCE }
                 .collect { loadFirstPage() }
@@ -109,6 +110,10 @@ class ItemListViewModel(
         _state.update { it.copy(sortOption = sortOption) }
     }
 
+    fun onReceptionFilterChanged(filter: ReceptionFilter) {
+        _state.update { it.copy(receptionFilter = filter) }
+    }
+
     fun loadMore() {
         val currentState = _state.value
 
@@ -132,6 +137,7 @@ class ItemListViewModel(
                 orderBy,
                 searchQuery,
                 onlyFavorites,
+                currentState.receptionFilter,
             )
             val result = mediaItemRepository.fetchMediaItems(request)
 
@@ -163,6 +169,7 @@ class ItemListViewModel(
         orderBy: String,
         searchQuery: String?,
         onlyFavorites: Boolean,
+        receptionFilter: ReceptionFilter,
     ): Request {
         val favorites = onlyFavorites.takeIf { it }
         val request = when (mediaType) {
@@ -180,6 +187,7 @@ class ItemListViewModel(
                 search = searchQuery,
                 orderBy = orderBy,
                 favorite = favorites,
+                receptionFilter = receptionFilter,
             )
 
             MediaType.TRACK -> Request.Track.list(
@@ -271,6 +279,7 @@ class ItemListViewModel(
                 orderBy,
                 searchQuery,
                 state.value.onlyFavorites,
+                state.value.receptionFilter,
             )
             val result = mediaItemRepository.fetchMediaItems(request)
 
@@ -325,5 +334,6 @@ class ItemListViewModel(
         val viewMode: ViewMode = ViewMode.GRID,
         val offset: Int = 0,
         val onlyFavorites: Boolean = false,
+        val receptionFilter: ReceptionFilter = ReceptionFilter(),
     )
 }
