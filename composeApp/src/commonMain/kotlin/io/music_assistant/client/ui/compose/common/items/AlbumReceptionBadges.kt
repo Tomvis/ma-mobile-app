@@ -54,8 +54,8 @@ fun AlbumReceptionBadges(
 
     val contentDesc = buildList {
         tags.dr?.let { add("DR ${formatDr(it.value)}") }
-        tags.amg?.let { s -> add("AMG" + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-        tags.tps?.let { s -> add("TPS" + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+        tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+        tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
     }.joinToString(", ")
 
     val container = if (style == ReceptionBadgeStyle.Tile) {
@@ -171,4 +171,14 @@ private fun BadgesTilePreview() {
 private fun BadgesEmptyPreview() {
     // No metadata -> renders nothing.
     AlbumReceptionBadges(AppMediaItemFixtures.album(), style = ReceptionBadgeStyle.Row)
+}
+
+@Preview
+@Composable
+private fun BadgesFallbackPreview() {
+    // AMG-reported DR fallback + a favorite-only source (no rating) -> star-only pill.
+    AlbumReceptionBadges(
+        AppMediaItemFixtures.album(metadata = AppMediaItemFixtures.receptionMetadataFallback()),
+        style = ReceptionBadgeStyle.Row,
+    )
 }
