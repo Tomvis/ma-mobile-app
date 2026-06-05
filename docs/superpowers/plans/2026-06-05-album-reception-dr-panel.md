@@ -10,7 +10,8 @@
 
 **Conventions:**
 - Test framework: `kotlin.test` (`@Test`, `assertEquals`, `assertNull`, `assertTrue`). JSON instance: `io.music_assistant.client.utils.myJson`. Factory tests use `MediaItemFactory(FakeClient())` (see existing `ServerMediaItemSerializationTest.kt`).
-- Run common unit tests: `./gradlew :composeApp:testDebugUnitTest` (Android unit-test variant of commonTest). Compile check: `./gradlew :composeApp:compileDebugKotlinAndroid` or full `./gradlew :androidApp:assembleDebug`.
+- Run common unit tests: `./gradlew :composeApp:testAndroidHostTest` (this AGP-9 KMP-library module names the host unit-test task `testAndroidHostTest`, per CI — NOT `testDebugUnitTest`). Supports `--tests "*Name*"` filtering. Compile/build check: `./gradlew :androidApp:assembleDebug` (authoritative full build used by CI; composeApp compiles as part of it). Static analysis (CI-enforced): `./gradlew detektAll`.
+- Toolchain note: CLI Gradle is pinned to the Android Studio JBR (JDK 21) via `~/.gradle/gradle.properties` (`org.gradle.java.home`); the system PATH `java` is a headless JRE. `local.properties` (gitignored) points at the Android SDK. Do NOT commit either of those files.
 - Commit per task (frequent commits). All work on the current `enhanced` branch.
 
 **Reference (do not import; reimplement):** `../../../frontend/src/helpers/album_tags.ts`, `../../../frontend/src/components/album/CriticalReception.vue`.
@@ -78,7 +79,7 @@ class CriticalReceptionSerializationTest {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*CriticalReceptionSerializationTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*CriticalReceptionSerializationTest*"`
 Expected: FAIL — `ServerMetadata` has no `dynamicRange`/`criticalReception`; `ServerCriticalReception` unresolved.
 
 - [ ] **Step 3: Add the wire fields and types**
@@ -116,7 +117,7 @@ Note: `myJson` must tolerate the explicit `"source": null` → default. Confirm 
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*CriticalReceptionSerializationTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*CriticalReceptionSerializationTest*"`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -200,7 +201,7 @@ class AlbumMetadataMappingTest {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*AlbumMetadataMappingTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*AlbumMetadataMappingTest*"`
 Expected: FAIL — `Metadata` has no `dynamicRange`/`criticalReception`; `CriticalReception` client type unresolved.
 
 - [ ] **Step 3: Add client models**
@@ -288,7 +289,7 @@ import io.music_assistant.client.data.model.server.ServerCriticalReception
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*AlbumMetadataMappingTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*AlbumMetadataMappingTest*"`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -441,7 +442,7 @@ class AlbumReceptionTest {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*AlbumReceptionTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*AlbumReceptionTest*"`
 Expected: FAIL — `AlbumReception.kt` symbols unresolved.
 
 - [ ] **Step 3: Implement `AlbumReception.kt`**
@@ -589,7 +590,7 @@ fun formatDr(value: Float): String {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew :composeApp:testDebugUnitTest --tests "*AlbumReceptionTest*"`
+Run: `./gradlew :composeApp:testAndroidHostTest --tests "*AlbumReceptionTest*"`
 Expected: PASS (all cases).
 
 - [ ] **Step 5: Commit**
@@ -928,7 +929,7 @@ Note: `AssistChip` with `enabled = false` gives a read-only, non-interactive chi
 
 - [ ] **Step 4: Compile to verify the UI builds**
 
-Run: `./gradlew :composeApp:compileDebugKotlinAndroid`
+Run: `./gradlew :androidApp:assembleDebug`
 Expected: BUILD SUCCESSFUL (generated string accessors resolve; composable compiles).
 
 If a `LinearProgressIndicator(progress = {...})` overload error appears, the project's Compose version may expect `progress = Float` (non-lambda). In that case use `progress = (value).coerceIn(0f,1f)` without the lambda. Verify against the Material 3 version in `gradle/libs.versions.toml`.
@@ -976,12 +977,12 @@ import io.music_assistant.client.data.model.client.items.Album
 
 - [ ] **Step 2: Compile**
 
-Run: `./gradlew :composeApp:compileDebugKotlinAndroid`
+Run: `./gradlew :androidApp:assembleDebug`
 Expected: BUILD SUCCESSFUL.
 
 - [ ] **Step 3: Full build + run the regression test suite**
 
-Run: `./gradlew :composeApp:testDebugUnitTest`
+Run: `./gradlew :composeApp:testAndroidHostTest`
 Expected: PASS (Tasks 1–3 tests green, nothing else broken).
 
 Run: `./gradlew :androidApp:assembleDebug`
