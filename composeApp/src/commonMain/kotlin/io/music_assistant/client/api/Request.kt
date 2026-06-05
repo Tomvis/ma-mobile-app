@@ -2,6 +2,7 @@ package io.music_assistant.client.api
 
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
+import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.utils.myJson
@@ -466,6 +467,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             limit: Int = Int.MAX_VALUE,
             offset: Int = 0,
             orderBy: String? = null,
+            receptionFilter: ReceptionFilter = ReceptionFilter(),
         ) = Request(
             command = APICommands.MUSIC_ALBUMS_LIBRARY_ITEMS,
             args = buildJsonObject {
@@ -474,6 +476,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
                 orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                receptionFilter.toRequestArgs().forEach { (k, v) -> put(k, v) }
             },
         )
 
