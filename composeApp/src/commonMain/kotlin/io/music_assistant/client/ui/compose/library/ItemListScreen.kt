@@ -104,6 +104,9 @@ import musicassistantclient.composeapp.generated.resources.playlist_create_title
 import musicassistantclient.composeapp.generated.resources.playlist_name_label
 import org.jetbrains.compose.resources.stringResource
 
+// Cap the reception-filter active-count badge so it stays within Material's badge width.
+private const val MAX_BADGE_COUNT = 9
+
 @Composable
 fun ItemListScreen(
     itemListViewModel: ItemListViewModel,
@@ -301,12 +304,15 @@ private fun ItemListTopBar(
                     )
 
                     Row {
+                        // mediaType is fixed for the lifetime of this screen, so the
+                        // album-only filter control (and its remembered state) is stable.
                         if (mediaType == MediaType.ALBUM) {
                             var showFilter by rememberSaveable { mutableStateOf(false) }
                             BadgedBox(
                                 badge = {
                                     if (receptionFilter.isActive) {
-                                        Badge { Text("${receptionFilter.activeCount}") }
+                                        val count = receptionFilter.activeCount
+                                        Badge { Text(if (count > MAX_BADGE_COUNT) "9+" else "$count") }
                                     }
                                 },
                             ) {
