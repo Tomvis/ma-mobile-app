@@ -90,6 +90,15 @@ class AlbumReceptionTest {
         assertEquals(LabelKind.UNKNOWN, parseLabel("WHATEVER").kind)
     }
 
+    @Test fun picksFirstUsableSourceWhenEarlierIsEmpty() {
+        // An AMG row with no signal parses to null; a later AMG row with a rating wins.
+        val t = parseAlbumReception(
+            cr(sources = listOf(src("AMG"), src("AMG", rating = 3f))),
+            null,
+        )
+        assertEquals(3f, t.amg?.rating)
+    }
+
     @Test fun labelSortPriority() {
         val sorted = sortLabels(listOf(parseLabel("TYMHM"), parseLabel("AOTY-2024")))
         assertEquals(LabelKind.AOTY, sorted[0].kind)

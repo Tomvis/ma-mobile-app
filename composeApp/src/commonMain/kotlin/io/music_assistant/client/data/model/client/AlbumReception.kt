@@ -126,8 +126,10 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
     }
 
     val sources = cr?.sources.orEmpty()
-    val amg = sources.firstOrNull { it.source == "AMG" }?.let(::parseSource)
-    val tps = sources.firstOrNull { it.source == "TPS" }?.let(::parseSource)
+    // First *usable* entry per source (a source row with no signal parses to null),
+    // mirroring the web's `.map(parseSource).find(defined)`.
+    val amg = sources.filter { it.source == "AMG" }.firstNotNullOfOrNull(::parseSource)
+    val tps = sources.filter { it.source == "TPS" }.firstNotNullOfOrNull(::parseSource)
     return ReceptionTags(dr, amgDr, amg, tps)
 }
 
