@@ -1,5 +1,6 @@
 package io.music_assistant.client.data.model.client
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -31,32 +32,31 @@ data class ReceptionFilter(
             listOf(amgFavorite, amgUntagged, tpsFavorite, tpsUntagged).count { it }
 
     fun toRequestArgs(): Map<String, JsonElement> = buildMap {
-        if (drBuckets.isNotEmpty()) {
-            put("dr_buckets", buildJsonArray { drBuckets.sorted().forEach { add(JsonPrimitive(it)) } })
-        }
-        if (amgRatings.isNotEmpty()) {
-            put("amg_ratings", buildJsonArray { amgRatings.sorted().forEach { add(JsonPrimitive(it)) } })
-        }
-        if (amgLabels.isNotEmpty()) {
-            put("amg_labels", buildJsonArray { amgLabels.sorted().forEach { add(JsonPrimitive(it)) } })
-        }
+        if (drBuckets.isNotEmpty()) put("dr_buckets", drBuckets.toSortedJsonArray())
+        if (amgRatings.isNotEmpty()) put("amg_ratings", amgRatings.toSortedIntJsonArray())
+        if (amgLabels.isNotEmpty()) put("amg_labels", amgLabels.toSortedJsonArray())
         if (amgFavorite) put("amg_favorite", JsonPrimitive(true))
         if (amgUntagged) put("amg_untagged", JsonPrimitive(true))
-        if (tpsRatings.isNotEmpty()) {
-            put("tps_ratings", buildJsonArray { tpsRatings.sorted().forEach { add(JsonPrimitive(it)) } })
-        }
-        if (tpsLabels.isNotEmpty()) {
-            put("tps_labels", buildJsonArray { tpsLabels.sorted().forEach { add(JsonPrimitive(it)) } })
-        }
+        if (tpsRatings.isNotEmpty()) put("tps_ratings", tpsRatings.toSortedIntJsonArray())
+        if (tpsLabels.isNotEmpty()) put("tps_labels", tpsLabels.toSortedJsonArray())
         if (tpsFavorite) put("tps_favorite", JsonPrimitive(true))
         if (tpsUntagged) put("tps_untagged", JsonPrimitive(true))
-        if (matchAny) put("critical_reception_match", JsonPrimitive("any"))
+        // Match mode only matters alongside actual reception clauses.
+        if (matchAny && isActive) put("critical_reception_match", JsonPrimitive("any"))
     }
 
     companion object {
         val DR_BUCKETS = listOf("excellent", "good", "fair", "poor", "untagged")
         val AMG_RATINGS = listOf(1, 2, 3, 4, 5)
         val TPS_BANDS = listOf(1, 3, 5, 7, 9)
+
+        // Accolade label kinds the server can filter on; shared by AMG and TPS.
         val ACCOLADE_LABELS = listOf("aoty", "aotm", "honorable_mention", "record_of_the_month")
     }
 }
+
+private fun Set<String>.toSortedJsonArray(): JsonArray =
+    buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }
+
+private fun Set<Int>.toSortedIntJsonArray(): JsonArray =
+    buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }

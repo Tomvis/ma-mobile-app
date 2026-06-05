@@ -64,6 +64,11 @@ class ReceptionFilterTest {
         )
     }
 
+    @Test fun matchAnyAloneEmitsNothing() {
+        // matchAny with no actual filter clauses is inactive and produces no args.
+        assertTrue(ReceptionFilter(matchAny = true).toRequestArgs().isEmpty())
+    }
+
     @Test fun activeCountSumsSelectionsAndFlagsNotMatch() {
         val f = ReceptionFilter(
             drBuckets = setOf("good", "fair"),
