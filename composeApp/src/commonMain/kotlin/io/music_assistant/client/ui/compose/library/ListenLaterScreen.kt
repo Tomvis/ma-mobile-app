@@ -26,6 +26,7 @@ import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.nav.Screen
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_back
+import musicassistantclient.composeapp.generated.resources.library_empty
 import musicassistantclient.composeapp.generated.resources.library_error
 import musicassistantclient.composeapp.generated.resources.listen_later_title
 import org.jetbrains.compose.resources.stringResource
@@ -75,15 +76,41 @@ fun ListenLaterScreen(
                     )
                 }
             }
-            else -> {
-                AdaptiveMediaGrid(
-                    items = s.dataOrNull.orEmpty(),
-                    onNavigateClick = onNavigateClick,
-                    onPlayClick = onPlayClick,
-                    playlistActions = playlistActions,
-                    libraryActions = libraryActions,
-                    contentPadding = contentPadding,
-                )
+            is DataState.NoData -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.library_empty),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            is DataState.Data, is DataState.Stale -> {
+                val items = s.dataOrNull.orEmpty()
+                if (items.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.library_empty),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    AdaptiveMediaGrid(
+                        items = items,
+                        onNavigateClick = onNavigateClick,
+                        onPlayClick = onPlayClick,
+                        playlistActions = playlistActions,
+                        libraryActions = libraryActions,
+                        contentPadding = contentPadding,
+                    )
+                }
             }
         }
     }
