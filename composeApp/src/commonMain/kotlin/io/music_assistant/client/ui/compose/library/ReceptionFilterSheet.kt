@@ -36,7 +36,13 @@ import musicassistantclient.composeapp.generated.resources.filter_dr
 import musicassistantclient.composeapp.generated.resources.filter_dr_untagged
 import musicassistantclient.composeapp.generated.resources.filter_label_aoty
 import musicassistantclient.composeapp.generated.resources.filter_label_honorable_mention
+import musicassistantclient.composeapp.generated.resources.filter_label_lit
 import musicassistantclient.composeapp.generated.resources.filter_label_record_of_the_month
+import musicassistantclient.composeapp.generated.resources.filter_label_rfu
+import musicassistantclient.composeapp.generated.resources.filter_label_score_revised
+import musicassistantclient.composeapp.generated.resources.filter_label_sitf
+import musicassistantclient.composeapp.generated.resources.filter_label_tymhm
+import musicassistantclient.composeapp.generated.resources.filter_label_ymio
 import musicassistantclient.composeapp.generated.resources.filter_match
 import musicassistantclient.composeapp.generated.resources.filter_match_all
 import musicassistantclient.composeapp.generated.resources.filter_match_any
@@ -211,6 +217,12 @@ private fun accoladeLabel(label: String): String {
         "aoty" -> Res.string.filter_label_aoty
         "honorable_mention" -> Res.string.filter_label_honorable_mention
         "record_of_the_month" -> Res.string.filter_label_record_of_the_month
+        "score_revised" -> Res.string.filter_label_score_revised
+        "tymhm" -> Res.string.filter_label_tymhm
+        "sitf" -> Res.string.filter_label_sitf
+        "ymio" -> Res.string.filter_label_ymio
+        "lit" -> Res.string.filter_label_lit
+        "rfu" -> Res.string.filter_label_rfu
         else -> Res.string.filter_label_record_of_the_month
     }
     return stringResource(res)

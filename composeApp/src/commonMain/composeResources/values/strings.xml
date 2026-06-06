@@ -259,6 +259,12 @@
   <string name="filter_label_aotm">Album of the Month</string>
   <string name="filter_label_honorable_mention">Honorable Mention</string>
   <string name="filter_label_record_of_the_month">Record of the Month</string>
+  <string name="filter_label_score_revised">Score Revised</string>
+  <string name="filter_label_tymhm">TYMHM</string>
+  <string name="filter_label_sitf">SITF</string>
+  <string name="filter_label_ymio">YMIO</string>
+  <string name="filter_label_lit">Lost in Time</string>
+  <string name="filter_label_rfu">RFU</string>
   <string name="cd_reception_filter">Reception filters</string>
   <string name="sort_dr">DR</string>
   <string name="sort_amg">AMG</string>

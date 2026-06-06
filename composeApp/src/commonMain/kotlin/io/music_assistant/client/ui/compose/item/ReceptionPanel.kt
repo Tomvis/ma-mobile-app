@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -252,6 +254,18 @@ private fun AccoladeChip(accolade: ParsedAccolade, source: SourceTags, uriHandle
                     Icons.Default.EmojiEvents,
                     contentDescription = null,
                     tint = AssistChipDefaults.assistChipColors().labelColor,
+                )
+            }
+        } else {
+            null
+        },
+        // Visible affordance that this chip opens its source post.
+        trailingIcon = if (url != null) {
+            {
+                Icon(
+                    Icons.Default.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
                 )
             }
         } else {

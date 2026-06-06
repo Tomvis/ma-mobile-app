@@ -51,8 +51,12 @@ data class ReceptionFilter(
         val TPS_BANDS = listOf(1, 3, 5, 7, 9)
 
         // Accolade kinds the server can filter on (3.2.0 merged shape); shared by AMG
-        // and TPS. AOTM is gone — folded into record_of_the_month.
-        val ACCOLADE_KINDS = listOf("aoty", "record_of_the_month", "honorable_mention")
+        // and TPS. Awards first, then review-column kinds. AOTM is gone — folded into
+        // record_of_the_month. "review" is the default column and not a useful filter.
+        val ACCOLADE_KINDS = listOf(
+            "aoty", "record_of_the_month", "honorable_mention", "score_revised",
+            "tymhm", "sitf", "ymio", "lit", "rfu",
+        )
     }
 }
 
