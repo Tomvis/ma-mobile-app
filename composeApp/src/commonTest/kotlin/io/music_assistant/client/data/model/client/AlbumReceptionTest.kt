@@ -16,10 +16,10 @@ class AlbumReceptionTest {
         source: String,
         rating: Float? = null,
         favorite: Boolean? = null,
-        types: List<String> = emptyList(),
-        labels: List<String> = emptyList(),
+        accolades: List<String> = emptyList(),
+        links: List<ReviewLink> = emptyList(),
         authors: List<String> = emptyList(),
-    ) = ReviewSource(source, rating, favorite, types, labels, authors)
+    ) = ReviewSource(source, rating, favorite, accolades, links, authors)
 
     @Test fun drBands() {
         assertEquals(DrQuality.EXCELLENT, drQuality(14f))
@@ -79,15 +79,60 @@ class AlbumReceptionTest {
         assertFalse(t.hasAny)
     }
 
-    @Test fun labelParsing() {
-        assertEquals(LabelKind.AOTY, parseLabel("AOTY-2024").kind)
-        assertEquals(2024, parseLabel("AOTY-2024").year)
-        assertEquals(LabelKind.AOTM, parseLabel("AOTM-2024-03").kind)
-        assertEquals(3, parseLabel("AOTM-2024-03").month)
-        assertEquals(LabelKind.HONORABLE_MENTION, parseLabel("HONORABLE_MENTION-2023").kind)
-        assertEquals(LabelKind.RECORD_OF_THE_MONTH, parseLabel("RECORD_OF_THE_MONTH").kind)
-        assertEquals(LabelKind.TYMHM, parseLabel("TYMHM").kind)
-        assertEquals(LabelKind.UNKNOWN, parseLabel("WHATEVER").kind)
+    @Test fun accoladeParsing() {
+        assertEquals(AccoladeKind.AOTY, parseAccolade("Album of the Year (2024)").kind)
+        assertEquals(2024, parseAccolade("Album of the Year (2024)").year)
+        assertEquals(AccoladeKind.RECORD_OF_THE_MONTH, parseAccolade("Record of the Month (Sep 2024)").kind)
+        assertEquals(9, parseAccolade("Record of the Month (Sep 2024)").month)
+        assertEquals(AccoladeKind.HONORABLE_MENTION, parseAccolade("Honorable Mention (2023)").kind)
+        assertEquals(AccoladeKind.SCORE_REVISED, parseAccolade("Score Revised").kind)
+        assertEquals(AccoladeKind.TYMHM, parseAccolade("TYMHM").kind)
+        assertTrue(parseAccolade("Album of the Year (2024)").isAward)
+        assertFalse(parseAccolade("TYMHM").isAward)
+        assertEquals(AccoladeKind.UNKNOWN, parseAccolade("Some Future Honor (2030)").kind)
+    }
+
+    @Test fun accoladeParsingRecognizesLegacyTokens() {
+        assertEquals(AccoladeKind.AOTY, parseAccolade("AOTY-2024").kind)
+        assertEquals("Album of the Year (2024)", parseAccolade("AOTY-2024").display)
+        assertEquals(AccoladeKind.RECORD_OF_THE_MONTH, parseAccolade("AOTM-2024-03").kind)
+        assertEquals("Record of the Month (Mar 2024)", parseAccolade("AOTM-2024-03").display)
+        assertEquals(AccoladeKind.RECORD_OF_THE_MONTH, parseAccolade("RECORD_OF_THE_MONTH").kind)
+        assertEquals(AccoladeKind.SCORE_REVISED, parseAccolade("SCORE_REVISED").kind)
+        assertEquals(AccoladeKind.LIT, parseAccolade("LIT").kind)
+    }
+
+    @Test fun legacyTypesLabelsFoldedAndDeduped() {
+        // type AOTM + labels RECORD_OF_THE_MONTH + AOTM-2024-09 collapse to one dated entry.
+        val folded = legacyAccolades(
+            listOf("Review", "AOTM"),
+            listOf("AOTY-2024", "RECORD_OF_THE_MONTH", "AOTM-2024-09"),
+        )
+        assertEquals(
+            listOf("Album of the Year (2024)", "Record of the Month (Sep 2024)", "Review"),
+            folded,
+        )
+    }
+
+    @Test fun linksMatchAccoladesByLabel() {
+        val s = parseAlbumReception(
+            cr(
+                sources = listOf(
+                    src(
+                        "AMG", rating = 4.5f,
+                        accolades = listOf("Review", "Album of the Year (2024)"),
+                        links = listOf(
+                            ReviewLink("Review", "https://x/r"),
+                            ReviewLink("Album of the Year (2024)", "https://x/a"),
+                        ),
+                    ),
+                ),
+            ),
+            null,
+        ).amg!!
+        assertEquals("https://x/r", reviewLink(s)?.url)
+        val aoty = s.accolades.first { it.kind == AccoladeKind.AOTY }
+        assertEquals("https://x/a", linksForAccolade(s, aoty).first().url)
     }
 
     @Test fun picksFirstUsableSourceWhenEarlierIsEmpty() {
@@ -99,10 +144,10 @@ class AlbumReceptionTest {
         assertEquals(3f, t.amg?.rating)
     }
 
-    @Test fun labelSortPriority() {
-        val sorted = sortLabels(listOf(parseLabel("TYMHM"), parseLabel("AOTY-2024")))
-        assertEquals(LabelKind.AOTY, sorted[0].kind)
-        assertEquals(LabelKind.TYMHM, sorted[1].kind)
+    @Test fun accoladeSortPriority() {
+        val sorted = sortAccolades(listOf(parseAccolade("TYMHM"), parseAccolade("Album of the Year (2024)")))
+        assertEquals(AccoladeKind.AOTY, sorted[0].kind)
+        assertEquals(AccoladeKind.TYMHM, sorted[1].kind)
     }
 
     @Test fun authorRolesScoredVsUnscored() {
@@ -125,9 +170,13 @@ class AlbumReceptionTest {
         assertEquals("12.3", formatDr(12.3f))
     }
 
-    @Test fun sortLabelsTieBreaksByYearDesc() {
-        val sorted = sortLabels(
-            listOf(parseLabel("AOTY-2019"), parseLabel("AOTY-2024"), parseLabel("AOTY-2021")),
+    @Test fun sortAccoladesTieBreaksByYearDesc() {
+        val sorted = sortAccolades(
+            listOf(
+                parseAccolade("Album of the Year (2019)"),
+                parseAccolade("Album of the Year (2024)"),
+                parseAccolade("Album of the Year (2021)"),
+            ),
         )
         assertEquals(listOf(2024, 2021, 2019), sorted.map { it.year })
     }

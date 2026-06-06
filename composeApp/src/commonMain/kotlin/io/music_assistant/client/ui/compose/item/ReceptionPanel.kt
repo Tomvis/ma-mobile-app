@@ -2,6 +2,7 @@
 
 package io.music_assistant.client.ui.compose.item
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -24,24 +25,38 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import io.music_assistant.client.data.model.client.AccoladeKind
 import io.music_assistant.client.data.model.client.AmgDrInfo
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.DrInfo
 import io.music_assistant.client.data.model.client.DrQuality
 import io.music_assistant.client.data.model.client.DrSource
-import io.music_assistant.client.data.model.client.LabelKind
-import io.music_assistant.client.data.model.client.ParsedLabel
+import io.music_assistant.client.data.model.client.ParsedAccolade
 import io.music_assistant.client.data.model.client.ReceptionTags
 import io.music_assistant.client.data.model.client.SourceTags
 import io.music_assistant.client.data.model.client.formatDr
 import io.music_assistant.client.data.model.client.formatScore
 import io.music_assistant.client.data.model.client.items.Album
+import io.music_assistant.client.data.model.client.linksForAccolade
 import io.music_assistant.client.data.model.client.parseAlbumReception
+import io.music_assistant.client.data.model.client.reviewLink
 import musicassistantclient.composeapp.generated.resources.Res
+import musicassistantclient.composeapp.generated.resources.reception_accolade_aoty
+import musicassistantclient.composeapp.generated.resources.reception_accolade_honorable_mention
+import musicassistantclient.composeapp.generated.resources.reception_accolade_lit
+import musicassistantclient.composeapp.generated.resources.reception_accolade_record_of_the_month
+import musicassistantclient.composeapp.generated.resources.reception_accolade_review
+import musicassistantclient.composeapp.generated.resources.reception_accolade_rfu
+import musicassistantclient.composeapp.generated.resources.reception_accolade_score_revised
+import musicassistantclient.composeapp.generated.resources.reception_accolade_sitf
+import musicassistantclient.composeapp.generated.resources.reception_accolade_tymhm
+import musicassistantclient.composeapp.generated.resources.reception_accolade_ymio
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_fallback
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_reported
 import musicassistantclient.composeapp.generated.resources.reception_dr_excellent
@@ -49,20 +64,10 @@ import musicassistantclient.composeapp.generated.resources.reception_dr_fair
 import musicassistantclient.composeapp.generated.resources.reception_dr_good
 import musicassistantclient.composeapp.generated.resources.reception_dr_poor
 import musicassistantclient.composeapp.generated.resources.reception_dynamic_range
-import musicassistantclient.composeapp.generated.resources.reception_label_aotm
-import musicassistantclient.composeapp.generated.resources.reception_label_aoty
-import musicassistantclient.composeapp.generated.resources.reception_label_honorable_mention
-import musicassistantclient.composeapp.generated.resources.reception_label_record_of_the_month
-import musicassistantclient.composeapp.generated.resources.reception_label_score_revised
 import musicassistantclient.composeapp.generated.resources.reception_personal_pick
 import musicassistantclient.composeapp.generated.resources.reception_score_with_max
 import musicassistantclient.composeapp.generated.resources.reception_title
-import musicassistantclient.composeapp.generated.resources.reception_type_lit
-import musicassistantclient.composeapp.generated.resources.reception_type_review
-import musicassistantclient.composeapp.generated.resources.reception_type_rfu
-import musicassistantclient.composeapp.generated.resources.reception_type_sitf
-import musicassistantclient.composeapp.generated.resources.reception_type_tymhm
-import musicassistantclient.composeapp.generated.resources.reception_type_ymio
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -150,6 +155,7 @@ private fun DrRow(dr: DrInfo, amgDr: AmgDrInfo?) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SourceRow(s: SourceTags) {
+    val uriHandler = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
@@ -158,9 +164,22 @@ private fun SourceRow(s: SourceTags) {
                 modifier = Modifier.width(48.dp),
             )
             if (s.rating != null) {
+                // The score links out to the canonical "Review" post when one exists.
+                val reviewUrl = reviewLink(s)?.url
+                val scoreModifier = if (reviewUrl != null) {
+                    Modifier.clickable { uriHandler.openUri(reviewUrl) }
+                } else {
+                    Modifier
+                }
                 Text(
                     text = stringResource(Res.string.reception_score_with_max, formatScore(s.rating), s.scale),
                     style = MaterialTheme.typography.titleMedium,
+                    color = if (reviewUrl != null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = scoreModifier,
                 )
                 LinearProgressIndicator(
                     progress = { (s.rating / s.scale).coerceIn(0f, 1f) },
@@ -177,10 +196,9 @@ private fun SourceRow(s: SourceTags) {
                 Text(stringResource(Res.string.reception_personal_pick), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        if (s.labels.isNotEmpty() || s.types.isNotEmpty()) {
+        if (s.accolades.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                s.labels.forEach { LabelChip(it) }
-                s.types.forEach { TypeChip(it) }
+                s.accolades.forEach { AccoladeChip(it, s, uriHandler) }
             }
         }
         if (s.authors.isNotEmpty()) {
@@ -193,42 +211,42 @@ private fun SourceRow(s: SourceTags) {
     }
 }
 
+private fun accoladeNameRes(kind: AccoladeKind): StringResource? = when (kind) {
+    AccoladeKind.AOTY -> Res.string.reception_accolade_aoty
+    AccoladeKind.RECORD_OF_THE_MONTH -> Res.string.reception_accolade_record_of_the_month
+    AccoladeKind.HONORABLE_MENTION -> Res.string.reception_accolade_honorable_mention
+    AccoladeKind.SCORE_REVISED -> Res.string.reception_accolade_score_revised
+    AccoladeKind.REVIEW -> Res.string.reception_accolade_review
+    AccoladeKind.TYMHM -> Res.string.reception_accolade_tymhm
+    AccoladeKind.SITF -> Res.string.reception_accolade_sitf
+    AccoladeKind.YMIO -> Res.string.reception_accolade_ymio
+    AccoladeKind.LIT -> Res.string.reception_accolade_lit
+    AccoladeKind.RFU -> Res.string.reception_accolade_rfu
+    AccoladeKind.UNKNOWN -> null
+}
+
+// Trailing "(date)" facet from the parsed display string, re-attached to the
+// localized accolade name (mirrors the web's accoladeDisplay).
+private val DATE_PAREN = Regex("""\(([^)]*)\)\s*$""")
+
 @Composable
-private fun typeLabelText(raw: String): String = when (raw) {
-    "Review" -> stringResource(Res.string.reception_type_review)
-    "TYMHM" -> stringResource(Res.string.reception_type_tymhm)
-    "SITF" -> stringResource(Res.string.reception_type_sitf)
-    "YMIO" -> stringResource(Res.string.reception_type_ymio)
-    "LIT" -> stringResource(Res.string.reception_type_lit)
-    "RFU" -> stringResource(Res.string.reception_type_rfu)
-    else -> raw
+private fun accoladeText(accolade: ParsedAccolade): String {
+    val res = accoladeNameRes(accolade.kind) ?: return accolade.display
+    val base = stringResource(res)
+    val paren = DATE_PAREN.find(accolade.display)?.groupValues?.get(1)
+    return if (paren != null) "$base ($paren)" else base
 }
 
 @Composable
-private fun labelText(label: ParsedLabel): String = when (label.kind) {
-    LabelKind.AOTY -> stringResource(Res.string.reception_label_aoty, label.year ?: 0)
-    LabelKind.AOTM -> stringResource(Res.string.reception_label_aotm, label.year ?: 0, label.month ?: 0)
-    LabelKind.HONORABLE_MENTION -> stringResource(Res.string.reception_label_honorable_mention, label.year ?: 0)
-    LabelKind.RECORD_OF_THE_MONTH -> stringResource(Res.string.reception_label_record_of_the_month)
-    LabelKind.SCORE_REVISED -> stringResource(Res.string.reception_label_score_revised)
-    LabelKind.TYMHM -> typeLabelText(label.raw)
-    LabelKind.SITF -> typeLabelText(label.raw)
-    LabelKind.YMIO -> typeLabelText(label.raw)
-    LabelKind.LIT -> typeLabelText(label.raw)
-    LabelKind.RFU -> typeLabelText(label.raw)
-    LabelKind.UNKNOWN -> label.raw
-}
-
-private fun isAccolade(kind: LabelKind): Boolean = kind == LabelKind.AOTY ||
-    kind == LabelKind.AOTM || kind == LabelKind.RECORD_OF_THE_MONTH || kind == LabelKind.HONORABLE_MENTION
-
-@Composable
-private fun LabelChip(label: ParsedLabel) {
+private fun AccoladeChip(accolade: ParsedAccolade, source: SourceTags, uriHandler: UriHandler) {
+    // One accolade can map to several posts; open the first (the chip is non-interactive
+    // when no post link is attached, matching the pre-3.3.0 behavior).
+    val url = linksForAccolade(source, accolade).firstOrNull()?.url
     AssistChip(
-        onClick = {},
-        enabled = false,
-        label = { Text(labelText(label)) },
-        leadingIcon = if (isAccolade(label.kind)) {
+        onClick = { url?.let { uriHandler.openUri(it) } },
+        enabled = url != null,
+        label = { Text(accoladeText(accolade)) },
+        leadingIcon = if (accolade.isAward) {
             {
                 Icon(
                     Icons.Default.EmojiEvents,
@@ -240,12 +258,6 @@ private fun LabelChip(label: ParsedLabel) {
             null
         },
     )
-}
-
-@Composable
-private fun TypeChip(type: String) {
-    val text = typeLabelText(type)
-    AssistChip(onClick = {}, enabled = false, label = { Text(text) })
 }
 
 @Preview

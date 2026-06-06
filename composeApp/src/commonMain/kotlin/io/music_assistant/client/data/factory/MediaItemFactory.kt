@@ -7,7 +7,9 @@ import io.music_assistant.client.data.model.client.ImageInfo
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
+import io.music_assistant.client.data.model.client.ReviewLink
 import io.music_assistant.client.data.model.client.ReviewSource
+import io.music_assistant.client.data.model.client.legacyAccolades
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -226,12 +228,22 @@ class MediaItemFactory(
             // blank or the literal "None" (Python None -> "None").
             ?.filter { it.source.isNotBlank() && it.source != "None" }
             ?.map { entry ->
+                // Prefer the 3.2.0/3.3.0 shape; fold pre-3.2.0 types/labels into accolades
+                // and a pre-3.3.0 review_url into a single "Review" link during the transition.
+                val accolades = entry.accolades
+                    ?: legacyAccolades(entry.types.orEmpty(), entry.labels.orEmpty())
+                val links = entry.links
+                    ?.filter { it.url.isNotBlank() }
+                    ?.map { ReviewLink(it.label, it.url) }
+                    ?: entry.reviewUrl?.takeIf { it.isNotBlank() }
+                        ?.let { listOf(ReviewLink("Review", it)) }
+                    ?: emptyList()
                 ReviewSource(
                     source = entry.source,
                     rating = entry.rating?.toFloat(),
                     favorite = entry.favorite,
-                    types = entry.types.orEmpty(),
-                    labels = entry.labels.orEmpty(),
+                    accolades = accolades,
+                    links = links,
                     authors = entry.authors.orEmpty(),
                 )
             }

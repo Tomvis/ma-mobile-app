@@ -37,6 +37,32 @@ class CriticalReceptionSerializationTest {
     }
 
     @Test
+    fun decodesAccoladesAndLinks() {
+        val json = """
+            {
+              "critical_reception": {
+                "sources": [
+                  {"source": "AMG", "rating": 4.5,
+                   "accolades": ["Review", "Album of the Year (2024)"],
+                   "links": [
+                     {"label": "Review", "url": "https://amg/r"},
+                     {"label": "Album of the Year (2024)", "url": "https://amg/a"}
+                   ]}
+                ]
+              },
+              "last_refresh": null
+            }
+        """.trimIndent()
+        val md = myJson.decodeFromString<ServerMetadata>(json)
+        val src = md.criticalReception?.sources?.get(0)
+        assertEquals(listOf("Review", "Album of the Year (2024)"), src?.accolades)
+        assertEquals(2, src?.links?.size)
+        assertEquals("Review", src?.links?.get(0)?.label)
+        assertEquals("https://amg/r", src?.links?.get(0)?.url)
+        assertEquals("Album of the Year (2024)", src?.links?.get(1)?.label)
+    }
+
+    @Test
     fun decodesMetadataWithoutNewFields() {
         val md = myJson.decodeFromString<ServerMetadata>("""{"last_refresh": null}""")
         assertNull(md.dynamicRange)

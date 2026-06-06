@@ -34,7 +34,6 @@ import musicassistantclient.composeapp.generated.resources.filter_amg
 import musicassistantclient.composeapp.generated.resources.filter_clear_all
 import musicassistantclient.composeapp.generated.resources.filter_dr
 import musicassistantclient.composeapp.generated.resources.filter_dr_untagged
-import musicassistantclient.composeapp.generated.resources.filter_label_aotm
 import musicassistantclient.composeapp.generated.resources.filter_label_aoty
 import musicassistantclient.composeapp.generated.resources.filter_label_honorable_mention
 import musicassistantclient.composeapp.generated.resources.filter_label_record_of_the_month
@@ -119,10 +118,10 @@ fun ReceptionFilterSheet(
                 }
             }
             SourceAccoladeRow(
-                labels = filter.amgLabels,
+                accolades = filter.amgAccolades,
                 favorite = filter.amgFavorite,
                 untagged = filter.amgUntagged,
-                onToggleLabel = { onChange(filter.copy(amgLabels = filter.amgLabels.toggle(it))) },
+                onToggleAccolade = { onChange(filter.copy(amgAccolades = filter.amgAccolades.toggle(it))) },
                 onToggleFavorite = { onChange(filter.copy(amgFavorite = !filter.amgFavorite)) },
                 onToggleUntagged = { onChange(filter.copy(amgUntagged = !filter.amgUntagged)) },
             )
@@ -138,10 +137,10 @@ fun ReceptionFilterSheet(
                 }
             }
             SourceAccoladeRow(
-                labels = filter.tpsLabels,
+                accolades = filter.tpsAccolades,
                 favorite = filter.tpsFavorite,
                 untagged = filter.tpsUntagged,
-                onToggleLabel = { onChange(filter.copy(tpsLabels = filter.tpsLabels.toggle(it))) },
+                onToggleAccolade = { onChange(filter.copy(tpsAccolades = filter.tpsAccolades.toggle(it))) },
                 onToggleFavorite = { onChange(filter.copy(tpsFavorite = !filter.tpsFavorite)) },
                 onToggleUntagged = { onChange(filter.copy(tpsUntagged = !filter.tpsUntagged)) },
             )
@@ -151,19 +150,19 @@ fun ReceptionFilterSheet(
 
 @Composable
 private fun SourceAccoladeRow(
-    labels: Set<String>,
+    accolades: Set<String>,
     favorite: Boolean,
     untagged: Boolean,
-    onToggleLabel: (String) -> Unit,
+    onToggleAccolade: (String) -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleUntagged: () -> Unit,
 ) {
     ChipRow {
-        ReceptionFilter.ACCOLADE_LABELS.forEach { l ->
+        ReceptionFilter.ACCOLADE_KINDS.forEach { kind ->
             FilterChip(
-                selected = l in labels,
-                onClick = { onToggleLabel(l) },
-                label = { Text(accoladeLabel(l)) },
+                selected = kind in accolades,
+                onClick = { onToggleAccolade(kind) },
+                label = { Text(accoladeLabel(kind)) },
             )
         }
         FilterChip(
@@ -210,7 +209,6 @@ private fun drBucketLabel(bucket: String): String {
 private fun accoladeLabel(label: String): String {
     val res: StringResource = when (label) {
         "aoty" -> Res.string.filter_label_aoty
-        "aotm" -> Res.string.filter_label_aotm
         "honorable_mention" -> Res.string.filter_label_honorable_mention
         "record_of_the_month" -> Res.string.filter_label_record_of_the_month
         else -> Res.string.filter_label_record_of_the_month
@@ -235,7 +233,7 @@ private fun ReceptionFilterSheetPopulatedPreview() {
             drBuckets = setOf("excellent", "good"),
             amgRatings = setOf(4, 5),
             tpsRatings = setOf(7),
-            amgLabels = setOf("aoty"),
+            amgAccolades = setOf("aoty"),
             amgFavorite = true,
             matchAny = true,
         ),

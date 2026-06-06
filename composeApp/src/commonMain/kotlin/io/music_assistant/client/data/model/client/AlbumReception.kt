@@ -4,24 +4,38 @@ import kotlin.math.round
 
 enum class DrQuality { EXCELLENT, GOOD, FAIR, POOR }
 enum class DrSource { MEASURED, AMG }
-enum class LabelKind {
-    RECORD_OF_THE_MONTH, AOTY, AOTM, HONORABLE_MENTION, SCORE_REVISED,
-    TYMHM, SITF, YMIO, LIT, RFU, UNKNOWN,
+
+// Normalized accolade categories (TAG_SCHEMA_VERSION 3.2.0+). Dated awards (AOTY /
+// RECORD_OF_THE_MONTH / HONORABLE_MENTION) inline their date in the display string;
+// the rest are exact review-column / honor strings. UNKNOWN carries through anything
+// we don't model. AOTM is gone — it was always the same concept as RECORD_OF_THE_MONTH.
+enum class AccoladeKind {
+    AOTY, RECORD_OF_THE_MONTH, HONORABLE_MENTION, SCORE_REVISED,
+    LIT, RFU, TYMHM, SITF, YMIO, REVIEW, UNKNOWN,
 }
 enum class AuthorRole { CANONICAL, SECONDARY, LIST_PICK }
 
 data class DrInfo(val value: Float, val quality: DrQuality, val source: DrSource)
 data class AmgDrInfo(val value: Float, val quality: DrQuality)
-data class ParsedLabel(val raw: String, val kind: LabelKind, val year: Int? = null, val month: Int? = null)
+
+data class ParsedAccolade(
+    val raw: String,           // value as stored/received (3.2.0 display string, or legacy token in transit)
+    val kind: AccoladeKind,
+    val display: String,       // human-readable string to render (date inlined); == raw for 3.2.0 data
+    val year: Int? = null,
+    val month: Int? = null,
+    val isAward: Boolean = false,  // dated editorial honors get the trophy/accolade styling
+)
+
 data class AuthorWithRole(val name: String, val role: AuthorRole)
 
 data class SourceTags(
-    val source: String,
+    val source: String,             // "AMG" | "TPS" | other
     val scale: Int,                 // 5 (AMG) or 10 (TPS)
     val rating: Float?,
     val favorite: Boolean,
-    val types: List<String>,
-    val labels: List<ParsedLabel>,
+    val accolades: List<ParsedAccolade>,
+    val links: List<ReviewLink>,    // labeled post links (3.3.0+); label mirrors an accolade
     val authors: List<AuthorWithRole>,
 )
 
@@ -49,40 +63,145 @@ fun drQuality(value: Float): DrQuality = when {
 
 private fun isPositiveFinite(n: Float?): Boolean = n != null && n.isFinite() && n > 0f
 
-private val LABEL_PRIORITY: Map<LabelKind, Int> = mapOf(
-    LabelKind.AOTY to 0, LabelKind.RECORD_OF_THE_MONTH to 1, LabelKind.AOTM to 2,
-    LabelKind.HONORABLE_MENTION to 3, LabelKind.SCORE_REVISED to 4, LabelKind.LIT to 5,
-    LabelKind.RFU to 6, LabelKind.TYMHM to 7, LabelKind.SITF to 8, LabelKind.YMIO to 9,
-    LabelKind.UNKNOWN to 100,
+private val ACCOLADE_PRIORITY: Map<AccoladeKind, Int> = mapOf(
+    AccoladeKind.AOTY to 0, AccoladeKind.RECORD_OF_THE_MONTH to 1,
+    AccoladeKind.HONORABLE_MENTION to 2, AccoladeKind.SCORE_REVISED to 3,
+    AccoladeKind.LIT to 4, AccoladeKind.RFU to 5, AccoladeKind.TYMHM to 6,
+    AccoladeKind.SITF to 7, AccoladeKind.YMIO to 8, AccoladeKind.REVIEW to 9,
+    AccoladeKind.UNKNOWN to 100,
 )
 
-private val AOTY_RE = Regex("""^AOTY-(\d{4})$""")
-private val AOTM_RE = Regex("""^AOTM-(\d{4})-(\d{1,2})$""")
-private val HM_RE = Regex("""^HONORABLE_MENTION-(\d{4})$""")
+private val AWARD_KINDS = setOf(
+    AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
+)
 
-fun parseLabel(raw: String): ParsedLabel = when (raw) {
-    "RECORD_OF_THE_MONTH" -> ParsedLabel(raw, LabelKind.RECORD_OF_THE_MONTH)
-    "SCORE_REVISED" -> ParsedLabel(raw, LabelKind.SCORE_REVISED)
-    "TYMHM" -> ParsedLabel(raw, LabelKind.TYMHM)
-    "SITF" -> ParsedLabel(raw, LabelKind.SITF)
-    "YMIO" -> ParsedLabel(raw, LabelKind.YMIO)
-    "LIT" -> ParsedLabel(raw, LabelKind.LIT)
-    "RFU" -> ParsedLabel(raw, LabelKind.RFU)
-    else -> {
-        AOTY_RE.find(raw)?.let { return ParsedLabel(raw, LabelKind.AOTY, year = it.groupValues[1].toInt()) }
-        AOTM_RE.find(raw)?.let {
-            return ParsedLabel(raw, LabelKind.AOTM, year = it.groupValues[1].toInt(), month = it.groupValues[2].toInt())
-        }
-        HM_RE.find(raw)?.let { return ParsedLabel(raw, LabelKind.HONORABLE_MENTION, year = it.groupValues[1].toInt()) }
-        ParsedLabel(raw, LabelKind.UNKNOWN)
-    }
+private val MONTH_ABBR = listOf(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)
+
+// Exact, undated accolades — both the 3.2.0 display form and the legacy token map here.
+private val EXACT_ACCOLADES: Map<String, Pair<AccoladeKind, String>> = mapOf(
+    "Review" to (AccoladeKind.REVIEW to "Review"),
+    "TYMHM" to (AccoladeKind.TYMHM to "TYMHM"),
+    "SITF" to (AccoladeKind.SITF to "SITF"),
+    "YMIO" to (AccoladeKind.YMIO to "YMIO"),
+    "Lost in Time" to (AccoladeKind.LIT to "Lost in Time"),
+    "LIT" to (AccoladeKind.LIT to "Lost in Time"),
+    "RFU" to (AccoladeKind.RFU to "RFU"),
+    "Score Revised" to (AccoladeKind.SCORE_REVISED to "Score Revised"),
+    "SCORE_REVISED" to (AccoladeKind.SCORE_REVISED to "Score Revised"),
+    "Contrite" to (AccoladeKind.SCORE_REVISED to "Score Revised"),
+)
+
+private val AOTY_NEW = Regex("""^Album of the Year \((\d{4})\)$""")
+private val ROTM_NEW = Regex("""^Record of the Month \(([A-Za-z]{3}) (\d{4})\)$""")
+private val HM_NEW = Regex("""^Honorable Mention \((\d{4})\)$""")
+private val AOTY_OLD = Regex("""^AOTY-(\d{4})$""")
+private val AOTM_OLD = Regex("""^AOTM-(\d{4})-(\d{1,2})$""")
+private val HM_OLD = Regex("""^HONORABLE_MENTION-(\d{4})$""")
+
+private fun monthFromAbbr(abbr: String): Int? =
+    MONTH_ABBR.indexOf(abbr).let { if (it < 0) null else it + 1 }
+
+private fun formatDated(name: String, year: Int?, month: Int?): String = when {
+    year == null -> name
+    month != null && month in 1..12 -> "$name (${MONTH_ABBR[month - 1]} $year)"
+    else -> "$name ($year)"
 }
 
-fun sortLabels(labels: List<ParsedLabel>): List<ParsedLabel> = labels.sortedWith(
-    compareBy<ParsedLabel> { LABEL_PRIORITY[it.kind] ?: 100 }
+private fun mkAccolade(
+    kind: AccoladeKind,
+    display: String,
+    raw: String,
+    year: Int? = null,
+    month: Int? = null,
+): ParsedAccolade = ParsedAccolade(raw, kind, display, year, month, isAward = kind in AWARD_KINDS)
+
+/**
+ * Parse one accolade string into its kind + display form. Recognizes the 3.2.0
+ * human-readable display strings ("Album of the Year (2024)") and, defensively
+ * during the transition, the deprecated machine tokens ("AOTY-2024", …).
+ * Unrecognized values pass through as an opaque display label.
+ */
+fun parseAccolade(raw: String): ParsedAccolade {
+    val text = raw.trim()
+    EXACT_ACCOLADES[text]?.let { return mkAccolade(it.first, it.second, raw) }
+
+    AOTY_NEW.find(text)?.let {
+        return mkAccolade(AccoladeKind.AOTY, text, raw, it.groupValues[1].toInt())
+    }
+    ROTM_NEW.find(text)?.let {
+        return mkAccolade(
+            AccoladeKind.RECORD_OF_THE_MONTH, text, raw,
+            it.groupValues[2].toInt(), monthFromAbbr(it.groupValues[1]),
+        )
+    }
+    if (text == "Record of the Month") return mkAccolade(AccoladeKind.RECORD_OF_THE_MONTH, text, raw)
+    HM_NEW.find(text)?.let {
+        return mkAccolade(AccoladeKind.HONORABLE_MENTION, text, raw, it.groupValues[1].toInt())
+    }
+
+    // legacy machine tokens (folded to a display form for rendering)
+    AOTY_OLD.find(text)?.let {
+        val year = it.groupValues[1].toInt()
+        return mkAccolade(AccoladeKind.AOTY, formatDated("Album of the Year", year, null), raw, year)
+    }
+    if (text == "AOTY") return mkAccolade(AccoladeKind.AOTY, "Album of the Year", raw)
+    AOTM_OLD.find(text)?.let {
+        val year = it.groupValues[1].toInt()
+        val month = it.groupValues[2].toInt()
+        return mkAccolade(
+            AccoladeKind.RECORD_OF_THE_MONTH,
+            formatDated("Record of the Month", year, month), raw, year, month,
+        )
+    }
+    if (text == "AOTM" || text == "RECORD_OF_THE_MONTH") {
+        return mkAccolade(AccoladeKind.RECORD_OF_THE_MONTH, "Record of the Month", raw)
+    }
+    HM_OLD.find(text)?.let {
+        val year = it.groupValues[1].toInt()
+        return mkAccolade(
+            AccoladeKind.HONORABLE_MENTION, formatDated("Honorable Mention", year, null), raw, year,
+        )
+    }
+    if (text == "HONORABLE_MENTION") return mkAccolade(AccoladeKind.HONORABLE_MENTION, "Honorable Mention", raw)
+
+    return mkAccolade(AccoladeKind.UNKNOWN, text, raw)
+}
+
+fun sortAccolades(accolades: List<ParsedAccolade>): List<ParsedAccolade> = accolades.sortedWith(
+    compareBy<ParsedAccolade> { ACCOLADE_PRIORITY[it.kind] ?: 100 }
         .thenByDescending { it.year ?: 0 }
         .thenByDescending { it.month ?: 0 },
 )
+
+private val LEGACY_FOLD_ORDER = listOf(
+    AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
+    AccoladeKind.SCORE_REVISED, AccoladeKind.LIT, AccoladeKind.RFU, AccoladeKind.TYMHM,
+    AccoladeKind.SITF, AccoladeKind.YMIO, AccoladeKind.REVIEW,
+)
+
+/**
+ * Fold deprecated split `types` + `labels` tokens into the 3.2.0 `accolades` display
+ * list, collapsing the old triple-encoding to one entry per concept (preferring the
+ * dated variant). Unrecognized tokens pass through verbatim. Mirrors the server's
+ * `legacy_accolades`; used by the mapping boundary for pre-3.2.0 payloads.
+ */
+fun legacyAccolades(types: List<String>, labels: List<String>): List<String> {
+    val byKind = LinkedHashMap<AccoladeKind, ParsedAccolade>()
+    val extras = mutableListOf<String>()
+    fun dateScore(a: ParsedAccolade) = (if (a.year != null) 2 else 0) + (if (a.month != null) 1 else 0)
+    for (token in types + labels) {
+        val parsed = parseAccolade(token)
+        if (parsed.kind == AccoladeKind.UNKNOWN) {
+            if (parsed.display.isNotBlank() && parsed.display !in extras) extras.add(parsed.display)
+            continue
+        }
+        val cur = byKind[parsed.kind]
+        if (cur == null || dateScore(parsed) > dateScore(cur)) byKind[parsed.kind] = parsed
+    }
+    return LEGACY_FOLD_ORDER.mapNotNull { byKind[it]?.display } + extras
+}
 
 fun inferAuthorRoles(names: List<String>, hasScored: Boolean): List<AuthorWithRole> =
     names.mapIndexed { idx, name ->
@@ -99,12 +218,13 @@ private fun parseSource(entry: ReviewSource): SourceTags? {
     val scale = if (entry.source == "AMG") 5 else 10
     val rating = if (isPositiveFinite(entry.rating)) entry.rating else null
     val favorite = rating == null && entry.favorite == true
-    val types = entry.types
-    val labels = sortLabels(entry.labels.map(::parseLabel))
+    val accolades = sortAccolades(entry.accolades.map(::parseAccolade))
+    val links = entry.links.filter { it.url.isNotBlank() }
     val authors = inferAuthorRoles(entry.authors, hasScored = rating != null)
-    val hasAny = rating != null || favorite || types.isNotEmpty() || labels.isNotEmpty() || authors.isNotEmpty()
+    val hasAny = rating != null || favorite || accolades.isNotEmpty() ||
+        links.isNotEmpty() || authors.isNotEmpty()
     if (!hasAny) return null
-    return SourceTags(entry.source, scale, rating, favorite, types, labels, authors)
+    return SourceTags(entry.source, scale, rating, favorite, accolades, links, authors)
 }
 
 fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): ReceptionTags {
@@ -132,6 +252,13 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
     val tps = sources.filter { it.source == "TPS" }.firstNotNullOfOrNull(::parseSource)
     return ReceptionTags(dr, amgDr, amg, tps)
 }
+
+/** Links whose label matches an accolade chip (legacy-folded chips keep their raw token). */
+fun linksForAccolade(source: SourceTags, accolade: ParsedAccolade): List<ReviewLink> =
+    source.links.filter { it.label == accolade.raw || it.label == accolade.display }
+
+/** URL for the review score: the post labeled "Review" (the canonical review). */
+fun reviewLink(source: SourceTags): ReviewLink? = source.links.firstOrNull { it.label == "Review" }
 
 /** Formats a rating to exactly one decimal place for display (4f -> "4.0", 8.4f -> "8.4"). */
 fun formatScore(n: Float): String {

@@ -35,14 +35,14 @@ class ReceptionFilterTest {
 
     @Test fun labelsSerializeSortedArrays() {
         val args = ReceptionFilter(
-            amgLabels = setOf("record_of_the_month", "aoty"),
-            tpsLabels = setOf("aotm"),
+            amgAccolades = setOf("record_of_the_month", "aoty"),
+            tpsAccolades = setOf("honorable_mention"),
         ).toRequestArgs()
         assertEquals(
             JsonArray(listOf(JsonPrimitive("aoty"), JsonPrimitive("record_of_the_month"))),
-            args["amg_labels"],
+            args["amg_accolades"],
         )
-        assertEquals(JsonArray(listOf(JsonPrimitive("aotm"))), args["tps_labels"])
+        assertEquals(JsonArray(listOf(JsonPrimitive("honorable_mention"))), args["tps_accolades"])
     }
 
     @Test fun flagsEmittedOnlyWhenTrue() {
@@ -73,7 +73,7 @@ class ReceptionFilterTest {
         val f = ReceptionFilter(
             drBuckets = setOf("good", "fair"),
             amgRatings = setOf(4),
-            amgLabels = setOf("aoty"),
+            amgAccolades = setOf("aoty"),
             amgFavorite = true,
             tpsUntagged = true,
             matchAny = true,

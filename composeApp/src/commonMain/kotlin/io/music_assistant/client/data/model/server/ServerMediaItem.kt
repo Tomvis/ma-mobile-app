@@ -101,9 +101,23 @@ data class ServerReviewSourceEntry(
     @SerialName("source") val source: String = "",
     @SerialName("rating") val rating: Double? = null,
     @SerialName("favorite") val favorite: Boolean? = null,
+    // editorial honors as display strings (3.2.0+); folded from types/labels below.
+    @SerialName("accolades") val accolades: List<String>? = null,
+    // labeled post links (3.3.0+), one per post.
+    @SerialName("links") val links: List<ServerReviewLink>? = null,
+    @SerialName("authors") val authors: List<String>? = null,
+    // DEPRECATED, inbound-only during the transition: the split review-kind / award
+    // lists (<= 3.1.1) and the single review URL (<= 3.2.x). Folded into accolades /
+    // links at the client-mapping boundary.
     @SerialName("types") val types: List<String>? = null,
     @SerialName("labels") val labels: List<String>? = null,
-    @SerialName("authors") val authors: List<String>? = null,
+    @SerialName("review_url") val reviewUrl: String? = null,
+)
+
+@Serializable
+data class ServerReviewLink(
+    @SerialName("label") val label: String = "",
+    @SerialName("url") val url: String = "",
 )
 
 @Serializable

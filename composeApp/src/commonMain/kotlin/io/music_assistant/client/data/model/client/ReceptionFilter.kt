@@ -12,33 +12,33 @@ import kotlinx.serialization.json.buildJsonArray
 data class ReceptionFilter(
     val drBuckets: Set<String> = emptySet(),    // excellent/good/fair/poor/untagged
     val amgRatings: Set<Int> = emptySet(),       // 1..5
-    val amgLabels: Set<String> = emptySet(),     // aoty/aotm/honorable_mention/record_of_the_month
+    val amgAccolades: Set<String> = emptySet(),  // aoty/record_of_the_month/honorable_mention
     val amgFavorite: Boolean = false,
     val amgUntagged: Boolean = false,
     val tpsRatings: Set<Int> = emptySet(),       // band selectors 1,3,5,7,9
-    val tpsLabels: Set<String> = emptySet(),
+    val tpsAccolades: Set<String> = emptySet(),
     val tpsFavorite: Boolean = false,
     val tpsUntagged: Boolean = false,
     val matchAny: Boolean = false,               // false = "all" (AND), true = "any" (OR)
 ) {
     val isActive: Boolean
-        get() = drBuckets.isNotEmpty() || amgRatings.isNotEmpty() || amgLabels.isNotEmpty() ||
-            tpsRatings.isNotEmpty() || tpsLabels.isNotEmpty() ||
+        get() = drBuckets.isNotEmpty() || amgRatings.isNotEmpty() || amgAccolades.isNotEmpty() ||
+            tpsRatings.isNotEmpty() || tpsAccolades.isNotEmpty() ||
             amgFavorite || amgUntagged || tpsFavorite || tpsUntagged
 
     val activeCount: Int
-        get() = drBuckets.size + amgRatings.size + amgLabels.size +
-            tpsRatings.size + tpsLabels.size +
+        get() = drBuckets.size + amgRatings.size + amgAccolades.size +
+            tpsRatings.size + tpsAccolades.size +
             listOf(amgFavorite, amgUntagged, tpsFavorite, tpsUntagged).count { it }
 
     fun toRequestArgs(): Map<String, JsonElement> = buildMap {
         if (drBuckets.isNotEmpty()) put("dr_buckets", drBuckets.toSortedJsonArray())
         if (amgRatings.isNotEmpty()) put("amg_ratings", amgRatings.toSortedIntJsonArray())
-        if (amgLabels.isNotEmpty()) put("amg_labels", amgLabels.toSortedJsonArray())
+        if (amgAccolades.isNotEmpty()) put("amg_accolades", amgAccolades.toSortedJsonArray())
         if (amgFavorite) put("amg_favorite", JsonPrimitive(true))
         if (amgUntagged) put("amg_untagged", JsonPrimitive(true))
         if (tpsRatings.isNotEmpty()) put("tps_ratings", tpsRatings.toSortedIntJsonArray())
-        if (tpsLabels.isNotEmpty()) put("tps_labels", tpsLabels.toSortedJsonArray())
+        if (tpsAccolades.isNotEmpty()) put("tps_accolades", tpsAccolades.toSortedJsonArray())
         if (tpsFavorite) put("tps_favorite", JsonPrimitive(true))
         if (tpsUntagged) put("tps_untagged", JsonPrimitive(true))
         // Match mode only matters alongside actual reception clauses.
@@ -50,8 +50,9 @@ data class ReceptionFilter(
         val AMG_RATINGS = listOf(1, 2, 3, 4, 5)
         val TPS_BANDS = listOf(1, 3, 5, 7, 9)
 
-        // Accolade label kinds the server can filter on; shared by AMG and TPS.
-        val ACCOLADE_LABELS = listOf("aoty", "aotm", "honorable_mention", "record_of_the_month")
+        // Accolade kinds the server can filter on (3.2.0 merged shape); shared by AMG
+        // and TPS. AOTM is gone — folded into record_of_the_month.
+        val ACCOLADE_KINDS = listOf("aoty", "record_of_the_month", "honorable_mention")
     }
 }
 

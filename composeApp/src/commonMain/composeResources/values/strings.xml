@@ -233,6 +233,17 @@
   <string name="reception_label_honorable_mention">Honorable Mention %1$d</string>
   <string name="reception_label_record_of_the_month">Record of the Month</string>
   <string name="reception_label_score_revised">Score Revised</string>
+  <!-- 3.2.0 merged accolade names (date facet appended in code from the parsed value) -->
+  <string name="reception_accolade_aoty">Album of the Year</string>
+  <string name="reception_accolade_record_of_the_month">Record of the Month</string>
+  <string name="reception_accolade_honorable_mention">Honorable Mention</string>
+  <string name="reception_accolade_score_revised">Score Revised</string>
+  <string name="reception_accolade_review">Review</string>
+  <string name="reception_accolade_tymhm">Things You Might Have Missed</string>
+  <string name="reception_accolade_sitf">Stuck in the Filter</string>
+  <string name="reception_accolade_ymio">You Missed It On…</string>
+  <string name="reception_accolade_lit">Lost in Time</string>
+  <string name="reception_accolade_rfu">Records From the Underground</string>
   <string name="filter_title">Reception filters</string>
   <string name="filter_match">Match</string>
   <string name="filter_match_all">All</string>
