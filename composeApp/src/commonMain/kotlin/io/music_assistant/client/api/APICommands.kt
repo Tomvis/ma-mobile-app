@@ -53,6 +53,8 @@ object APICommands {
     // Album commands
     const val MUSIC_ALBUMS_LIBRARY_ITEMS = "music/albums/library_items"
     const val MUSIC_ALBUMS_ALBUM_TRACKS = "music/albums/album_tracks"
+    const val MUSIC_ALBUMS_LISTEN_LATER_ADD = "music/albums/listen_later_add"
+    const val MUSIC_ALBUMS_LISTEN_LATER_REMOVE = "music/albums/listen_later_remove"
 
     // Track commands
     const val MUSIC_TRACKS_LIBRARY_ITEMS = "music/tracks/library_items"

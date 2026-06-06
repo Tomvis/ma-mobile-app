@@ -468,6 +468,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             offset: Int = 0,
             orderBy: String? = null,
             receptionFilter: ReceptionFilter = ReceptionFilter(),
+            listenLater: Boolean? = null,
         ) = Request(
             command = APICommands.MUSIC_ALBUMS_LIBRARY_ITEMS,
             args = buildJsonObject {
@@ -477,7 +478,18 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 put("offset", JsonPrimitive(offset))
                 orderBy?.let { put("order_by", JsonPrimitive(it)) }
                 receptionFilter.toRequestArgs().forEach { (k, v) -> put(k, v) }
+                listenLater?.let { put("listen_later", JsonPrimitive(it)) }
             },
+        )
+
+        fun listenLaterAdd(itemUri: String) = Request(
+            command = APICommands.MUSIC_ALBUMS_LISTEN_LATER_ADD,
+            args = buildJsonObject { put("item", JsonPrimitive(itemUri)) },
+        )
+
+        fun listenLaterRemove(libraryItemId: String) = Request(
+            command = APICommands.MUSIC_ALBUMS_LISTEN_LATER_REMOVE,
+            args = buildJsonObject { put("library_item_id", JsonPrimitive(libraryItemId)) },
         )
 
         fun getTracks(
