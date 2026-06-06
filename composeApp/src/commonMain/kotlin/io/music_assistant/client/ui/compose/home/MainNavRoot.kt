@@ -63,6 +63,8 @@ import io.music_assistant.client.ui.compose.library.ItemListScreen
 import io.music_assistant.client.ui.compose.library.ItemListViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
 import io.music_assistant.client.ui.compose.library.LibraryScreen
+import io.music_assistant.client.ui.compose.library.ListenLaterScreen
+import io.music_assistant.client.ui.compose.library.ListenLaterViewModel
 import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationScaffold
 import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.ConditionalBackNavDisplay
@@ -449,6 +451,27 @@ private fun mainNavEntryProvider(
                 onSearchConsumed = { pendingSearch = null },
             )
         }
+
+        entry<MainNav.ListenLater> {
+            val listenLaterViewModel = koinViewModel<ListenLaterViewModel>()
+            ListenLaterScreen(
+                viewModel = listenLaterViewModel,
+                contentPadding = contentPadding,
+                playlistActions = actionsViewModel,
+                libraryActions = actionsViewModel,
+                onBack = { multiBackStack.removeLastOrNull() },
+                onNavigateClick = { item ->
+                    multiBackStack.add(
+                        MainNav.ItemDetails(
+                            itemId = item.itemId,
+                            mediaType = item.mediaType,
+                            providerId = item.provider,
+                        ),
+                    )
+                },
+                onPlayClick = listenLaterViewModel::onPlayClick,
+            )
+        }
     }
 }
 
@@ -477,6 +500,9 @@ private sealed interface MainNav : NavKey {
 
     @Serializable
     data object Search : MainNav
+
+    @Serializable
+    data object ListenLater : MainNav
 }
 
 @Composable
@@ -494,6 +520,7 @@ private fun rememberMainNavBackStack(bottom: MainNav) = rememberNavBackStack(
                         MainNav.ItemDetails.serializer(),
                     )
                     subclass(MainNav.Search::class, MainNav.Search.serializer())
+                    subclass(MainNav.ListenLater::class, MainNav.ListenLater.serializer())
                 }
             }
         },
