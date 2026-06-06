@@ -367,6 +367,9 @@ private fun mainNavEntryProvider(
                 onTypeClick = {
                     multiBackStack.add(MainNav.ItemList(it))
                 },
+                onListenLaterClick = {
+                    multiBackStack.add(MainNav.ListenLater)
+                },
             )
         }
 

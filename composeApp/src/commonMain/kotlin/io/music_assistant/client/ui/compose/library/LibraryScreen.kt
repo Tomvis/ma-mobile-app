@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import io.music_assistant.client.ui.compose.nav.Screen
 import io.music_assistant.client.utils.libraryItemMinWidth
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_customize_tabs
+import musicassistantclient.composeapp.generated.resources.cd_listen_later
 import musicassistantclient.composeapp.generated.resources.nav_library
 import org.jetbrains.compose.resources.stringResource
 
@@ -50,6 +52,7 @@ fun LibraryScreen(
     libraryCategoriesViewModel: LibraryCategoriesViewModel,
     contentPadding: PaddingValues,
     onTypeClick: (MediaType) -> Unit,
+    onListenLaterClick: () -> Unit,
 ) {
     val state by libraryCategoriesViewModel.state.collectAsStateWithLifecycle()
 
@@ -69,6 +72,12 @@ fun LibraryScreen(
             TopAppBar(
                 title = { Text(stringResource(Res.string.nav_library)) },
                 actions = {
+                    IconButton(onClick = onListenLaterClick) {
+                        Icon(
+                            imageVector = Icons.Default.Bookmarks,
+                            contentDescription = stringResource(Res.string.cd_listen_later),
+                        )
+                    }
                     IconButton(onClick = { showCustomizeDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Tune,
