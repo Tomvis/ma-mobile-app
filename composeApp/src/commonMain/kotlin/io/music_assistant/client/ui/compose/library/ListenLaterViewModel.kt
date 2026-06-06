@@ -25,7 +25,7 @@ class ListenLaterViewModel(
 
     init { load() }
 
-    fun load() {
+    private fun load() {
         viewModelScope.launch {
             _state.update { DataState.Loading() }
             val result = mediaItemRepository.fetchMediaItems(
