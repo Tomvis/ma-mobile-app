@@ -19,6 +19,7 @@ data class Album(
     val version: String?,
     val year: Int?,
     val artists: List<Artist>,
+    override val listenLater: Boolean = false,
 ) : AppMediaItem() {
     override val mediaType: MediaType = MediaType.ALBUM
     override val canStartRadio: Boolean = true

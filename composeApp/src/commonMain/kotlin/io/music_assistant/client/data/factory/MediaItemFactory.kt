@@ -63,6 +63,7 @@ class MediaItemFactory(
                 version = version,
                 year = year,
                 artists = artists?.mapNotNull { create(it) as? Artist } ?: emptyList(),
+                listenLater = listenLater == true,
             )
 
             MediaType.TRACK -> Track(

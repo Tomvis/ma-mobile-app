@@ -39,6 +39,7 @@ sealed class AppMediaItem {
     abstract val providerMappings: List<ProviderMapping>?
     abstract val metadata: Metadata?
     abstract val favorite: Boolean?
+    open val listenLater: Boolean get() = false
     abstract val mediaType: MediaType
     abstract val sortName: String?
     abstract val uri: String?
