@@ -202,6 +202,9 @@ private fun <T> PlayableItemWithMenu(
                     ItemAction.Favorite,
                     ItemAction.Unfavorite,
                     -> libraryActions.onFavoriteClick(item)
+                    ItemAction.SaveForLater,
+                    ItemAction.RemoveFromLater,
+                    -> libraryActions.onListenLaterClick(item)
                     ItemAction.AddToPlaylist -> showPlaylistDialog = true
                     ItemAction.RemoveFromPlaylist -> onRemoveFromPlaylist?.invoke()
                     ItemAction.MarkPlayed -> progressActions?.onMarkPlayed(item)

@@ -54,6 +54,16 @@ class ActionsViewModel(
         }
     }
 
+    override fun onListenLaterClick(item: AppMediaItem) {
+        viewModelScope.launch {
+            if (item.listenLater) {
+                apiClient.sendRequest(Request.Album.listenLaterRemove(item.itemId))
+            } else {
+                item.uri?.let { apiClient.sendRequest(Request.Album.listenLaterAdd(it)) }
+            }
+        }
+    }
+
     /**
      * Sets exact or toggles favorite status of the item.
      */

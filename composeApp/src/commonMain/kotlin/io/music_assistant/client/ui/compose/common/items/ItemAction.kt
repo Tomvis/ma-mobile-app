@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.QueuePlayNext
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.ui.graphics.vector.ImageVector
 import compose.icons.TablerIcons
+import compose.icons.tablericons.Bookmark
+import compose.icons.tablericons.BookmarkOff
 import compose.icons.tablericons.FolderMinus
 import compose.icons.tablericons.FolderPlus
 import compose.icons.tablericons.Heart
@@ -27,8 +29,10 @@ import musicassistantclient.composeapp.generated.resources.action_insert_next_an
 import musicassistantclient.composeapp.generated.resources.action_mark_played
 import musicassistantclient.composeapp.generated.resources.action_mark_unplayed
 import musicassistantclient.composeapp.generated.resources.action_play_now
+import musicassistantclient.composeapp.generated.resources.action_remove_from_later
 import musicassistantclient.composeapp.generated.resources.action_remove_from_library
 import musicassistantclient.composeapp.generated.resources.action_remove_from_playlist
+import musicassistantclient.composeapp.generated.resources.action_save_for_later
 import musicassistantclient.composeapp.generated.resources.action_start_radio
 import musicassistantclient.composeapp.generated.resources.action_unfavorite
 import org.jetbrains.compose.resources.StringResource
@@ -43,6 +47,8 @@ sealed class ItemAction(val kind: Kind) {
     data object RemoveFromLibrary : ItemAction(Kind.OTHER)
     data object Favorite : ItemAction(Kind.OTHER)
     data object Unfavorite : ItemAction(Kind.OTHER)
+    data object SaveForLater : ItemAction(Kind.OTHER)
+    data object RemoveFromLater : ItemAction(Kind.OTHER)
 
     data object AddToPlaylist : ItemAction(Kind.OTHER)
     data object RemoveFromPlaylist : ItemAction(Kind.OTHER)
@@ -63,6 +69,8 @@ fun ItemAction.title(): StringResource = when (this) {
     ItemAction.RemoveFromLibrary -> Res.string.action_remove_from_library
     ItemAction.Favorite -> Res.string.action_favorite
     ItemAction.Unfavorite -> Res.string.action_unfavorite
+    ItemAction.SaveForLater -> Res.string.action_save_for_later
+    ItemAction.RemoveFromLater -> Res.string.action_remove_from_later
     ItemAction.AddToPlaylist -> Res.string.action_add_to_playlist
     ItemAction.RemoveFromPlaylist -> Res.string.action_remove_from_playlist
     ItemAction.MarkPlayed -> Res.string.action_mark_played
@@ -81,6 +89,8 @@ fun ItemAction.icon(): ImageVector = when (this) {
     ItemAction.RemoveFromLibrary -> TablerIcons.FolderMinus
     ItemAction.Favorite -> TablerIcons.Heart
     ItemAction.Unfavorite -> TablerIcons.HeartBroken
+    ItemAction.SaveForLater -> TablerIcons.Bookmark
+    ItemAction.RemoveFromLater -> TablerIcons.BookmarkOff
     ItemAction.AddToPlaylist -> Icons.AutoMirrored.Filled.PlaylistAdd
     ItemAction.RemoveFromPlaylist -> Icons.Default.Delete
     ItemAction.MarkPlayed -> Icons.Default.Check

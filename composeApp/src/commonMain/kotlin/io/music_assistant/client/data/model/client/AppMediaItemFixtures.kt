@@ -18,6 +18,7 @@ object AppMediaItemFixtures {
         artist: Artist? = artist(),
         version: String? = null,
         metadata: Metadata? = null,
+        listenLater: Boolean = false,
     ): Album {
         return Album(
             itemId = itemId,
@@ -35,6 +36,7 @@ object AppMediaItemFixtures {
             } else {
                 emptyList()
             },
+            listenLater = listenLater,
         )
     }
 

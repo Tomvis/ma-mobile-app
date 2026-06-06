@@ -14,6 +14,7 @@ interface PlaylistActions {
 interface LibraryActions {
     fun onLibraryClick(item: AppMediaItem)
     fun onFavoriteClick(item: AppMediaItem)
+    fun onListenLaterClick(item: AppMediaItem)
 }
 
 interface ProgressActions {

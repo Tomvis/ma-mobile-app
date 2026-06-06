@@ -121,6 +121,7 @@ fun ItemDetailsScreen(
         addToPlaylist = actionsViewModel::addToPlaylist,
         onLibraryClick = actionsViewModel::onLibraryClick,
         onFavoriteClick = actionsViewModel::onFavoriteClick,
+        onListenLaterClick = actionsViewModel::onListenLaterClick,
         onMarkPlayed = actionsViewModel::onMarkPlayed,
         onMarkUnplayed = actionsViewModel::onMarkUnplayed,
         onRemoveFromPlaylist = { id, pos ->
@@ -151,6 +152,7 @@ fun ItemDetails(
     addToPlaylist: (String?, Playlist) -> Unit = { _, _ -> },
     onLibraryClick: (AppMediaItem) -> Unit = {},
     onFavoriteClick: (AppMediaItem) -> Unit = {},
+    onListenLaterClick: (AppMediaItem) -> Unit = {},
     onMarkPlayed: (AppMediaItem) -> Unit = {},
     onMarkUnplayed: (AppMediaItem) -> Unit = {},
     onRemoveFromPlaylist: (String, Int) -> Unit = { _, _ -> },
@@ -181,6 +183,10 @@ fun ItemDetails(
 
         override fun onFavoriteClick(item: AppMediaItem) {
             onFavoriteClick(item)
+        }
+
+        override fun onListenLaterClick(item: AppMediaItem) {
+            onListenLaterClick(item)
         }
     }
 

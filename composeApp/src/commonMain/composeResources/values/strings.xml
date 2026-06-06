@@ -14,8 +14,10 @@
   <string name="action_play">Play</string>
   <string name="action_play_next">Play next</string>
   <string name="action_play_now">Play now</string>
+  <string name="action_remove_from_later">Remove from Listen Later</string>
   <string name="action_remove_from_library">Remove from library</string>
   <string name="action_remove_from_playlist">Remove from playlist</string>
+  <string name="action_save_for_later">Save for later</string>
   <string name="action_start_radio">Start radio</string>
   <string name="action_unfavorite">Unfavorite</string>
   <string name="all_albums">All albums</string>

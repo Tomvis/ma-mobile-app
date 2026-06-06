@@ -37,6 +37,9 @@ fun resolveLongClickActions(
             add(if (item.favorite == true) ItemAction.Unfavorite else ItemAction.Favorite)
         }
     }
+    if (item is Album) {
+        add(if (item.listenLater) ItemAction.RemoveFromLater else ItemAction.SaveForLater)
+    }
     if (canAddToPlaylist) add(ItemAction.AddToPlaylist)
     if (canRemoveFromPlaylist) add(ItemAction.RemoveFromPlaylist)
     if (progressSupported && item.isFullyPlayed()) {
@@ -72,6 +75,9 @@ fun resolveDetailOverflowActions(
         if (item.isInLibrary) {
             add(if (item.favorite == true) ItemAction.Unfavorite else ItemAction.Favorite)
         }
+    }
+    if (item is Album) {
+        add(if (item.listenLater) ItemAction.RemoveFromLater else ItemAction.SaveForLater)
     }
     if (canAddToPlaylist) add(ItemAction.AddToPlaylist)
 }

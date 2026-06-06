@@ -306,6 +306,9 @@ private fun <T : AppMediaItem> BrowsableItemWithMenu(
                     ItemAction.Favorite,
                     ItemAction.Unfavorite,
                     -> libraryActions.onFavoriteClick(item)
+                    ItemAction.SaveForLater,
+                    ItemAction.RemoveFromLater,
+                    -> libraryActions.onListenLaterClick(item)
                     ItemAction.AddToPlaylist -> showPlaylistDialog = true
                     ItemAction.MarkPlayed -> progressActions?.onMarkPlayed(item)
                     ItemAction.MarkUnplayed -> progressActions?.onMarkUnplayed(item)
