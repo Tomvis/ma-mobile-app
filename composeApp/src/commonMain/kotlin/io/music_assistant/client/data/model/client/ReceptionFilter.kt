@@ -26,7 +26,8 @@ data class ReceptionFilter(
     val activeCount: Int
         get() = drBuckets.size + amgRatings.size + amgAccolades.size +
             tpsRatings.size + tpsAccolades.size +
-            listOf(amgFavorite, amgUntagged, tpsFavorite, tpsUntagged).count { it }
+            (if (amgFavorite) 1 else 0) + (if (amgUntagged) 1 else 0) +
+            (if (tpsFavorite) 1 else 0) + (if (tpsUntagged) 1 else 0)
 
     fun toRequestArgs(): Map<String, JsonElement> = buildMap {
         if (drBuckets.isNotEmpty()) put("dr_buckets", drBuckets.toSortedJsonArray())

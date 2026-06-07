@@ -310,8 +310,8 @@ private fun ItemListTopBar(
                             var showFilter by rememberSaveable { mutableStateOf(false) }
                             BadgedBox(
                                 badge = {
-                                    if (receptionFilter.isActive) {
-                                        val count = receptionFilter.activeCount
+                                    val count = receptionFilter.activeCount
+                                    if (count > 0) {
                                         Badge { Text(if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else "$count") }
                                     }
                                 },
@@ -531,9 +531,9 @@ internal fun ErrorState() {
 }
 
 @Composable
-private fun EmptyState(
-    searchQuery: String,
-    onGlobalSearch: (query: String) -> Unit,
+internal fun EmptyState(
+    searchQuery: String = "",
+    onGlobalSearch: (query: String) -> Unit = {},
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),

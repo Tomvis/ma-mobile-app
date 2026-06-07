@@ -55,13 +55,11 @@ fun AlbumReceptionBadges(
     }
     if (!tags.hasAny) return
 
-    val contentDesc = remember(tags) {
-        buildList {
-            tags.dr?.let { add("DR ${formatDr(it.value)}") }
-            tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-            tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-        }.joinToString(", ")
-    }
+    val contentDesc = buildList {
+        tags.dr?.let { add("DR ${formatDr(it.value)}") }
+        tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+        tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+    }.joinToString(", ")
 
     val container = if (style == ReceptionBadgeStyle.Tile) {
         modifier
