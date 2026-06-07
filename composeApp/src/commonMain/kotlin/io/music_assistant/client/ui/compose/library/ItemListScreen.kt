@@ -312,7 +312,7 @@ private fun ItemListTopBar(
                                 badge = {
                                     if (receptionFilter.isActive) {
                                         val count = receptionFilter.activeCount
-                                        Badge { Text(if (count > MAX_BADGE_COUNT) "9+" else "$count") }
+                                        Badge { Text(if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else "$count") }
                                     }
                                 },
                             ) {
@@ -507,7 +507,7 @@ private fun CreatePlaylistDialog(
 }
 
 @Composable
-private fun LoadingState() {
+internal fun LoadingState() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -517,7 +517,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState() {
+internal fun ErrorState() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,

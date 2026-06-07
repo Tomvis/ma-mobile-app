@@ -84,13 +84,6 @@ class ItemListViewModel(
         }
     }
 
-    // A favorited non-library item returns from the server re-keyed under the
-    // `library` provider with a new itemId, so fall back to provider-mapping
-    // identity — the convention the other `itemChanges` consumers use.
-    private fun AppMediaItem.matchesIdentityOf(other: AppMediaItem): Boolean =
-        (mediaType == other.mediaType && provider == other.provider && itemId == other.itemId) ||
-            hasAnyMappingFrom(other)
-
     fun toggleViewMode() {
         val current = settingsRepository.viewMode(mediaType).value
         settingsRepository.setViewMode(mediaType, current.toggled())

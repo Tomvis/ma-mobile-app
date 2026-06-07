@@ -21,10 +21,7 @@ data class ReceptionFilter(
     val tpsUntagged: Boolean = false,
     val matchAny: Boolean = false,               // false = "all" (AND), true = "any" (OR)
 ) {
-    val isActive: Boolean
-        get() = drBuckets.isNotEmpty() || amgRatings.isNotEmpty() || amgAccolades.isNotEmpty() ||
-            tpsRatings.isNotEmpty() || tpsAccolades.isNotEmpty() ||
-            amgFavorite || amgUntagged || tpsFavorite || tpsUntagged
+    val isActive: Boolean get() = activeCount > 0
 
     val activeCount: Int
         get() = drBuckets.size + amgRatings.size + amgAccolades.size +

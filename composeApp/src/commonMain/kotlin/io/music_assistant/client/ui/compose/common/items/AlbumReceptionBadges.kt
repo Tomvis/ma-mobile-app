@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,17 +47,21 @@ fun AlbumReceptionBadges(
     style: ReceptionBadgeStyle,
     modifier: Modifier = Modifier,
 ) {
-    val tags = parseAlbumReception(
-        album.metadata?.criticalReception,
-        album.metadata?.dynamicRange,
-    )
+    val tags = remember(album.metadata) {
+        parseAlbumReception(
+            album.metadata?.criticalReception,
+            album.metadata?.dynamicRange,
+        )
+    }
     if (!tags.hasAny) return
 
-    val contentDesc = buildList {
-        tags.dr?.let { add("DR ${formatDr(it.value)}") }
-        tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-        tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-    }.joinToString(", ")
+    val contentDesc = remember(tags) {
+        buildList {
+            tags.dr?.let { add("DR ${formatDr(it.value)}") }
+            tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+            tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+        }.joinToString(", ")
+    }
 
     val container = if (style == ReceptionBadgeStyle.Tile) {
         modifier

@@ -44,7 +44,7 @@ class ListenLaterViewModel(
     private fun removeItem(removed: AppMediaItem) {
         _state.update { current ->
             val data = current as? DataState.Data ?: return@update current
-            val newList = data.data.filterNot { it.provider == removed.provider && it.itemId == removed.itemId }
+            val newList = data.data.filterNot { it.matchesIdentityOf(removed) }
             DataState.Data(newList)
         }
     }

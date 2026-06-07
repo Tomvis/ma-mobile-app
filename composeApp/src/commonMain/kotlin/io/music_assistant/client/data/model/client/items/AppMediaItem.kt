@@ -71,6 +71,13 @@ sealed class AppMediaItem {
     fun hasAnyMappingFrom(other: AppMediaItem): Boolean =
         mappingsHashes.intersect(other.mappingsHashes).isNotEmpty()
 
+    // Identity match used when reconciling `itemChanges` against an already-open list.
+    // A favorited non-library item returns from the server re-keyed under the `library`
+    // provider with a new itemId, so fall back to provider-mapping identity.
+    fun matchesIdentityOf(other: AppMediaItem): Boolean =
+        (mediaType == other.mediaType && provider == other.provider && itemId == other.itemId) ||
+            hasAnyMappingFrom(other)
+
     override fun equals(other: Any?): Boolean {
         return other is AppMediaItem &&
                 itemId == other.itemId &&
