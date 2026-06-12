@@ -89,6 +89,8 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
             return items.filter { it.mediaType == MediaType.GENRE.serverValue }
         }
 
+    private val playlistItems = mutableMapOf<String, List<String>>()
+
     val username = "user"
     val password = "password"
 
@@ -220,6 +222,26 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
                 )
             }
 
+            APICommands.musicGet(APICommands.KIND_PLAYLISTS) -> {
+                Result.success(
+                    answer(
+                        request = request,
+                        result = findItem(request, playlists),
+                    ),
+                )
+            }
+
+            APICommands.MUSIC_PLAYLISTS_PLAYLIST_TRACKS -> {
+                val playlistId = request.getArg("item_id")
+
+                Result.success(
+                    answer(
+                        request = request,
+                        result = tracks.filter { playlistItems[playlistId]!!.contains(it.itemId) },
+                    ),
+                )
+            }
+
             APICommands.MUSIC_TRACKS_LIBRARY_ITEMS -> {
                 Result.success(
                     answer(
@@ -276,15 +298,35 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
 
             APICommands.PLAYER_QUEUES_PLAY_MEDIA -> {
                 val mediaUri = ((request.args!!["media"] as JsonArray)[0] as JsonPrimitive).content
+                val startItemId = request.getArgOrNull("start_item")
                 val mediaTracks = items.find { it.uri == mediaUri }?.let { item ->
                     when (MediaType.fromServer(item.mediaType)) {
-                        MediaType.ALBUM -> tracks.filter { it.album == item }
+                        MediaType.ALBUM -> {
+                            val albumTracks = tracks.filter { it.album == item }
+                            val startIndex = if (startItemId != null) {
+                                albumTracks.indexOfFirst { it.itemId == startItemId }
+                            } else {
+                                0
+                            }
+
+                            albumTracks.drop(startIndex)
+                        }
                         MediaType.TRACK -> listOf(item)
+                        MediaType.PLAYLIST -> {
+                            val playlistTracks = tracks.filter { playlistItems[item.itemId]!!.contains(it.itemId) }
+                            val startIndex = if (startItemId != null) {
+                                playlistTracks.indexOfFirst { it.itemId == startItemId }
+                            } else {
+                                0
+                            }
+
+                            playlistTracks.drop(startIndex)
+                        }
                         else -> TODO()
                     }
                 } ?: emptyList()
 
-                val queueId = (request.args!!["queue_id"] as JsonPrimitive).content
+                val queueId = request.getArg("queue_id")
                 updateQueue(
                     queueId,
                     mediaTracks.map { ServerQueueItem(uniqueIdGenerator.nextInt().toString(), it) },
@@ -511,7 +553,6 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
     }
 
     override fun onPlaybackActive() {
-        TODO("Not yet implemented")
     }
 
     override fun onExternalConsumerInactive() {
@@ -519,7 +560,6 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
     }
 
     override fun onPlaybackInactive() {
-        TODO("Not yet implemented")
     }
 
     fun addToLibrary(vararg items: ServerMediaItem) {
@@ -581,6 +621,14 @@ class FakeServiceClient(private val settingsRepository: SettingsRepository) : Se
             )
         }
     }
+
+    fun getQueueForPlayer(player: ServerPlayer): List<ServerMediaItem> {
+        return queueItems[player.activeSource]!!.map { it.mediaItem!! }
+    }
+
+    fun setPlaylist(playlist: ServerMediaItem, vararg tracks: ServerMediaItem) {
+        playlistItems[playlist.itemId] = tracks.map { it.itemId }
+    }
 }
 
 private fun answer(request: Request, result: JsonElement): Answer {
@@ -599,5 +647,9 @@ private inline fun <reified T> answer(request: Request, result: T): Answer {
 }
 
 private fun Request.getArg(arg: String): String {
-    return (args!![arg] as JsonPrimitive).content
+    return getArgOrNull(arg)!!
+}
+
+private fun Request.getArgOrNull(arg: String): String? {
+    return (args!![arg] as JsonPrimitive?)?.content
 }

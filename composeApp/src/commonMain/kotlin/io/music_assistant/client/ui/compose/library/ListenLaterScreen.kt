@@ -35,7 +35,7 @@ fun ListenLaterScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Screen(
-        topBar = { scrollBehavior ->
+        topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.listen_later_title)) },
                 navigationIcon = {
@@ -43,7 +43,6 @@ fun ListenLaterScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back))
                     }
                 },
-                scrollBehavior = scrollBehavior,
             )
         },
     ) {
@@ -59,7 +58,9 @@ fun ListenLaterScreen(
                     AdaptiveMediaGrid(
                         items = items,
                         onNavigateClick = onNavigateClick,
-                        onPlayClick = onPlayClick,
+                        onPlayClick = { item, option, radio, _ ->
+                            onPlayClick(item, option, radio)
+                        },
                         playlistActions = playlistActions,
                         libraryActions = libraryActions,
                         contentPadding = contentPadding,

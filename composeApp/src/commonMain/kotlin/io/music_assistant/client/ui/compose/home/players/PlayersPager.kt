@@ -134,7 +134,15 @@ import musicassistantclient.composeapp.generated.resources.queue_no_other_player
 import musicassistantclient.composeapp.generated.resources.queue_transfer
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.roundToInt
+
+/**
+ * Seek target (whole seconds) for a chapter tap. The seek API takes integer
+ * seconds, so a fractional [startSec] is rounded up — landing inside the
+ * tapped chapter rather than a fraction of a second before it, in the prior one.
+ */
+internal fun chapterSeekSeconds(startSec: Double): Long = ceil(startSec).toLong()
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -183,9 +191,10 @@ fun PlayersPager(
             )
         }
         val playerColors = playerDataList.associateWith {
-            val imageUrl = it.player.currentMedia?.imageUrl
+            val media = it.player.currentMedia
             rememberAnimatedPlayerColors(
-                imageUrl = imageUrl,
+                imageUrl = media?.imageUrl,
+                palette = media?.palette,
                 fallback = MaterialTheme.colorScheme.primaryContainer,
                 fetchColors = fetchColors,
             )
@@ -255,6 +264,13 @@ fun PlayersPager(
                                 ),
                             ),
                     ) {
+                        // Memoized per queue id so the same Flow instance survives
+                        // recomposition — otherwise collectAsStateWithLifecycle would
+                        // tear down and restart the position collector on every pass.
+                        val queueId = player.queueInfo?.id
+                        val livePositionFlow = remember(queueId) {
+                            queueId?.let { homeScreenViewModel.observePosition(it) }
+                        }
                         if (!expanded) {
                             CollapsedPlayerPage(
                                 isExpandedScreen = isExpandedScreen,
@@ -288,9 +304,7 @@ fun PlayersPager(
                                 contentPadding = contentPadding,
                                 isCurrentPage = page == playerPagerState.currentPage,
                                 navigateToItem = navigateToItem,
-                                livePositionFlow = player.queueInfo?.id?.let(block = {
-                                    homeScreenViewModel.observePosition(it)
-                                }),
+                                livePositionFlow = livePositionFlow,
                             )
                         }
                     }
@@ -715,9 +729,9 @@ private fun ExpandedPlayerPage(
                         tint = colors.controlTint,
                         isCurrentPage = isCurrentPage,
                         contentPadding = contentPadding,
-                        navigateToItem = {
-                            navigateToItem(it)
-                            onClose()
+                        livePositionFlow = livePositionFlow,
+                        onChapterClick = { chapter ->
+                            playerAction(player, PlayerAction.SeekTo(chapterSeekSeconds(chapter.start)))
                         },
                     )
                 } else {
@@ -737,9 +751,9 @@ private fun ExpandedPlayerPage(
                     contentPadding = contentPadding,
                     queueAction = queueAction,
                     playlistActions = playlistActions,
-                    navigateToItem = {
-                        navigateToItem(it)
-                        onClose()
+                    livePositionFlow = livePositionFlow,
+                    onChapterClick = { chapter ->
+                        playerAction(player, PlayerAction.SeekTo(chapterSeekSeconds(chapter.start)))
                     },
                 )
             }

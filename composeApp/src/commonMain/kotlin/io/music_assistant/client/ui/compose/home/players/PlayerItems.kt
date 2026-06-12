@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,9 @@ import coil3.compose.AsyncImage
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
+import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.QualityTier
+import io.music_assistant.client.data.model.client.items.canBeFavorited
 import io.music_assistant.client.data.model.client.items.qualityTier
 import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.ui.alphaOn
@@ -61,6 +65,7 @@ import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.icons.AlbumIcon
 import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 import io.music_assistant.client.ui.compose.common.painters.rememberPlaceholderPainter
+import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.ui.inactive
 import io.music_assistant.client.ui.theme.favoriteTint
 import io.music_assistant.client.utils.formatDuration
@@ -262,62 +267,45 @@ fun FullPlayerItem(
             )
         }
 
-        // Track info — favorite flag lives on the queue's current Track, not on
-        // the lightweight `currentMedia`, so the heart reads from there.
+        // Track info — full width now that the favorite moved to the controls row.
         val (trackName, trackContentDescription) = trackNameAndContentDescription(currentMedia?.title)
-        val currentTrack = item.queueInfo?.currentItem?.track as? AppMediaItem
-        CenteredThreeSlotRow(
-            modifier = Modifier.fillMaxWidth(),
-            start = {},
-            center = {
-                Column(
-                    modifier = Modifier.clearAndSetSemantics {
-                        contentDescription = trackContentDescription
-                    },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        modifier = Modifier.basicMarquee().alphaOn(currentMedia?.title != null),
-                        text = trackName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (item.queueInfo?.currentItem?.isPlayable == false) {
-                        Text(
-                            text = stringResource(Res.string.queue_cannot_play),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.inactive(),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    } else {
-                        Text(
-                            modifier = Modifier.basicMarquee().alphaOn(currentMedia?.title != null),
-                            text = currentMedia?.subtitle ?: "", // TODO take from currentItem?
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            },
-            end = {
-                val isFavorite = currentTrack?.favorite == true
-                IconButton(
-                    onClick = { currentTrack?.let(onFavoriteClick) },
-                    enabled = currentTrack != null,
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = stringResource(Res.string.cd_favorite),
-                        tint = if (isFavorite) favoriteTint else colors.controlTint,
-                    )
-                }
-            },
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clearAndSetSemantics { contentDescription = trackContentDescription },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                modifier = Modifier.fillMaxWidth().fadingEdges().basicMarquee()
+                    .alphaOn(currentMedia?.title != null),
+                text = trackName,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (item.queueInfo?.currentItem?.isPlayable == false) {
+                Text(
+                    text = stringResource(Res.string.queue_cannot_play),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.inactive(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(
+                    modifier = Modifier.fillMaxWidth().fadingEdges().basicMarquee()
+                        .alphaOn(currentMedia?.title != null),
+                    text = currentMedia?.subtitle ?: "", // TODO take from currentItem?
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
 
         val duration = currentMedia?.duration?.takeIf { it > 0 }?.toFloat()
 
@@ -406,12 +394,28 @@ fun FullPlayerItem(
             val tier = currentQueueItem?.qualityTier
             val isLq = tier == QualityTier.LQ
             var showChainDialog by remember(currentQueueItem?.id) { mutableStateOf(false) }
+            var showSpeedDialog by remember(currentQueueItem?.id) { mutableStateOf(false) }
+
+            // Variable speed: server-supported only for audiobooks/podcasts, and only
+            // when the queue payload carries `playback_speed` (feature-detect gate).
+            val playbackSpeed = item.queueInfo?.playbackSpeed
+            val isSpokenContent = currentQueueItem?.track is Audiobook ||
+                currentQueueItem?.track is PodcastEpisode
+            val showSpeed = isSpokenContent && playbackSpeed != null
 
             if (showChainDialog && currentQueueItem != null) {
                 AudioChainDialog(
                     queueTrack = currentQueueItem,
                     player = item,
                     onDismissRequest = { showChainDialog = false },
+                )
+            }
+
+            if (showSpeedDialog && playbackSpeed != null) {
+                PlaybackSpeedDialog(
+                    currentSpeed = playbackSpeed,
+                    onConfirm = { playerAction(item, PlayerAction.SetPlaybackSpeed(it)) },
+                    onDismissRequest = { showSpeedDialog = false },
                 )
             }
 
@@ -427,30 +431,55 @@ fun FullPlayerItem(
                     )
                 },
                 center = {
-                    Box(
-                        modifier = Modifier
-                            .alpha(if (tier != null) 1f else 0f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (isLq) {
-                                    MaterialTheme.colorScheme.surfaceVariant
+                    if (showSpeed) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(colors.controlTint)
+                                .clickable { showSpeedDialog = true }
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = "${formatSpeed(playbackSpeed)}x",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (colors.controlTint.luminance() > 0.5f) {
+                                    Color.Black
                                 } else {
-                                    colors.controlTint
+                                    Color.White
                                 },
                             )
-                            .clickable(enabled = tier != null) { showChainDialog = true }
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            text = (tier ?: QualityTier.LQ).name,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isLq) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                if (colors.controlTint.luminance() > 0.5f) Color.Black else Color.White
-                            },
-                        )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .alpha(if (tier != null) 1f else 0f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (isLq) {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    } else {
+                                        colors.controlTint
+                                    },
+                                )
+                                .clickable(enabled = tier != null) { showChainDialog = true }
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = (tier ?: QualityTier.LQ).name,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isLq) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    if (colors.controlTint.luminance() > 0.5f) {
+                                        Color.Black
+                                    } else {
+                                        Color.White
+                                    }
+                                },
+                            )
+                        }
                     }
                 },
                 end = {
@@ -465,11 +494,37 @@ fun FullPlayerItem(
             )
         }
 
-        PlayerControls(
-            playerData = item,
-            playerAction = playerAction,
-            mainButtonSize = 60.dp,
-            tint = controlTint,
-        )
+        // Favorite flag lives on the queue's current Track, not on the lightweight
+        // `currentMedia`, so the heart reads from there.
+        val currentTrack = item.queueInfo?.currentItem?.track as? AppMediaItem
+        val favoriteSlot = 48.dp // Material IconButton size; mirrored by the trailing spacer.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (currentTrack?.canBeFavorited == true) {
+                val isFavorite = currentTrack.favorite == true
+                IconButton(
+                    modifier = Modifier.size(favoriteSlot),
+                    onClick = { onFavoriteClick(currentTrack) },
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = stringResource(Res.string.cd_favorite),
+                        tint = if (isFavorite) favoriteTint else colors.controlTint,
+                    )
+                }
+            } else {
+                Spacer(Modifier.size(favoriteSlot)) // keep controls centered when heart is hidden
+            }
+            PlayerControls(
+                playerData = item,
+                playerAction = playerAction,
+                mainButtonSize = 60.dp,
+                tint = controlTint,
+            )
+            Spacer(Modifier.size(favoriteSlot)) // mirrors the heart, keeps controls centered
+        }
     }
 }

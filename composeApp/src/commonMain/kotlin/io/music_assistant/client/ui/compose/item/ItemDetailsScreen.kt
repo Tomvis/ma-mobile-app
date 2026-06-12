@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -29,23 +30,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.Chapter
+import io.music_assistant.client.data.model.client.ClickContext
+import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.SortConfig
@@ -62,29 +65,38 @@ import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.stringResource
+import io.music_assistant.client.data.model.client.toClickContext
 import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.compose.common.DataState
+import io.music_assistant.client.ui.compose.common.ExtractedColorsFetcher
 import io.music_assistant.client.ui.compose.common.SortChip
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.ToastState
 import io.music_assistant.client.ui.compose.common.items.AlbumWithMenu
 import io.music_assistant.client.ui.compose.common.items.ArtistWithMenu
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.PodcastEpisodeWithMenu
 import io.music_assistant.client.ui.compose.common.items.ProgressActions
+import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.items.TrackWithMenu
 import io.music_assistant.client.ui.compose.common.items.supportsAddToPlaylist
 import io.music_assistant.client.ui.compose.common.providers.ProviderIcon
+import io.music_assistant.client.ui.compose.common.rememberAnimatedPlayerColors
+import io.music_assistant.client.ui.compose.common.rememberExtractedColorsFetcher
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.nav.Screen
+import io.music_assistant.client.ui.fullBleed
 import io.music_assistant.client.ui.theme.AppTheme
 import io.music_assistant.client.utils.gridItemMinSize
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_toggle_view_mode
 import musicassistantclient.composeapp.generated.resources.item_error
 import musicassistantclient.composeapp.generated.resources.item_no_data
+import musicassistantclient.composeapp.generated.resources.library_empty
+import musicassistantclient.composeapp.generated.resources.library_error
 import musicassistantclient.composeapp.generated.resources.media_type_chapters
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -136,6 +148,7 @@ fun ItemDetailsScreen(
         onChildPlayClick = itemDetailsViewModel::onPlayClick,
         onAlbumsSortChanged = itemDetailsViewModel::onAlbumsSortChanged,
         onPlayableItemsSortChanged = itemDetailsViewModel::onPlayableItemsSortChanged,
+        onTabSelected = itemDetailsViewModel::onTabSelected,
     )
 }
 
@@ -149,6 +162,7 @@ fun ItemDetails(
     toastState: ToastState = rememberToastState(),
     onNavigateToItem: (String, MediaType, String) -> Unit = { _, _, _ -> },
     geEditablePlaylists: suspend () -> List<Playlist> = suspend { emptyList() },
+    fetchColors: ExtractedColorsFetcher? = null,
     addToPlaylist: (String?, Playlist) -> Unit = { _, _ -> },
     onLibraryClick: (AppMediaItem) -> Unit = {},
     onFavoriteClick: (AppMediaItem) -> Unit = {},
@@ -157,11 +171,12 @@ fun ItemDetails(
     onMarkUnplayed: (AppMediaItem) -> Unit = {},
     onRemoveFromPlaylist: (String, Int) -> Unit = { _, _ -> },
     providerIconFetcher: @Composable (Modifier, String) -> Unit = { _, _ -> },
-    onPlayClick: (QueueOption, Boolean) -> Unit = { _, _ -> },
+    onPlayClick: (QueueOption, Boolean, AppMediaItem?) -> Unit = { _, _, _ -> },
     onChapterClick: (Int) -> Unit = {},
-    onChildPlayClick: (AppMediaItem, QueueOption, Boolean) -> Unit = { _, _, _ -> },
+    onChildPlayClick: PlayHandler<AppMediaItem> = { _, _, _, _ -> },
     onAlbumsSortChanged: (SubItemContext, SortOption) -> Unit = { _, _ -> },
     onPlayableItemsSortChanged: (SubItemContext, SortOption) -> Unit = { _, _ -> },
+    onTabSelected: (ItemDetailsTab) -> Unit = {},
 ) {
     val playlistActions = object : PlaylistActions {
         override suspend fun getEditablePlaylists(): List<Playlist> {
@@ -227,47 +242,23 @@ fun ItemDetails(
         onRemoveFromPlaylist = onRemoveFromPlaylist,
         libraryActions = libraryActions,
         providerIconFetcher = providerIconFetcher,
+        fetchColors = fetchColors,
         onBack = onBack,
         onToggleViewMode = onToggleViewMode,
         onAlbumsSortChanged = onAlbumsSortChanged,
         onPlayableItemsSortChanged = onPlayableItemsSortChanged,
+        onTabSelected = onTabSelected,
         contentPadding = contentPadding,
     )
 }
 
-private enum class ItemDetailsTab(
-    val sortContext: SubItemContext?,
-    val viewMediaType: MediaType?,
-) {
-    ARTIST_ALBUMS(SubItemContext.ARTIST_ALBUMS, MediaType.ALBUM),
-    ARTIST_TRACKS(SubItemContext.ARTIST_TRACKS, MediaType.TRACK),
-    ALBUM_TRACKS(SubItemContext.ALBUM_TRACKS, MediaType.TRACK),
-    PLAYLIST_TRACKS(SubItemContext.PLAYLIST_TRACKS, MediaType.TRACK),
-    PODCAST_EPISODES(SubItemContext.PODCAST_EPISODES, MediaType.TRACK),
-    AUDIOBOOK_CHAPTERS(null, null),
-    GENRE_ARTISTS(null, MediaType.ARTIST),
-    GENRE_ALBUMS(null, MediaType.ALBUM),
-    ;
-
-    fun stringResource(): StringResource {
-        return when (this) {
-            AUDIOBOOK_CHAPTERS -> Res.string.media_type_chapters
-            else -> {
-                require(viewMediaType != null) { "No string resource for ItemDetailsTab: $name" }
-                viewMediaType.stringResource()
-            }
-        }
+/** Tab label. Chapters have a dedicated string; every other tab borrows its media-type label. */
+private fun ItemDetailsTab.stringResource(): StringResource = when (this) {
+    ItemDetailsTab.AUDIOBOOK_CHAPTERS -> Res.string.media_type_chapters
+    else -> {
+        require(viewMediaType != null) { "No string resource for ItemDetailsTab: $name" }
+        viewMediaType.stringResource()
     }
-}
-
-private fun tabsFor(item: AppMediaItem): List<ItemDetailsTab> = when (item) {
-    is Artist -> listOf(ItemDetailsTab.ARTIST_ALBUMS, ItemDetailsTab.ARTIST_TRACKS)
-    is Album -> listOf(ItemDetailsTab.ALBUM_TRACKS)
-    is Playlist -> listOf(ItemDetailsTab.PLAYLIST_TRACKS)
-    is Podcast -> listOf(ItemDetailsTab.PODCAST_EPISODES)
-    is Audiobook -> listOf(ItemDetailsTab.AUDIOBOOK_CHAPTERS)
-    is Genre -> listOf(ItemDetailsTab.GENRE_ARTISTS, ItemDetailsTab.GENRE_ALBUMS)
-    else -> emptyList()
 }
 
 @Composable
@@ -276,18 +267,20 @@ private fun ItemChildren(
     toastState: ToastState,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayItemClick: (QueueOption, Boolean) -> Unit,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayItemClick: (QueueOption, Boolean, AppMediaItem?) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     onChapterClick: (Int) -> Unit,
     playlistActions: PlaylistActions,
     progressActions: ProgressActions? = null,
     onRemoveFromPlaylist: (String, Int) -> Unit,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit),
+    fetchColors: ExtractedColorsFetcher?,
     onBack: () -> Unit,
     onToggleViewMode: (MediaType) -> Unit,
     onAlbumsSortChanged: (SubItemContext, SortOption) -> Unit,
     onPlayableItemsSortChanged: (SubItemContext, SortOption) -> Unit,
+    onTabSelected: (ItemDetailsTab) -> Unit,
     contentPadding: PaddingValues,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -311,7 +304,9 @@ private fun ItemChildren(
                     state = state,
                     viewModeProvider = viewModeProvider,
                     onNavigateClick = onNavigateClick,
-                    onPlayItemClick = onPlayItemClick,
+                    onPlayItemClick = { queueOption, radio ->
+                        onPlayItemClick(queueOption, radio, null)
+                    },
                     onPlayChildClick = onPlayChildClick,
                     onChapterClick = onChapterClick,
                     playlistActions = playlistActions,
@@ -319,11 +314,13 @@ private fun ItemChildren(
                     onRemoveFromPlaylist = onRemoveFromPlaylist,
                     libraryActions = libraryActions,
                     providerIconFetcher = providerIconFetcher,
+                    fetchColors = fetchColors,
                     onBack = onBack,
                     onToggleViewMode = onToggleViewMode,
                     onAlbumsSortChanged = onAlbumsSortChanged,
                     onPlayableItemsSortChanged = onPlayableItemsSortChanged,
                     contentPadding = contentPadding,
+                    onTabSelected = onTabSelected,
                 )
             }
 
@@ -345,85 +342,128 @@ private fun ItemContent(
     state: ItemDetailsViewModel.State,
     onNavigateClick: (AppMediaItem) -> Unit,
     onPlayItemClick: (QueueOption, Boolean) -> Unit,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     onChapterClick: (Int) -> Unit,
     playlistActions: PlaylistActions,
     progressActions: ProgressActions?,
     onRemoveFromPlaylist: (String, Int) -> Unit,
     libraryActions: LibraryActions,
     providerIconFetcher: @Composable (Modifier, String) -> Unit,
+    fetchColors: ExtractedColorsFetcher?,
     onBack: () -> Unit,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onToggleViewMode: (MediaType) -> Unit,
     onAlbumsSortChanged: (SubItemContext, SortOption) -> Unit,
     onPlayableItemsSortChanged: (SubItemContext, SortOption) -> Unit,
     contentPadding: PaddingValues,
+    onTabSelected: (ItemDetailsTab) -> Unit,
 ) {
-    val tabs = tabsFor(item)
-    var selectedIndex by rememberSaveable(item.mediaType) { mutableStateOf(0) }
-    val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
+    // Tabs, the loading gate, and the selected tab are all derived in ItemDetailsViewModel.State.
+    val tabs = state.tabs
+
+    // Artwork-driven header colors. Library items carry no server palette, so colors are
+    // extracted locally from the thumbnail (cached by DominantColorViewModel) — same path
+    // as the player. The fetcher is Koin-backed, so fall back to a no-op when one isn't
+    // supplied and there's no Koin graph (under @Preview or in tests).
+    val resolvedFetchColors: ExtractedColorsFetcher = fetchColors
+        ?: if (LocalInspectionMode.current) {
+            { null }
+        } else {
+            rememberExtractedColorsFetcher()
+        }
+    val colors by rememberAnimatedPlayerColors(
+        imageUrl = item.image(ImageType.THUMB)?.url,
+        palette = null,
+        fallback = MaterialTheme.colorScheme.primaryContainer,
+        fetchColors = resolvedFetchColors,
+    )
 
     val heroSlot: @Composable () -> Unit = {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            ItemHeader(
-                item = item,
-                providerIconFetcher = providerIconFetcher,
-                onPlayClick = onPlayItemClick,
-            )
-            (item as? Album)?.let { AlbumReceptionPanel(it, modifier = Modifier.fillMaxWidth()) }
+        ProvideClickActions(ClickContext.DETAIL) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ItemHeader(
+                    item = item,
+                    colors = colors,
+                    providerIconFetcher = providerIconFetcher,
+                    onPlayClick = onPlayItemClick,
+                )
+                (item as? Album)?.let {
+                    AlbumReceptionPanel(it, modifier = Modifier.fillMaxWidth())
+                }
+            }
         }
     }
 
     Screen(
-        topBar = { scrollBehaviour ->
+        topBar = {
             ItemTopBar(
                 item = item,
+                colors = colors,
                 onBack = onBack,
                 libraryActions = libraryActions,
                 playlistActions = playlistActions.takeIf { item.supportsAddToPlaylist },
                 navigateToItem = onNavigateClick,
-                scrollBehavior = scrollBehaviour,
             )
         },
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            // selectedTab is null exactly while sub-lists load (for an item that has tabs), so it
+            // doubles as the loading gate: show the hero + a single spinner, tabs hidden.
+            val currentTab = state.selectedTab
             if (tabs.isEmpty()) {
                 heroSlot()
             } else {
-                val currentTab = tabs[safeIndex]
-                val tabsSlot: @Composable () -> Unit = {
-                    TabsBar(
-                        tabs = tabs,
-                        selectedIndex = safeIndex,
-                        onTabSelected = { selectedIndex = it },
-                        albumsSortOption = state.albumsSortOption,
-                        playableItemsSortOption = state.playableItemsSortOption,
-                        onAlbumsSortChanged = onAlbumsSortChanged,
-                        onPlayableItemsSortChanged = onPlayableItemsSortChanged,
-                        viewModeProvider = viewModeProvider,
-                        onToggleViewMode = onToggleViewMode,
-                    )
-                }
                 val gridState = rememberLazyGridState()
-                Box(modifier = Modifier.weight(1f)) {
-                    TabContent(
-                        tab = currentTab,
-                        item = item,
-                        state = state,
-                        viewModeProvider = viewModeProvider,
-                        onNavigateClick = onNavigateClick,
-                        onPlayChildClick = onPlayChildClick,
-                        onChapterClick = onChapterClick,
-                        playlistActions = playlistActions,
-                        progressActions = progressActions,
-                        onRemoveFromPlaylist = onRemoveFromPlaylist,
-                        libraryActions = libraryActions,
-                        providerIconFetcher = providerIconFetcher,
-                        contentPadding = contentPadding,
-                        heroSlot = heroSlot,
-                        tabsSlot = tabsSlot,
-                        gridState = gridState,
-                    )
+                if (currentTab == null) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        DetailGrid(
+                            contentPadding = contentPadding,
+                            heroSlot = heroSlot,
+                            tabsSlot = null,
+                            gridState = gridState,
+                        ) {
+                            fullSpanItem { InlineProgress() }
+                        }
+                    }
+                } else {
+                    val safeIndex = tabs.indexOf(currentTab).coerceAtLeast(0)
+                    val tabsSlot: @Composable () -> Unit = {
+                        TabsBar(
+                            tabs = tabs,
+                            selectedIndex = safeIndex,
+                            controlTint = colors.controlTint,
+                            onTabSelected = { onTabSelected(tabs[it]) },
+                            albumsSortOption = state.albumsSortOption,
+                            playableItemsSortOption = state.playableItemsSortOption,
+                            onAlbumsSortChanged = onAlbumsSortChanged,
+                            onPlayableItemsSortChanged = onPlayableItemsSortChanged,
+                            viewModeProvider = viewModeProvider,
+                            onToggleViewMode = onToggleViewMode,
+                        )
+                    }
+                    val tabContext = currentTab.sortContext?.toClickContext()
+                    Box(modifier = Modifier.weight(1f)) {
+                        ProvideClickActions(tabContext) {
+                            TabContent(
+                                tab = currentTab,
+                                item = item,
+                                state = state,
+                                viewModeProvider = viewModeProvider,
+                                onNavigateClick = onNavigateClick,
+                                onPlayChildClick = onPlayChildClick,
+                                onChapterClick = onChapterClick,
+                                playlistActions = playlistActions,
+                                progressActions = progressActions,
+                                onRemoveFromPlaylist = onRemoveFromPlaylist,
+                                libraryActions = libraryActions,
+                                providerIconFetcher = providerIconFetcher,
+                                contentPadding = contentPadding,
+                                heroSlot = heroSlot,
+                                tabsSlot = tabsSlot,
+                                gridState = gridState,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -434,6 +474,7 @@ private fun ItemContent(
 private fun TabsBar(
     tabs: List<ItemDetailsTab>,
     selectedIndex: Int,
+    controlTint: Color,
     onTabSelected: (Int) -> Unit,
     albumsSortOption: SortOption?,
     playableItemsSortOption: SortOption?,
@@ -464,14 +505,31 @@ private fun TabsBar(
         PrimaryScrollableTabRow(
             selectedTabIndex = selectedIndex,
             containerColor = Color.Transparent,
+            contentColor = controlTint,
             edgePadding = 0.dp,
+            // Underline under the active tab only, tinted to the control accent (the default
+            // PrimaryIndicator is colorScheme.primary). No full-width bottom divider.
+            indicator = {
+                TabRowDefaults.PrimaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(selectedIndex),
+                    color = controlTint,
+                )
+            },
+            divider = {},
             modifier = Modifier.weight(1f),
         ) {
             tabs.forEachIndexed { i, tab ->
+                val selected = i == selectedIndex
                 Tab(
-                    selected = i == selectedIndex,
+                    selected = selected,
                     onClick = { onTabSelected(i) },
-                    text = { Text(stringResource(tab.stringResource())) },
+                    text = {
+                        Text(
+                            text = stringResource(tab.stringResource()),
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = controlTint,
+                        )
+                    },
                 )
             }
         }
@@ -510,7 +568,7 @@ private fun TabContent(
     state: ItemDetailsViewModel.State,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     onChapterClick: (Int) -> Unit,
     playlistActions: PlaylistActions,
     progressActions: ProgressActions?,
@@ -583,12 +641,92 @@ private fun TabContent(
     }
 }
 
+/**
+ * Emits the shared full-span header rows: the hero (bled out of the grid's [gridPadding] so its
+ * gradient reaches the real edges) and — unless [tabsSlot] is null (loading state) — the tabs bar.
+ * [gridPadding] must be the same value passed to the grid's `contentPadding`, so the bleed exactly
+ * cancels the inset.
+ */
+private fun LazyGridScope.detailHeaderItems(
+    gridPadding: PaddingValues,
+    heroSlot: @Composable () -> Unit,
+    tabsSlot: (@Composable () -> Unit)?,
+) {
+    item(span = { GridItemSpan(maxLineSpan) }) {
+        Box(modifier = Modifier.fullBleed(gridPadding)) { heroSlot() }
+    }
+    tabsSlot?.let { slot ->
+        item(span = { GridItemSpan(maxLineSpan) }) { slot() }
+    }
+}
+
+/**
+ * The grid scaffold shared by every tab and by the loading state: identical columns/padding/spacing
+ * and the [heroSlot] + optional [tabsSlot] header, then [body]. Centralizing it keeps the hero's
+ * geometry identical across loading → loaded, so nothing shifts when the tabs appear.
+ */
+@Composable
+private fun DetailGrid(
+    contentPadding: PaddingValues,
+    heroSlot: @Composable () -> Unit,
+    tabsSlot: (@Composable () -> Unit)?,
+    gridState: LazyGridState,
+    body: LazyGridScope.() -> Unit,
+) {
+    val gridPadding = contentPadding + PaddingValues(4.dp)
+    LazyVerticalGrid(
+        state = gridState,
+        modifier = Modifier.fillMaxSize().testTag("LazyVerticalGrid"),
+        columns = GridCells.Adaptive(minSize = gridItemMinSize()),
+        contentPadding = gridPadding,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        detailHeaderItems(gridPadding, heroSlot, tabsSlot)
+        body()
+    }
+}
+
+private fun LazyGridScope.fullSpanItem(content: @Composable () -> Unit) =
+    item(span = { GridItemSpan(maxLineSpan) }) { content() }
+
+/**
+ * Resolves a list tab's [state] to grid rows: Error → error message, empty (or NoData) → empty
+ * message, otherwise delegates to [items]. Loading isn't handled here — it's gated out before the
+ * tab is ever shown.
+ */
+private inline fun <T> LazyGridScope.tabListBody(
+    state: DataState<List<T>>,
+    crossinline items: LazyGridScope.(List<T>) -> Unit,
+) {
+    val data = when (state) {
+        is DataState.Data -> state.data
+        is DataState.Stale -> state.data
+        is DataState.Error -> {
+            fullSpanItem {
+                CenteredText(
+                    text = stringResource(Res.string.library_error),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            return
+        }
+
+        else -> emptyList()
+    }
+    if (data.isEmpty()) {
+        fullSpanItem { CenteredText(stringResource(Res.string.library_empty)) }
+    } else {
+        items(data)
+    }
+}
+
 @Composable
 private fun AlbumsTabContent(
     albumsState: DataState<List<Album>>,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     playlistActions: PlaylistActions,
     libraryActions: LibraryActions,
     providerIconFetcher: @Composable (Modifier, String) -> Unit,
@@ -598,20 +736,10 @@ private fun AlbumsTabContent(
     gridState: LazyGridState,
 ) {
     val viewMode = viewModeProvider(MediaType.ALBUM)
-    LazyVerticalGrid(
-        state = gridState,
-        modifier = Modifier.fillMaxSize().testTag("LazyVerticalGrid"),
-        columns = GridCells.Adaptive(minSize = gridItemMinSize()),
-        contentPadding = contentPadding + PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { heroSlot() }
-        item(span = { GridItemSpan(maxLineSpan) }) { tabsSlot() }
-
-        when (albumsState) {
-            is DataState.Data -> items(
-                items = albumsState.data,
+    DetailGrid(contentPadding, heroSlot, tabsSlot, gridState) {
+        tabListBody(albumsState) { albums ->
+            items(
+                items = albums,
                 span = when (viewMode) {
                     ViewMode.LIST -> {
                         { GridItemSpan(maxLineSpan) }
@@ -630,12 +758,6 @@ private fun AlbumsTabContent(
                     providerIconFetcher = providerIconFetcher,
                 )
             }
-
-            is DataState.Loading -> item(span = { GridItemSpan(maxLineSpan) }) {
-                InlineProgress()
-            }
-
-            else -> Unit
         }
     }
 }
@@ -645,7 +767,7 @@ private fun ArtistsTabContent(
     artistsState: DataState<List<Artist>>,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     libraryActions: LibraryActions,
     providerIconFetcher: @Composable (Modifier, String) -> Unit,
     contentPadding: PaddingValues,
@@ -654,20 +776,10 @@ private fun ArtistsTabContent(
     gridState: LazyGridState,
 ) {
     val viewMode = viewModeProvider(MediaType.ARTIST)
-    LazyVerticalGrid(
-        state = gridState,
-        modifier = Modifier.fillMaxSize().testTag("LazyVerticalGrid"),
-        columns = GridCells.Adaptive(minSize = gridItemMinSize()),
-        contentPadding = contentPadding + PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { heroSlot() }
-        item(span = { GridItemSpan(maxLineSpan) }) { tabsSlot() }
-
-        when (artistsState) {
-            is DataState.Data -> items(
-                items = artistsState.data,
+    DetailGrid(contentPadding, heroSlot, tabsSlot, gridState) {
+        tabListBody(artistsState) { artists ->
+            items(
+                items = artists,
                 span = when (viewMode) {
                     ViewMode.LIST -> {
                         { GridItemSpan(maxLineSpan) }
@@ -685,12 +797,6 @@ private fun ArtistsTabContent(
                     providerIconFetcher = providerIconFetcher,
                 )
             }
-
-            is DataState.Loading -> item(span = { GridItemSpan(maxLineSpan) }) {
-                InlineProgress()
-            }
-
-            else -> Unit
         }
     }
 }
@@ -700,7 +806,7 @@ private fun PlayablesTabContent(
     playableItemsState: DataState<List<PlayableItem>>,
     parentItem: AppMediaItem,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
-    onPlayChildClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayChildClick: PlayHandler<AppMediaItem>,
     playlistActions: PlaylistActions,
     progressActions: ProgressActions?,
     onRemoveFromPlaylist: (String, Int) -> Unit,
@@ -712,63 +818,50 @@ private fun PlayablesTabContent(
     gridState: LazyGridState,
 ) {
     val viewMode = viewModeProvider(MediaType.TRACK)
-    LazyVerticalGrid(
-        state = gridState,
-        modifier = Modifier.fillMaxSize().testTag("LazyVerticalGrid"),
-        columns = GridCells.Adaptive(minSize = gridItemMinSize()),
-        contentPadding = contentPadding + PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { heroSlot() }
-        item(span = { GridItemSpan(maxLineSpan) }) { tabsSlot() }
-
-        when (playableItemsState) {
-            is DataState.Data -> {
-                playableItemsState.data.forEachIndexed { index, track ->
-                    item(
-                        span = when (viewMode) {
-                            ViewMode.LIST -> {
-                                { GridItemSpan(maxLineSpan) }
-                            }
-
-                            ViewMode.GRID -> null
-                        },
-                    ) {
-                        when (track) {
-                            is Track -> TrackWithMenu(
-                                item = track,
-                                viewMode = viewMode,
-                                onPlayOption = onPlayChildClick,
-                                playlistActions = playlistActions,
-                                onRemoveFromPlaylist = if (parentItem is Playlist && parentItem.isEditable) {
-                                    { onRemoveFromPlaylist(parentItem.itemId, index) }
-                                } else {
-                                    null
-                                },
-                                libraryActions = libraryActions,
-                                providerIconFetcher = providerIconFetcher,
-                            )
-
-                            is PodcastEpisode -> PodcastEpisodeWithMenu(
-                                item = track,
-                                viewMode = viewMode,
-                                onPlayOption = onPlayChildClick,
-                                playlistActions = null,
-                                libraryActions = libraryActions,
-                                progressActions = progressActions,
-                                providerIconFetcher = providerIconFetcher,
-                            )
+    DetailGrid(contentPadding, heroSlot, tabsSlot, gridState) {
+        tabListBody(playableItemsState) { tracks ->
+            tracks.forEachIndexed { index, track ->
+                item(
+                    span = when (viewMode) {
+                        ViewMode.LIST -> {
+                            { GridItemSpan(maxLineSpan) }
                         }
+
+                        ViewMode.GRID -> null
+                    },
+                ) {
+                    when (track) {
+                        is Track -> TrackWithMenu(
+                            item = track,
+                            viewMode = viewMode,
+                            parent = if (parentItem is Album || parentItem is Playlist) {
+                                parentItem
+                            } else {
+                                null
+                            },
+                            onPlayOption = onPlayChildClick,
+                            playlistActions = playlistActions,
+                            onRemoveFromPlaylist = if (parentItem is Playlist && parentItem.isEditable) {
+                                { onRemoveFromPlaylist(parentItem.itemId, index) }
+                            } else {
+                                null
+                            },
+                            libraryActions = libraryActions,
+                            providerIconFetcher = providerIconFetcher,
+                        )
+
+                        is PodcastEpisode -> PodcastEpisodeWithMenu(
+                            item = track,
+                            viewMode = viewMode,
+                            onPlayOption = onPlayChildClick,
+                            playlistActions = null,
+                            libraryActions = libraryActions,
+                            progressActions = progressActions,
+                            providerIconFetcher = providerIconFetcher,
+                        )
                     }
                 }
             }
-
-            is DataState.Loading -> item(span = { GridItemSpan(maxLineSpan) }) {
-                InlineProgress()
-            }
-
-            else -> Unit
         }
     }
 }
@@ -782,23 +875,17 @@ private fun ChaptersTabContent(
     tabsSlot: @Composable () -> Unit,
     gridState: LazyGridState,
 ) {
-    LazyVerticalGrid(
-        state = gridState,
-        modifier = Modifier.fillMaxSize().testTag("LazyVerticalGrid"),
-        columns = GridCells.Adaptive(minSize = gridItemMinSize()),
-        contentPadding = contentPadding + PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { heroSlot() }
-        item(span = { GridItemSpan(maxLineSpan) }) { tabsSlot() }
-
-        chapters.forEach { chapter ->
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                ChapterRow(
-                    chapter = chapter,
-                    onClick = { onChapterClick(chapter.position) },
-                )
+    DetailGrid(contentPadding, heroSlot, tabsSlot, gridState) {
+        if (chapters.isEmpty()) {
+            fullSpanItem { CenteredText(stringResource(Res.string.library_empty)) }
+        } else {
+            chapters.forEach { chapter ->
+                fullSpanItem {
+                    ChapterRow(
+                        chapter = chapter,
+                        onClick = { onChapterClick(chapter.position) },
+                    )
+                }
             }
         }
     }
@@ -912,6 +999,44 @@ private fun PreviewArtist(isRowMode: Boolean = true) {
 @Composable
 private fun PreviewArtistGrid() {
     PreviewArtist(isRowMode = false)
+}
+
+// Item loaded, sub-lists still loading: hero visible, tabs hidden, single spinner.
+@Preview
+@Composable
+private fun PreviewArtistTabsLoading() {
+    val artist = AppMediaItemFixtures.artist("Artist")
+    AppTheme(darkTheme = false) {
+        Scaffold {
+            ItemDetails(
+                state = ItemDetailsViewModel.State(
+                    DataState.Data(artist),
+                    DataState.Loading(),
+                    DataState.Loading(),
+                ),
+                geEditablePlaylists = suspend { emptyList() },
+            )
+        }
+    }
+}
+
+// No albums but has tracks → auto-selects the Tracks tab (Albums tab would show the empty state).
+@Preview
+@Composable
+private fun PreviewArtistTracksOnly() {
+    val artist = AppMediaItemFixtures.artist("Artist")
+    AppTheme(darkTheme = false) {
+        Scaffold {
+            ItemDetails(
+                state = ItemDetailsViewModel.State(
+                    DataState.Data(artist),
+                    DataState.Data(emptyList()),
+                    DataState.Data(AppMediaItemFixtures.tracks(listOf("Track 1", "Track 2"))),
+                ),
+                geEditablePlaylists = suspend { emptyList() },
+            )
+        }
+    }
 }
 
 @Preview

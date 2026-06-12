@@ -27,7 +27,7 @@ fun AlbumWithMenu(
     item: Album,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Album) -> Unit,
-    onPlayOption: ((Album, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Album>,
     playlistActions: PlaylistActions? = null,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
@@ -67,7 +67,7 @@ fun ArtistWithMenu(
     item: Artist,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Artist) -> Unit,
-    onPlayOption: ((Artist, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Artist>,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
 ) {
@@ -105,7 +105,7 @@ fun PlaylistWithMenu(
     item: Playlist,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Playlist) -> Unit,
-    onPlayOption: ((Playlist, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Playlist>,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
 ) {
@@ -143,7 +143,7 @@ fun AudiobookWithMenu(
     item: Audiobook,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Audiobook) -> Unit,
-    onPlayOption: ((Audiobook, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Audiobook>,
     playlistActions: PlaylistActions? = null,
     libraryActions: LibraryActions,
     progressActions: ProgressActions? = null,
@@ -185,7 +185,7 @@ fun GenreWithMenu(
     item: Genre,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Genre) -> Unit,
-    onPlayOption: ((Genre, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Genre>,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
 ) {
@@ -223,7 +223,7 @@ fun PodcastWithMenu(
     item: Podcast,
     viewMode: ViewMode = ViewMode.GRID,
     onNavigateClick: (Podcast) -> Unit,
-    onPlayOption: ((Podcast, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<Podcast>,
     libraryActions: LibraryActions,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
 ) {
@@ -261,7 +261,7 @@ private fun <T : AppMediaItem> BrowsableItemWithMenu(
     modifier: Modifier = Modifier,
     item: T,
     onNavigateClick: (T) -> Unit,
-    onPlayOption: ((T, QueueOption, Boolean) -> Unit),
+    onPlayOption: PlayHandler<T>,
     playlistActions: PlaylistActions? = null,
     libraryActions: LibraryActions,
     progressActions: ProgressActions? = null,
@@ -280,6 +280,7 @@ private fun <T : AppMediaItem> BrowsableItemWithMenu(
         canAddToPlaylist = playlistActions != null && item.supportsAddToPlaylist,
         canRemoveFromPlaylist = false,
         progressSupported = progressActions != null && item is Audiobook,
+        customizationAllowed = false,
     )
 
     Box(modifier = modifier) {
@@ -295,11 +296,11 @@ private fun <T : AppMediaItem> BrowsableItemWithMenu(
             expanded = expandedItemId == item.itemId,
             onDismissRequest = { expandedItemId = null },
         ) {
-            itemActionMenuItems(actions) { action ->
+            ItemActionMenuItems(actions) { action ->
                 expandedItemId = null
                 when (action) {
-                    is ItemAction.Play -> onPlayOption(item, action.queueOption, false)
-                    ItemAction.StartRadio -> onPlayOption(item, QueueOption.REPLACE, true)
+                    is ItemAction.Play -> onPlayOption(item, action.queueOption, false, null)
+                    ItemAction.StartRadio -> onPlayOption(item, QueueOption.REPLACE, true, null)
                     ItemAction.AddToLibrary,
                     ItemAction.RemoveFromLibrary,
                     -> libraryActions.onLibraryClick(item)
@@ -313,6 +314,9 @@ private fun <T : AppMediaItem> BrowsableItemWithMenu(
                     ItemAction.MarkPlayed -> progressActions?.onMarkPlayed(item)
                     ItemAction.MarkUnplayed -> progressActions?.onMarkUnplayed(item)
                     ItemAction.RemoveFromPlaylist -> Unit
+                    // Browsable items never surface Customize (playable-only menu entry).
+                    ItemAction.Customize -> Unit
+                    else -> Unit
                 }
             }
         }

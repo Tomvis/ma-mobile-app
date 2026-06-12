@@ -23,8 +23,6 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -56,10 +54,12 @@ import io.music_assistant.client.ui.compose.common.items.ArtistWithMenu
 import io.music_assistant.client.ui.compose.common.items.AudiobookWithMenu
 import io.music_assistant.client.ui.compose.common.items.GenreWithMenu
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.PlaylistWithMenu
 import io.music_assistant.client.ui.compose.common.items.PodcastWithMenu
 import io.music_assistant.client.ui.compose.common.items.ProgressActions
+import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.items.RadioWithMenu
 import io.music_assistant.client.ui.compose.common.items.TrackWithMenu
 import io.music_assistant.client.ui.compose.common.items.lazyListKey
@@ -67,7 +67,6 @@ import io.music_assistant.client.ui.compose.common.providers.ProviderIcon
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.CategoryRow
-import io.music_assistant.client.ui.compose.library.stringResource
 import io.music_assistant.client.ui.compose.nav.Screen
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.search_error
@@ -105,10 +104,9 @@ fun SearchScreen(
     }
 
     Screen(
-        topBar = { scrollBehaviour ->
+        topBar = {
             SearchTopBar(
                 state.searchState,
-                scrollBehavior = scrollBehaviour,
                 onQueryChanged = searchViewModel::onQueryChanged,
                 onSearchTriggered = searchViewModel::onSearchTriggered,
                 onMediaTypeToggled = searchViewModel::onMediaTypeToggled,
@@ -116,6 +114,7 @@ fun SearchScreen(
             )
         },
     ) {
+        ProvideClickActions(ClickContext.SEARCH) {
         SearchContent(
             state = state,
             toastState = toastState,
@@ -133,7 +132,9 @@ fun SearchScreen(
                     else -> Unit
                 }
             },
-            onPlayClick = searchViewModel::onPlayClick,
+            onPlayClick = { track, option, radio, _ ->
+                searchViewModel.onPlayClick(track, option, radio)
+            },
             playlistActions = actionsViewModel,
             libraryActions = actionsViewModel,
             progressActions = actionsViewModel,
@@ -143,13 +144,13 @@ fun SearchScreen(
             },
             contentPadding = contentPadding,
         )
+        }
     }
 }
 
 @Composable
 private fun SearchTopBar(
     searchState: SearchViewModel.SearchState,
-    scrollBehavior: TopAppBarScrollBehavior? = null,
     onQueryChanged: (String) -> Unit,
     onSearchTriggered: () -> Unit,
     onMediaTypeToggled: (MediaType, Boolean) -> Unit,
@@ -182,10 +183,6 @@ private fun SearchTopBar(
                 )
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        scrollBehavior = scrollBehavior,
     )
 }
 
@@ -194,7 +191,7 @@ private fun SearchContent(
     state: SearchViewModel.State,
     toastState: ToastState,
     onItemClick: (AppMediaItem) -> Unit,
-    onPlayClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayClick: PlayHandler<AppMediaItem>,
     playlistActions: PlaylistActions,
     libraryActions: LibraryActions,
     progressActions: ProgressActions? = null,

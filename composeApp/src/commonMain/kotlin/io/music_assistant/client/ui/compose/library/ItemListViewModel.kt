@@ -243,7 +243,11 @@ class ItemListViewModel(
         }
     }
 
-    fun onPlayClick(item: AppMediaItem, option: QueueOption, radio: Boolean) {
+    fun onPlayClick(
+        item: AppMediaItem,
+        option: QueueOption,
+        radio: Boolean,
+    ) {
         viewModelScope.launch {
             val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
 

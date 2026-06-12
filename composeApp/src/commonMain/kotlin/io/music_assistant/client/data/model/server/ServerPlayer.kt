@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  * missing-or-renamed field doesn't take down deserialization of the whole
  * `ServerPlayer` (and by extension, whatever event or RPC carries it). Combined
  * with `coerceInputValues = true` in [myJson], unknown enum variants degrade to
- * `null` rather than aborting the decode.
+ * `null` rather than aborting the decoding.
  *
  * `playerId` is the one field kept required — without it there's no identity
  * and nothing useful we can do with the payload.
@@ -45,6 +45,7 @@ data class ServerPlayer(
     @SerialName("group_volume_muted") val groupVolumeMuted: Boolean? = null,
     @SerialName("display_name") val displayName: String = "",
     @SerialName("hidden") val hidden: Boolean? = null,
+    @SerialName("hide_in_ui") val hideInUi: Boolean? = null,
     // @SerialName("icon") val icon: String,
     // @SerialName("power_control") val powerControl: String,
     @SerialName("volume_control") val volumeControl: String = "",
@@ -79,6 +80,7 @@ data class ServerPlayerMedia(
     @SerialName("duration") val duration: Double? = null,
     @SerialName("queue_id") val queueId: String? = null,
     @SerialName("queue_item_id") val queueItemId: String? = null,
+    @SerialName("palette") val palette: MediaItemPalette? = null,
 //    @SerialName("custom_data") val customData: JsonObject? = null,
 )
 

@@ -71,11 +71,16 @@ class SharedMediaSessionManager(
         R.drawable.baseline_library_music_24.toUri(applicationContext)
     }
 
-    // Current artwork bitmap for the canonical now-playing track. The notification
-    // service observes this to refresh its largeIcon; title/artist/position are read
-    // live from the session via MediaStyle, so they need no notification repost.
-    private val _artwork = MutableStateFlow<Bitmap?>(null)
-    val artwork: StateFlow<Bitmap?> = _artwork.asStateFlow()
+    // What the foreground notification needs to repost: the artwork bitmap plus a
+    // per-track key. The service reposts on every emission, and a repost is what
+    // refreshes the notification's title/artist — so the trigger must change on track
+    // change, not just on artwork change. Keying by [trackKey] makes a bare same-bitmap
+    // StateFlow stop conflating consecutive tracks that share artwork (which otherwise
+    // froze the title/artist on the previous track).
+    data class NotificationArt(val trackKey: Long?, val bitmap: Bitmap?)
+
+    private val _notificationArt = MutableStateFlow<NotificationArt?>(null)
+    val notificationArt: StateFlow<NotificationArt?> = _notificationArt.asStateFlow()
 
     // Browse/voice "play" requests are AA-specific (need AutoLibrary). A real AA host
     // registers a handler; transient SystemUI binds never do.
@@ -126,7 +131,7 @@ class SharedMediaSessionManager(
             writerScope = null
             mediaSession?.release()
             mediaSession = null
-            _artwork.value = null
+            _notificationArt.value = null
             refCount = 0
             currentError = null
             lastData = null
@@ -168,13 +173,16 @@ class SharedMediaSessionManager(
 
     private fun startWriter(scope: CoroutineScope) {
         // Playback state + metadata. 200ms debounce coalesces rapid updates; bitmap
-        // loading runs async via [withAsyncBitmap] so slow artwork never blocks writes.
+        // loading runs async via [withAsyncBitmap] (keyed by imageUrl, so position ticks
+        // never restart or starve a slow load). The notification trigger is keyed by track
+        // id, not just the bitmap: a repost is what refreshes the notification's title, so
+        // it must fire on track change even when consecutive tracks share artwork.
         scope.launch {
             nowPlayingDataFlow()
                 .withAsyncBitmap(scope) { loadCoilBitmap(applicationContext, imageLoader, it) }
                 .debounce(timeoutMillis = 200)
                 .collect { (data, bitmap) ->
-                    _artwork.value = bitmap
+                    _notificationArt.value = NotificationArt(data.longItemId, bitmap)
                     // multiPlayer only gates the "(on <player>)" artist suffix, and
                     // playerName is already null for the local player — so always pass
                     // true to keep the remote-player suffix even for a single player.
@@ -264,6 +272,8 @@ class SharedMediaSessionManager(
 
             override fun onCustomAction(action: String, extras: Bundle?) {
                 when (action) {
+                    "ACTION_SEEK_BACK" -> act(PlayerAction.SeekBy(-10))
+                    "ACTION_SEEK_FORWARD" -> act(PlayerAction.SeekBy(30))
                     "ACTION_SWITCH_PLAYER" -> dataSource.switchSessionPlayer()
                     "ACTION_TOGGLE_SHUFFLE" -> currentPlayer()?.let { pd ->
                         pd.queueInfo?.let {
@@ -364,32 +374,59 @@ class SharedMediaSessionManager(
                 data.longItemId ?: MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong(),
             )
             .also { builder ->
-                data.shuffleEnabled?.let { shuffle ->
+                if (data.isLongFormContent) {
+                    // Audiobooks / podcasts: seek controls in place of shuffle & repeat.
                     builder.addCustomAction(
                         PlaybackStateCompat.CustomAction.Builder(
-                            "ACTION_TOGGLE_SHUFFLE",
-                            "Shuffle",
-                            getShuffleModeIcon(shuffle),
+                            "ACTION_SEEK_BACK",
+                            "Rewind 10s",
+                            R.drawable.baseline_replay_10_24,
                         ).build(),
                     )
-                }
-                if (data.multiplePlayers) {
                     builder.addCustomAction(
                         PlaybackStateCompat.CustomAction.Builder(
-                            "ACTION_SWITCH_PLAYER",
-                            "Next player",
-                            R.drawable.ic_speaker,
+                            "ACTION_SEEK_FORWARD",
+                            "Forward 30s",
+                            R.drawable.baseline_forward_30_24,
                         ).build(),
                     )
-                } else {
-                    data.repeatMode?.let { repeatMode ->
+                    if (data.multiplePlayers) {
                         builder.addCustomAction(
                             PlaybackStateCompat.CustomAction.Builder(
-                                "ACTION_TOGGLE_REPEAT",
-                                "Repeat",
-                                getRepeatModeIcon(repeatMode),
+                                "ACTION_SWITCH_PLAYER",
+                                "Next player",
+                                R.drawable.ic_speaker,
                             ).build(),
                         )
+                    }
+                } else {
+                    data.shuffleEnabled?.let { shuffle ->
+                        builder.addCustomAction(
+                            PlaybackStateCompat.CustomAction.Builder(
+                                "ACTION_TOGGLE_SHUFFLE",
+                                "Shuffle",
+                                getShuffleModeIcon(shuffle),
+                            ).build(),
+                        )
+                    }
+                    if (data.multiplePlayers) {
+                        builder.addCustomAction(
+                            PlaybackStateCompat.CustomAction.Builder(
+                                "ACTION_SWITCH_PLAYER",
+                                "Next player",
+                                R.drawable.ic_speaker,
+                            ).build(),
+                        )
+                    } else {
+                        data.repeatMode?.let { repeatMode ->
+                            builder.addCustomAction(
+                                PlaybackStateCompat.CustomAction.Builder(
+                                    "ACTION_TOGGLE_REPEAT",
+                                    "Repeat",
+                                    getRepeatModeIcon(repeatMode),
+                                ).build(),
+                            )
+                        }
                     }
                 }
             }

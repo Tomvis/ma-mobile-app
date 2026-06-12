@@ -40,7 +40,6 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,8 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import compose.icons.TablerIcons
 import compose.icons.tablericons.Plus
+import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
@@ -72,8 +71,10 @@ import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.ToastState
 import io.music_assistant.client.ui.compose.common.clearFocusOnScroll
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.ProgressActions
+import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.nav.Screen
@@ -127,9 +128,8 @@ fun ItemListScreen(
     val state by itemListViewModel.state.collectAsStateWithLifecycle()
 
     Screen(
-        topBar = { scrollBehavior ->
+        topBar = {
             ItemListTopBar(
-                scrollBehavior = scrollBehavior,
                 onBack = onBack,
                 onToggleViewMode = itemListViewModel::toggleViewMode,
                 viewMode = state.viewMode,
@@ -148,13 +148,16 @@ fun ItemListScreen(
         },
     ) {
         var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+        ProvideClickActions(ClickContext.LIBRARY) {
         ItemList(
             showCreatePlaylistDialog = showCreatePlaylistDialog,
             toastState = toastState,
             onNavigateClick = onNavigateClick,
             onGlobalSearch = onGlobalSearch,
             searchQuery = state.searchQuery,
-            onPlayClick = itemListViewModel::onPlayClick,
+            onPlayClick = { item, option, radio, _ ->
+                itemListViewModel.onPlayClick(item, option, radio)
+            },
             onCreatePlaylistClick = { showCreatePlaylistDialog = true },
             onLoadMore = { itemListViewModel.loadMore() },
             onDismissCreatePlaylistDialog = { showCreatePlaylistDialog = false },
@@ -169,13 +172,13 @@ fun ItemListScreen(
             hasMore = state.hasMore,
             viewMode = state.viewMode,
         )
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ItemListTopBar(
-    scrollBehavior: TopAppBarScrollBehavior? = null,
     onBack: () -> Unit,
     onToggleViewMode: () -> Unit,
     viewMode: ViewMode,
@@ -260,7 +263,6 @@ private fun ItemListTopBar(
                     Text(title)
                 }
             },
-            scrollBehavior = scrollBehavior,
             navigationIcon = {
                 if (!showSearch) {
                     IconButton(onClick = onBack) {
@@ -361,7 +363,7 @@ private fun ItemList(
     onNavigateClick: (AppMediaItem) -> Unit,
     onGlobalSearch: (query: String) -> Unit,
     searchQuery: String,
-    onPlayClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayClick: PlayHandler<AppMediaItem>,
     onCreatePlaylistClick: () -> Unit,
     onLoadMore: () -> Unit,
     onDismissCreatePlaylistDialog: () -> Unit,

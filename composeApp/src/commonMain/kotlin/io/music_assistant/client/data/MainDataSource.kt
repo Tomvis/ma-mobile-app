@@ -46,6 +46,7 @@ import io.music_assistant.client.player.sendspin.SendspinClientFactory
 import io.music_assistant.client.player.sendspin.SendspinError
 import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.player.sendspin.WebRTCSendspinChannelExhausted
+import io.music_assistant.client.player.sendspin.model.GoodbyeReason
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.Timings
 import io.music_assistant.client.ui.compose.common.DataState
@@ -98,13 +99,13 @@ class MainDataSource(
 ) : CoroutineScope {
     private val log = Logger.withTag("MainDataSource")
 
-/** Combined inputs for a [MainDataSource] player-data rebuild. */
-private data class PlayerBuildInputs(
-    val players: DataState<List<Player>>,
-    val queues: List<QueueInfo>,
-    val localData: PlayerData?,
-    val favoriteOverrides: Map<String, Boolean>,
-)
+    /** Combined inputs for a [MainDataSource] player-data rebuild. */
+    private data class PlayerBuildInputs(
+        val players: DataState<List<Player>>,
+        val queues: List<QueueInfo>,
+        val localData: PlayerData?,
+        val favoriteOverrides: Map<String, Boolean>,
+    )
 
     private var sendspinClient: SendspinClient? = null
     private var sendspinMonitorJobs = mutableListOf<Job>()
@@ -304,6 +305,7 @@ private data class PlayerBuildInputs(
                         queueId = queueInfo.id,
                         elapsedSec = it,
                         durationSec = queueInfo.currentItem?.track?.duration,
+                        speed = queueInfo.playbackSpeed,
                     )
                 }
             }
@@ -453,7 +455,7 @@ private data class PlayerBuildInputs(
 
                             if (isTerminalAuthFailure) {
                                 // Auth permanently failed — stop everything
-                                stopSendspin()
+                                stopSendspin(GoodbyeReason.Shutdown)
                                 clearAllData()
                             } else {
                                 // Transient: AwaitingServerInfo or auth in progress.
@@ -512,7 +514,7 @@ private data class PlayerBuildInputs(
 
                     SessionState.Connecting -> {
                         log.i { "Connecting - stopping Sendspin" }
-                        stopSendspin()
+                        stopSendspin(GoodbyeReason.Restart)
                         updateJob?.cancel()
                         updateJob = null
                         watchJob?.cancel()
@@ -538,7 +540,7 @@ private data class PlayerBuildInputs(
                             SessionState.Disconnected.ByUser -> {
                                 // Intentional logout - clear everything
                                 log.i { "Disconnected by user - clearing all data" }
-                                stopSendspin()
+                                stopSendspin(GoodbyeReason.UserRequest)
                                 clearAllData()
                                 updateJob?.cancel()
                                 updateJob = null
@@ -570,7 +572,7 @@ private data class PlayerBuildInputs(
                                         }
 
                                         // Stop Sendspin (can't stream without connection)
-                                        stopSendspin()
+                                        stopSendspin(GoodbyeReason.Restart)
                                     }
 
                                     is DataState.Loading, is DataState.NoData, is DataState.Error -> {
@@ -611,7 +613,7 @@ private data class PlayerBuildInputs(
                                     }
                                 }
 
-                                stopSendspin()
+                                stopSendspin(GoodbyeReason.Restart)
                                 updateJob?.cancel()
                                 updateJob = null
                                 watchJob?.cancel()
@@ -621,7 +623,7 @@ private data class PlayerBuildInputs(
                             SessionState.Disconnected.Initial, SessionState.Disconnected.NoServerData -> {
                                 // App startup or no server configured - clear all
                                 log.i { "Disconnected (${sessionState::class.simpleName}) - clearing data" }
-                                stopSendspin()
+                                stopSendspin(GoodbyeReason.Shutdown)
                                 clearAllData()
                                 updateJob?.cancel()
                                 updateJob = null
@@ -664,7 +666,11 @@ private data class PlayerBuildInputs(
                         // before Sendspin fully connects and server confirms the player
                         localPlayerRepository.onInitialPlayersReceived(hasLocalPlayer = false)
                     } else {
-                        stopSendspin()
+                        stopSendspin(GoodbyeReason.UserRequest)
+                        // User turned Sendspin off — the local player is gone for good.
+                        // stopSendspin() no longer resets it (transient teardowns must
+                        // preserve a queued resume), so clear it explicitly here.
+                        localPlayerRepository.clearState()
                     }
                 }
             }
@@ -733,6 +739,16 @@ private data class PlayerBuildInputs(
                         )
                     }
                 }
+        }
+        // Arms `hasActivePlayback` so backgrounding mid-playback doesn't tear down
+        // Sendspin (goodbye=shutdown → audio stops, server cold-resumes. Driven off
+        // logical `isPlaying`, which survives the transient transport blip — unlike
+        // the Sendspin sync state.
+        launch {
+            localPlayer
+                .map { it?.player?.isPlaying == true }
+                .distinctUntilChanged()
+                .collect { if (it) apiClient.onPlaybackActive() else apiClient.onPlaybackInactive() }
         }
     }
 
@@ -867,11 +883,12 @@ private data class PlayerBuildInputs(
             }
 
         // Inject synthetic local player if not in server list
-        val withLocal = if (localData != null && playerDataList.none { it.playerId == localPlayerId }) {
-            listOf(localData) + playerDataList
-        } else {
-            playerDataList
-        }
+        val withLocal =
+            if (localData != null && playerDataList.none { it.playerId == localPlayerId }) {
+                listOf(localData) + playerDataList
+            } else {
+                playerDataList
+            }
         // Re-apply favorite overrides last so the stale queue payload can't win.
         return if (favoriteOverrides.isEmpty()) {
             withLocal
@@ -979,7 +996,7 @@ private data class PlayerBuildInputs(
 
                 is SendspinState.Idle -> Unit
             }
-            existing.stop()
+            existing.stop(GoodbyeReason.Restart)
             existing.close()
         }
 
@@ -1121,13 +1138,13 @@ private data class PlayerBuildInputs(
      * Stop Sendspin player if running.
      * Destroys the shared audio pipeline so the AudioTrack is fully released.
      */
-    private suspend fun stopSendspin() = sendspinMutex.withLock {
+    private suspend fun stopSendspin(reason: GoodbyeReason) = sendspinMutex.withLock {
         // Cancel monitor jobs FIRST to prevent old state transitions from leaking
         cancelSendspinMonitorJobs()
         sendspinRetryCount = 0
         sendspinClient?.let { client ->
             try {
-                client.stop()
+                client.stop(reason)
                 client.close()
             } catch (e: Exception) {
                 log.e(e) { "Error stopping Sendspin client" }
@@ -1135,8 +1152,11 @@ private data class PlayerBuildInputs(
             sendspinClient = null
         }
         _sendspinState.value = null
-        // Clear local player data immediately so the UI reflects the change
-        localPlayerRepository.clearState()
+        // Deliberately preserve local-player state and the offline command queue:
+        // most callers (background, reconnect, persistent error) are transient and
+        // rely on drainCommandQueue() replaying queued intent — e.g. a post-
+        // interruption resume — once the transport returns. Genuine resets clear
+        // them explicitly (clearAllData / Sendspin-disabled).
         // Fully release the shared audio pipeline (AudioTrack, decoder, etc.)
         // A fresh pipeline will be created on the next initSendspinIfEnabled()
         sendspinClientFactory.destroyPipeline()
@@ -1300,14 +1320,18 @@ private data class PlayerBuildInputs(
     }
 
     fun playerAction(data: PlayerData, action: PlayerAction) {
+        // SeekBy is a relative offset; the UI/notification that emit it don't hold
+        // live position. Resolve to an absolute SeekTo here (the only place with
+        // positionTracker), then let the existing seek plumbing handle the rest.
+        val resolved = (action as? PlayerAction.SeekBy)?.toSeekTo(data) ?: action
         // Apply optimistic update for local player (immediate, before async command)
         if (data.isLocal) {
-            localPlayerRepository.applyOptimisticUpdate(data, action)
+            localPlayerRepository.applyOptimisticUpdate(data, resolved)
         }
         launch {
-            val request = buildPlayerRequest(data, action) ?: return@launch
+            val request = buildPlayerRequest(data, resolved) ?: return@launch
             if (data.isLocal) {
-                localPlayerRepository.sendOrQueue(action, request)
+                localPlayerRepository.sendOrQueue(resolved, request)
             } else {
                 val result = apiClient.sendRequest(request)
                 if (result.isFailure) {
@@ -1317,6 +1341,22 @@ private data class PlayerBuildInputs(
                 }
             }
         }
+    }
+
+    /** Live interpolated position (seconds), falling back to the last server anchor. */
+    private fun PlayerData.effectivePositionSec(): Double =
+        queueInfo?.id?.let(positionTracker::effectiveSec)
+            ?: queueInfo?.elapsedTime ?: 0.0
+
+    /**
+     * Resolves a relative [PlayerAction.SeekBy] into an absolute [PlayerAction.SeekTo],
+     * clamped to `[0, duration]`. Lives here because [positionTracker] is the position
+     * source of truth and only this layer holds it.
+     */
+    private fun PlayerAction.SeekBy.toSeekTo(data: PlayerData): PlayerAction.SeekTo {
+        val target = (data.effectivePositionSec() + offsetSeconds).coerceAtLeast(0.0)
+            .let { t -> data.player.currentMedia?.duration?.let(t::coerceAtMost) ?: t }
+        return PlayerAction.SeekTo(target.toLong())
     }
 
     private fun buildPlayerRequest(data: PlayerData, action: PlayerAction): Request? {
@@ -1331,9 +1371,7 @@ private data class PlayerBuildInputs(
                 Request.Player.simpleCommand(playerId = data.playerId, command = "pause")
 
             PlayerAction.Next -> {
-                val currentPos = data.queueInfo?.id
-                    ?.let(positionTracker::effectiveSec)
-                    ?: data.queueInfo?.elapsedTime ?: 0.0
+                val currentPos = data.effectivePositionSec()
                 (data.queueInfo?.currentItem?.track as? Audiobook)
                     ?.chapters?.firstOrNull { it.start > currentPos }?.start
                     ?.let { Request.Player.seek(queueId = data.playerId, position = it.toLong()) }
@@ -1341,9 +1379,7 @@ private data class PlayerBuildInputs(
             }
 
             PlayerAction.Previous -> {
-                val currentPos = data.queueInfo?.id
-                    ?.let(positionTracker::effectiveSec)
-                    ?: data.queueInfo?.elapsedTime ?: 0.0
+                val currentPos = data.effectivePositionSec()
                 (data.queueInfo?.currentItem?.track as? Audiobook)
                     ?.chapters?.takeIf { it.isNotEmpty() }
                     ?.let { chapters ->
@@ -1365,6 +1401,9 @@ private data class PlayerBuildInputs(
                 Request.Player.seek(queueId = data.playerId, position = action.position)
             }
 
+            // Resolved to SeekTo in playerAction(); never reaches here.
+            is PlayerAction.SeekBy -> null
+
             is PlayerAction.ToggleRepeatMode -> {
                 val queueId = data.queueInfo?.id ?: return null
                 Request.Queue.setRepeatMode(
@@ -1385,6 +1424,11 @@ private data class PlayerBuildInputs(
             is PlayerAction.ToggleDontStopTheMusic -> {
                 val queueId = data.queueInfo?.id ?: return null
                 Request.Queue.setDontStopTheMusic(queueId = queueId, enabled = !action.current)
+            }
+
+            is PlayerAction.SetPlaybackSpeed -> {
+                val queueId = data.queueInfo?.id ?: return null
+                Request.Queue.setPlaybackSpeed(queueId = queueId, speed = action.speed)
             }
 
             PlayerAction.VolumeDown ->
@@ -1489,26 +1533,27 @@ private data class PlayerBuildInputs(
                 .collect { event ->
                     when (event) {
                         is PlayerAddedEvent -> {
-                            val newPlayer = playerFactory.create(event.data)
-                            if (newPlayer.shouldBeShown) {
-                                _serverPlayers.update { oldState ->
-                                    when (oldState) {
-                                        is DataState.Data -> {
-                                            val players = oldState.data
-                                            DataState.Data(
-                                                if (players.none { it.id == newPlayer.id }) {
-                                                    players + newPlayer
-                                                } else {
-                                                    // Player already exists, just update it
-                                                    players.map { if (it.id == newPlayer.id) newPlayer else it }
-                                                },
-                                            )
-                                        }
+                            playerFactory.create(event.data)
+                                .takeIf { it.shouldBeShown }
+                                ?.let { newPlayer ->
+                                    _serverPlayers.update { oldState ->
+                                        when (oldState) {
+                                            is DataState.Data -> {
+                                                val players = oldState.data
+                                                DataState.Data(
+                                                    if (players.none { it.id == newPlayer.id }) {
+                                                        players + newPlayer
+                                                    } else {
+                                                        // Player already exists, just update it
+                                                        players.map { if (it.id == newPlayer.id) newPlayer else it }
+                                                    },
+                                                )
+                                            }
 
-                                        else -> oldState
+                                            else -> oldState
+                                        }
                                     }
                                 }
-                            }
                         }
 
                         is PlayerRemovedEvent -> {
@@ -1560,7 +1605,8 @@ private data class PlayerBuildInputs(
                         is QueueAddedEvent -> {
                             // Server announces a queue (typically when a new
                             // player connects and MA registers its queue).
-                            val data = queueFactory.create(event.data).takeIfNotStale("QueueAdded") ?: return@collect
+                            val data = queueFactory.create(event.data).takeIfNotStale("QueueAdded")
+                                ?: return@collect
 
                             val localPlayerId = settings.sendspinClientId.value
                             if (data.id == localPlayerId ||
@@ -1586,13 +1632,15 @@ private data class PlayerBuildInputs(
                                     elapsedSec = elapsed,
                                     isPlaying = player?.isPlaying,
                                     durationSec = data.currentItem?.track?.duration,
+                                    speed = data.playbackSpeed,
                                 )
                             }
                         }
 
                         is QueueUpdatedEvent -> {
                             val data =
-                                queueFactory.create(event.data).takeIfNotStale("QueueUpdated") ?: return@collect
+                                queueFactory.create(event.data).takeIfNotStale("QueueUpdated")
+                                    ?: return@collect
 
                             // Forward to local player repository if this is the local player's queue
                             val localPlayerId = settings.sendspinClientId.value
@@ -1616,13 +1664,15 @@ private data class PlayerBuildInputs(
                                     elapsedSec = elapsed,
                                     isPlaying = player?.isPlaying,
                                     durationSec = data.currentItem?.track?.duration,
+                                    speed = data.playbackSpeed,
                                 )
                             }
                         }
 
                         is QueueItemsUpdatedEvent -> {
                             val data =
-                                queueFactory.create(event.data).takeIfNotStale("QueueItemsUpdated") ?: return@collect
+                                queueFactory.create(event.data).takeIfNotStale("QueueItemsUpdated")
+                                    ?: return@collect
 
                             _queueInfos.update { value ->
                                 value.map {
@@ -1637,6 +1687,7 @@ private data class PlayerBuildInputs(
                                     elapsedSec = elapsed,
                                     isPlaying = player?.isPlaying,
                                     durationSec = data.currentItem?.track?.duration,
+                                    speed = data.playbackSpeed,
                                 )
                             }
                             (playersData.value as? DataState.Data)?.data?.firstOrNull {
@@ -1812,6 +1863,7 @@ private data class PlayerBuildInputs(
                                 elapsedSec = elapsed,
                                 isPlaying = player?.isPlaying,
                                 durationSec = queueInfo.currentItem?.track?.duration,
+                                speed = queueInfo.playbackSpeed,
                             )
                         }
                     }
@@ -1952,7 +2004,7 @@ private data class PlayerBuildInputs(
     fun onAppClosed() {
         if (!isAnythingPlaying.value) {
             log.i { "App closed with no active playback — stopping Sendspin" }
-            launch { stopSendspin() }
+            launch { stopSendspin(GoodbyeReason.Shutdown) }
         }
     }
 

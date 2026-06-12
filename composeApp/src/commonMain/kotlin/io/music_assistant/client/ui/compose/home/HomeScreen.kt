@@ -31,7 +31,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,8 +43,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import compose.icons.TablerIcons
 import compose.icons.tablericons.GripVertical
+import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -64,11 +63,13 @@ import io.music_assistant.client.ui.compose.common.items.ArtistWithMenu
 import io.music_assistant.client.ui.compose.common.items.AudiobookWithMenu
 import io.music_assistant.client.ui.compose.common.items.GenreWithMenu
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.PlaylistWithMenu
 import io.music_assistant.client.ui.compose.common.items.PodcastEpisodeWithMenu
 import io.music_assistant.client.ui.compose.common.items.PodcastWithMenu
 import io.music_assistant.client.ui.compose.common.items.ProgressActions
+import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.items.RadioWithMenu
 import io.music_assistant.client.ui.compose.common.items.TrackWithMenu
 import io.music_assistant.client.ui.compose.common.items.lazyListKey
@@ -151,9 +152,8 @@ fun HomeScreen(
     BackHandler(enabled = editMode) { editMode = false }
 
     Screen(
-        topBar = { scrollBehavior ->
+        topBar = {
             LandingPageTopBar(
-                scrollBehavior = scrollBehavior,
                 editMode = editMode,
                 onRefresh = { homeScreenViewModel.loadRecommendations() },
                 onToggleEditMode = {
@@ -175,7 +175,9 @@ fun HomeScreen(
                 title = row.displayName,
                 rowItemType = row.rowItemType,
                 onNavigateClick = onNavigateClick,
-                onPlayClick = homeScreenViewModel::onPlayClick,
+                onPlayClick = { item, option, radio, _ ->
+                    homeScreenViewModel.onPlayClick(item, option, radio)
+                },
                 onAllClick = { row.rowItemType?.let { onLibraryItemClick(it) } },
                 mediaItems = row.items.orEmpty(),
                 playlistActions = actionsViewModel,
@@ -184,6 +186,7 @@ fun HomeScreen(
                 providerIconFetcher = providerIconFetcher,
             )
         }
+        ProvideClickActions(ClickContext.HOME) {
         LazyColumn(
             state = listState,
             contentPadding = contentPadding,
@@ -257,19 +260,18 @@ fun HomeScreen(
                 }
             }
         }
+        }
     }
 }
 
 @Composable
 private fun LandingPageTopBar(
-    scrollBehavior: TopAppBarScrollBehavior,
     editMode: Boolean,
     onRefresh: () -> Unit,
     onToggleEditMode: () -> Unit,
 ) {
     TopAppBar(
         title = { Text(stringResource(Res.string.nav_home)) },
-        scrollBehavior = scrollBehavior,
         actions = {
             if (!editMode) {
                 IconButton(onClick = onRefresh) {
@@ -298,7 +300,7 @@ fun CategoryRow(
     title: String,
     rowItemType: MediaType?,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayClick: ((AppMediaItem, QueueOption, Boolean) -> Unit),
+    onPlayClick: PlayHandler<AppMediaItem>,
     onAllClick: () -> Unit,
     mediaItems: List<AppMediaItem>,
     playlistActions: PlaylistActions,

@@ -4,6 +4,7 @@ import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
+import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.Track
@@ -23,14 +24,12 @@ fun resolveLongClickActions(
     canAddToPlaylist: Boolean,
     canRemoveFromPlaylist: Boolean,
     progressSupported: Boolean,
+    defaultAction: ItemAction? = null,
+    parent: AppMediaItem? = null,
+    customizationAllowed: Boolean = false,
 ): List<ItemAction> = buildList {
-    if (item.isPlayable) {
-        add(ItemAction.Play(QueueOption.REPLACE))
-        add(ItemAction.Play(QueueOption.PLAY))
-        add(ItemAction.Play(QueueOption.NEXT))
-        add(ItemAction.Play(QueueOption.ADD))
-        if (item.canStartRadio) add(ItemAction.StartRadio)
-    }
+    if (item.isPlayable) addPlaybackActions(item, parent)
+    if (customizationAllowed) add(ItemAction.Customize)
     if (librarySupported) {
         add(if (item.isInLibrary) ItemAction.RemoveFromLibrary else ItemAction.AddToLibrary)
         if (item.isInLibrary) {
@@ -47,17 +46,40 @@ fun resolveLongClickActions(
     } else if (progressSupported) {
         add(ItemAction.MarkPlayed)
     }
+    // The action a click performs is hoisted to the top (and labeled "Default" by the menu).
+}.let { actions ->
+    if (defaultAction == null) {
+        actions
+    } else {
+        listOf(defaultAction) + actions.filterNot { it == defaultAction }
+    }
 }
 
 /**
- * Item detail screen play-button split-button overflow — queue actions excluding REPLACE
- * (the leading button handles that), plus Start Radio.
+ * Item detail screen play-button split-button overflow — every applicable play action
+ * except [default] (which the leading button performs).
  */
-fun resolvePlayButtonActions(item: AppMediaItem): List<ItemAction> = buildList {
-    if (!item.isPlayable) return@buildList
+fun resolvePlayButtonActions(
+    item: AppMediaItem,
+    default: ItemAction?,
+    customizationAllowed: Boolean = false,
+): List<ItemAction> =
+    buildList {
+        if (item.isPlayable) addPlaybackActions(item)
+        if (customizationAllowed) add(ItemAction.Customize)
+    }.filterNot { it == default }
+
+/** The playback block: Play Now / Insert Next & Play / Insert Next / Add to Bottom / Start Radio. */
+private fun MutableList<ItemAction>.addPlaybackActions(item: AppMediaItem, parent: AppMediaItem? = null) {
+    add(ItemAction.Play(QueueOption.REPLACE))
     add(ItemAction.Play(QueueOption.PLAY))
     add(ItemAction.Play(QueueOption.NEXT))
     add(ItemAction.Play(QueueOption.ADD))
+
+    if (parent is Album || parent is Playlist) {
+        add(ItemAction.PlayFromHere(isPlaylist = parent is Playlist))
+    }
+
     if (item.canStartRadio) add(ItemAction.StartRadio)
 }
 
