@@ -114,7 +114,10 @@ private val AOTM_OLD = Regex("""^AOTM-(\d{4})-(\d{1,2})$""")
 private val HM_OLD = Regex("""^HONORABLE_MENTION-(\d{4})$""")
 
 private fun monthFromAbbr(abbr: String): Int? =
-    MONTH_ABBR.indexOf(abbr).let { if (it < 0) null else it + 1 }
+    // Case-insensitive: the ROTM regex accepts any [A-Za-z]{3}, so a non-canonical
+    // casing like "sep"/"SEP" must still resolve rather than silently dropping the month.
+    MONTH_ABBR.indexOfFirst { it.equals(abbr, ignoreCase = true) }
+        .let { if (it < 0) null else it + 1 }
 
 // Re-attaches the parsed "(year)" / "(Mon year)" date facet to a (possibly localized)
 // accolade name. Shared by parseAccolade's legacy folding and the reception UI, so both

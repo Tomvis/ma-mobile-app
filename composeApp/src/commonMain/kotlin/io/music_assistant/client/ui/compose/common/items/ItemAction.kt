@@ -19,7 +19,6 @@ import compose.icons.tablericons.FolderPlus
 import compose.icons.tablericons.Heart
 import compose.icons.tablericons.HeartBroken
 import io.music_assistant.client.data.model.client.QueueOption
-import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.ui.compose.common.icons.AlbumIcon
 import io.music_assistant.client.ui.compose.common.icons.PlayIcon
 import io.music_assistant.client.ui.compose.common.icons.PlaylistIcon
@@ -92,25 +91,6 @@ fun ItemAction.title(): StringResource = when (this) {
     ItemAction.MarkPlayed -> Res.string.action_mark_played
     ItemAction.MarkUnplayed -> Res.string.action_mark_unplayed
     ItemAction.Customize -> Res.string.action_customize
-}
-
-/**
- * Handles the listen-later toggle (SaveForLater / RemoveFromLater), which every item menu
- * dispatches verbatim to [LibraryActions.onListenLaterClick]. Returns true when [this] was
- * that action (and was handled), false otherwise — leaving the rest of each menu's
- * when-chain untouched.
- */
-fun ItemAction.dispatchLibraryAction(item: AppMediaItem, libraryActions: LibraryActions?): Boolean {
-    return when (this) {
-        ItemAction.SaveForLater,
-        ItemAction.RemoveFromLater,
-        -> {
-            libraryActions?.onListenLaterClick(item)
-            true
-        }
-
-        else -> false
-    }
 }
 
 fun ItemAction.icon(): ImageVector = when (this) {

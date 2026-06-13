@@ -61,7 +61,14 @@ class ActionsViewModel(
             if (item.listenLater) {
                 apiClient.sendRequest(Request.Album.listenLaterRemove(item.itemId))
             } else {
-                item.uri?.let { apiClient.sendRequest(Request.Album.listenLaterAdd(it)) }
+                val uri = item.uri
+                if (uri == null) {
+                    // Save-for-later needs a uri to reference; surface that instead of
+                    // silently doing nothing (mirrors addToPlaylist's toast_no_uri).
+                    _toasts.emit(getString(Res.string.toast_no_uri))
+                    return@launch
+                }
+                apiClient.sendRequest(Request.Album.listenLaterAdd(uri))
             }
         }
     }

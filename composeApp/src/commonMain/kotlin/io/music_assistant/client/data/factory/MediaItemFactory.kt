@@ -230,11 +230,16 @@ class MediaItemFactory(
             ?.map { entry ->
                 // Prefer the 3.2.0/3.3.0 shape; fold pre-3.2.0 types/labels into accolades
                 // and a pre-3.3.0 review_url into a single "Review" link during the transition.
-                val accolades = entry.accolades
+                // takeIf isNotEmpty (not just non-null): a transitional payload may send
+                // accolades: [] / links: [] alongside the legacy fields, and an empty list
+                // must still fall through to the legacy fold (mirrors the server's falsy
+                // `if not src.accolades` / `if not links` guards).
+                val accolades = entry.accolades?.takeIf { it.isNotEmpty() }
                     ?: legacyAccolades(entry.types.orEmpty(), entry.labels.orEmpty())
                 val links = entry.links
                     ?.filter { it.url.isNotBlank() }
                     ?.map { ReviewLink(it.label, it.url) }
+                    ?.takeIf { it.isNotEmpty() }
                     ?: entry.reviewUrl?.takeIf { it.isNotBlank() }
                         ?.let { listOf(ReviewLink("Review", it)) }
                     ?: emptyList()

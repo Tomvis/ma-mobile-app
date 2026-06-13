@@ -223,7 +223,9 @@ private fun ChipRow(content: @Composable () -> Unit) {
 }
 
 // TPS bands: selector `lo` covers [lo, lo+2) on the /10 scale; 9 is the open top band.
-private fun tpsBandLabel(lo: Int): String = if (lo >= 9) "9+" else "$lo–${lo + 2}"
+// Label with the inclusive integer span [lo, lo+1] so adjacent chips don't share an
+// endpoint (e.g. "7–8", not "7–9" which wrongly implies the 7-band covers 9).
+private fun tpsBandLabel(lo: Int): String = if (lo >= 9) "9+" else "$lo–${lo + 1}"
 
 @Preview
 @Composable

@@ -266,7 +266,10 @@ class ItemListViewModel(
 
     private fun loadFirstPage() {
         viewModelScope.launch {
-            val searchQuery = state.value.searchQuery.takeIf { it.length >= 0 }
+            // >= 3 matches loadMore(): String.length is never < 0, so the old `>= 0`
+            // guard was a no-op that sent search="" (and 1-2 char queries) on every
+            // initial load and filter/sort change.
+            val searchQuery = state.value.searchQuery.takeIf { it.length >= 3 }
             val orderBy = state.value.sortOption.toServerString()
             updateState(DataState.Loading())
 

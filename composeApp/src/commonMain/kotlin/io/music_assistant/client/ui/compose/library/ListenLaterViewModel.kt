@@ -25,13 +25,37 @@ class ListenLaterViewModel(
             mediaItemRepository.itemChanges.collect { change ->
                 when (change) {
                     is MediaItemChange.Deleted -> removeItem(change.item)
-                    is MediaItemChange.Updated -> {
-                        val album = change.item as? Album ?: return@collect
-                        if (!album.listenLater) removeItem(album)
-                    }
-                    else -> Unit
+                    // Added and Updated reconcile the same way: keep the album in the
+                    // list while it's still saved-for-later, drop it otherwise. Saving an
+                    // album from another surface fires Updated(listenLater=true) (and
+                    // possibly Added), which the old remove-only collector ignored — so the
+                    // open screen stayed stale on the very action it exists to support.
+                    is MediaItemChange.Added -> reconcile(change.item)
+                    is MediaItemChange.Updated -> reconcile(change.item)
                 }
             }
+        }
+    }
+
+    private fun reconcile(changed: AppMediaItem) {
+        val album = changed as? Album ?: return
+        if (album.listenLater) upsertItem(album) else removeItem(album)
+    }
+
+    private fun upsertItem(item: AppMediaItem) {
+        _state.update { current ->
+            val data = current as? DataState.Data ?: return@update current
+            val existingIndex = data.data.indexOfFirst { it.matchesIdentityOf(item) }
+            val newList = if (existingIndex >= 0) {
+                // Already shown: replace in place so a metadata refresh lands without
+                // disturbing the existing order.
+                data.data.toMutableList().apply { this[existingIndex] = item }
+            } else {
+                // Newly saved: the list is ordered listen_later_added_at_desc
+                // (newest first), so the fresh pick belongs at the front.
+                listOf(item) + data.data
+            }
+            DataState.Data(newList)
         }
     }
 
