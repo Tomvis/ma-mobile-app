@@ -28,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import io.music_assistant.client.data.model.client.DrQuality
 import io.music_assistant.client.data.model.client.ReceptionFilter
+import io.music_assistant.client.ui.compose.common.items.labelRes
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.filter_amg
 import musicassistantclient.composeapp.generated.resources.filter_clear_all
@@ -50,14 +52,36 @@ import musicassistantclient.composeapp.generated.resources.filter_personal_pick
 import musicassistantclient.composeapp.generated.resources.filter_title
 import musicassistantclient.composeapp.generated.resources.filter_tps
 import musicassistantclient.composeapp.generated.resources.filter_untagged
-import musicassistantclient.composeapp.generated.resources.reception_dr_excellent
-import musicassistantclient.composeapp.generated.resources.reception_dr_fair
-import musicassistantclient.composeapp.generated.resources.reception_dr_good
-import musicassistantclient.composeapp.generated.resources.reception_dr_poor
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value
+
+// Ordered chip key -> label. Each map is the single source for both the chip list (its
+// iteration order) and the chip's label, so there is no separate when()+else to fall out
+// of sync. DR buckets reuse the shared DrQuality.labelRes(); "untagged" is the local
+// special case. Keys are the server filter tokens (3.2.0 merged shape).
+private val DR_BUCKET_LABELS: Map<String, StringResource> = linkedMapOf(
+    "excellent" to DrQuality.EXCELLENT.labelRes(),
+    "good" to DrQuality.GOOD.labelRes(),
+    "fair" to DrQuality.FAIR.labelRes(),
+    "poor" to DrQuality.POOR.labelRes(),
+    "untagged" to Res.string.filter_dr_untagged,
+)
+
+// Awards first, then review-column kinds. AOTM is gone — folded into record_of_the_month.
+// "review" is the default column and not a useful filter.
+private val ACCOLADE_LABELS: Map<String, StringResource> = linkedMapOf(
+    "aoty" to Res.string.filter_label_aoty,
+    "record_of_the_month" to Res.string.filter_label_record_of_the_month,
+    "honorable_mention" to Res.string.filter_label_honorable_mention,
+    "score_revised" to Res.string.filter_label_score_revised,
+    "tymhm" to Res.string.filter_label_tymhm,
+    "sitf" to Res.string.filter_label_sitf,
+    "ymio" to Res.string.filter_label_ymio,
+    "lit" to Res.string.filter_label_lit,
+    "rfu" to Res.string.filter_label_rfu,
+)
 
 @Composable
 fun ReceptionFilterSheet(
@@ -104,11 +128,11 @@ fun ReceptionFilterSheet(
 
             SectionLabel(stringResource(Res.string.filter_dr))
             ChipRow {
-                ReceptionFilter.DR_BUCKETS.forEach { b ->
+                DR_BUCKET_LABELS.forEach { (bucket, labelRes) ->
                     FilterChip(
-                        selected = b in filter.drBuckets,
-                        onClick = { onChange(filter.copy(drBuckets = filter.drBuckets.toggle(b))) },
-                        label = { Text(drBucketLabel(b)) },
+                        selected = bucket in filter.drBuckets,
+                        onClick = { onChange(filter.copy(drBuckets = filter.drBuckets.toggle(bucket))) },
+                        label = { Text(stringResource(labelRes)) },
                     )
                 }
             }
@@ -164,11 +188,11 @@ private fun SourceAccoladeRow(
     onToggleUntagged: () -> Unit,
 ) {
     ChipRow {
-        ReceptionFilter.ACCOLADE_KINDS.forEach { kind ->
+        ACCOLADE_LABELS.forEach { (kind, labelRes) ->
             FilterChip(
                 selected = kind in accolades,
                 onClick = { onToggleAccolade(kind) },
-                label = { Text(accoladeLabel(kind)) },
+                label = { Text(stringResource(labelRes)) },
             )
         }
         FilterChip(
@@ -196,36 +220,6 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun ChipRow(content: @Composable () -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
-}
-
-@Composable
-private fun drBucketLabel(bucket: String): String {
-    val res: StringResource = when (bucket) {
-        "excellent" -> Res.string.reception_dr_excellent
-        "good" -> Res.string.reception_dr_good
-        "fair" -> Res.string.reception_dr_fair
-        "poor" -> Res.string.reception_dr_poor
-        "untagged" -> Res.string.filter_dr_untagged
-        else -> Res.string.filter_dr_untagged
-    }
-    return stringResource(res)
-}
-
-@Composable
-private fun accoladeLabel(label: String): String {
-    val res: StringResource = when (label) {
-        "aoty" -> Res.string.filter_label_aoty
-        "honorable_mention" -> Res.string.filter_label_honorable_mention
-        "record_of_the_month" -> Res.string.filter_label_record_of_the_month
-        "score_revised" -> Res.string.filter_label_score_revised
-        "tymhm" -> Res.string.filter_label_tymhm
-        "sitf" -> Res.string.filter_label_sitf
-        "ymio" -> Res.string.filter_label_ymio
-        "lit" -> Res.string.filter_label_lit
-        "rfu" -> Res.string.filter_label_rfu
-        else -> Res.string.filter_label_record_of_the_month
-    }
-    return stringResource(res)
 }
 
 // TPS bands: selector `lo` covers [lo, lo+2) on the /10 scale; 9 is the open top band.

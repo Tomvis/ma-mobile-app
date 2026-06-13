@@ -9,11 +9,31 @@ enum class DrSource { MEASURED, AMG }
 // RECORD_OF_THE_MONTH / HONORABLE_MENTION) inline their date in the display string;
 // the rest are exact review-column / honor strings. UNKNOWN carries through anything
 // we don't model. AOTM is gone — it was always the same concept as RECORD_OF_THE_MONTH.
+// Declaration order IS display priority: sortAccolades and legacyAccolades both derive
+// their ordering from `ordinal`, so keep UNKNOWN last (sorts after everything else).
 enum class AccoladeKind {
     AOTY, RECORD_OF_THE_MONTH, HONORABLE_MENTION, SCORE_REVISED,
     LIT, RFU, TYMHM, SITF, YMIO, REVIEW, UNKNOWN,
 }
 enum class AuthorRole { CANONICAL, SECONDARY, LIST_PICK }
+
+/**
+ * Review source identity. [serverKey] is the raw `source` string the server sends;
+ * [scale] is the rating denominator (AMG /5, the rest /10). [alwaysShowsStar] drives the
+ * compact-pill star policy: AMG always shows it, the others only when there is no rating.
+ * Unknown sources resolve to [OTHER].
+ */
+enum class ReviewSourceKind(val serverKey: String, val scale: Int, val alwaysShowsStar: Boolean) {
+    AMG("AMG", 5, alwaysShowsStar = true),
+    TPS("TPS", 10, alwaysShowsStar = false),
+    OTHER("", 10, alwaysShowsStar = false),
+    ;
+
+    companion object {
+        fun fromServerKey(key: String): ReviewSourceKind =
+            entries.firstOrNull { it != OTHER && it.serverKey == key } ?: OTHER
+    }
+}
 
 data class DrInfo(val value: Float, val quality: DrQuality, val source: DrSource)
 data class AmgDrInfo(val value: Float, val quality: DrQuality)
@@ -31,6 +51,7 @@ data class AuthorWithRole(val name: String, val role: AuthorRole)
 
 data class SourceTags(
     val source: String,             // "AMG" | "TPS" | other
+    val kind: ReviewSourceKind,     // resolved identity (drives scale + star policy)
     val scale: Int,                 // 5 (AMG) or 10 (TPS)
     val rating: Float?,
     val favorite: Boolean,
@@ -62,14 +83,6 @@ fun drQuality(value: Float): DrQuality = when {
 }
 
 private fun isPositiveFinite(n: Float?): Boolean = n != null && n.isFinite() && n > 0f
-
-private val ACCOLADE_PRIORITY: Map<AccoladeKind, Int> = mapOf(
-    AccoladeKind.AOTY to 0, AccoladeKind.RECORD_OF_THE_MONTH to 1,
-    AccoladeKind.HONORABLE_MENTION to 2, AccoladeKind.SCORE_REVISED to 3,
-    AccoladeKind.LIT to 4, AccoladeKind.RFU to 5, AccoladeKind.TYMHM to 6,
-    AccoladeKind.SITF to 7, AccoladeKind.YMIO to 8, AccoladeKind.REVIEW to 9,
-    AccoladeKind.UNKNOWN to 100,
-)
 
 private val AWARD_KINDS = setOf(
     AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
@@ -103,7 +116,10 @@ private val HM_OLD = Regex("""^HONORABLE_MENTION-(\d{4})$""")
 private fun monthFromAbbr(abbr: String): Int? =
     MONTH_ABBR.indexOf(abbr).let { if (it < 0) null else it + 1 }
 
-private fun formatDated(name: String, year: Int?, month: Int?): String = when {
+// Re-attaches the parsed "(year)" / "(Mon year)" date facet to a (possibly localized)
+// accolade name. Shared by parseAccolade's legacy folding and the reception UI, so both
+// the inlined display string and the localized chip render the same facet.
+internal fun formatDated(name: String, year: Int?, month: Int?): String = when {
     year == null -> name
     month != null && month in 1..12 -> "$name (${MONTH_ABBR[month - 1]} $year)"
     else -> "$name ($year)"
@@ -170,15 +186,9 @@ fun parseAccolade(raw: String): ParsedAccolade {
 }
 
 fun sortAccolades(accolades: List<ParsedAccolade>): List<ParsedAccolade> = accolades.sortedWith(
-    compareBy<ParsedAccolade> { ACCOLADE_PRIORITY[it.kind] ?: 100 }
+    compareBy<ParsedAccolade> { it.kind.ordinal }
         .thenByDescending { it.year ?: 0 }
         .thenByDescending { it.month ?: 0 },
-)
-
-private val LEGACY_FOLD_ORDER = listOf(
-    AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
-    AccoladeKind.SCORE_REVISED, AccoladeKind.LIT, AccoladeKind.RFU, AccoladeKind.TYMHM,
-    AccoladeKind.SITF, AccoladeKind.YMIO, AccoladeKind.REVIEW,
 )
 
 /**
@@ -200,7 +210,8 @@ fun legacyAccolades(types: List<String>, labels: List<String>): List<String> {
         val cur = byKind[parsed.kind]
         if (cur == null || dateScore(parsed) > dateScore(cur)) byKind[parsed.kind] = parsed
     }
-    return LEGACY_FOLD_ORDER.mapNotNull { byKind[it]?.display } + extras
+    return AccoladeKind.entries.filter { it != AccoladeKind.UNKNOWN }
+        .mapNotNull { byKind[it]?.display } + extras
 }
 
 fun inferAuthorRoles(names: List<String>, hasScored: Boolean): List<AuthorWithRole> =
@@ -215,7 +226,7 @@ fun inferAuthorRoles(names: List<String>, hasScored: Boolean): List<AuthorWithRo
     }
 
 private fun parseSource(entry: ReviewSource): SourceTags? {
-    val scale = if (entry.source == "AMG") 5 else 10
+    val kind = ReviewSourceKind.fromServerKey(entry.source)
     val rating = if (isPositiveFinite(entry.rating)) entry.rating else null
     val favorite = rating == null && entry.favorite == true
     val accolades = sortAccolades(entry.accolades.map(::parseAccolade))
@@ -224,7 +235,7 @@ private fun parseSource(entry: ReviewSource): SourceTags? {
     val hasAny = rating != null || favorite || accolades.isNotEmpty() ||
         links.isNotEmpty() || authors.isNotEmpty()
     if (!hasAny) return null
-    return SourceTags(entry.source, scale, rating, favorite, accolades, links, authors)
+    return SourceTags(entry.source, kind, kind.scale, rating, favorite, accolades, links, authors)
 }
 
 fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): ReceptionTags {
@@ -248,8 +259,10 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
     val sources = cr?.sources.orEmpty()
     // First *usable* entry per source (a source row with no signal parses to null),
     // mirroring the web's `.map(parseSource).find(defined)`.
-    val amg = sources.filter { it.source == "AMG" }.firstNotNullOfOrNull(::parseSource)
-    val tps = sources.filter { it.source == "TPS" }.firstNotNullOfOrNull(::parseSource)
+    val amg = sources.filter { it.source == ReviewSourceKind.AMG.serverKey }
+        .firstNotNullOfOrNull(::parseSource)
+    val tps = sources.filter { it.source == ReviewSourceKind.TPS.serverKey }
+        .firstNotNullOfOrNull(::parseSource)
     return ReceptionTags(dr, amgDr, amg, tps)
 }
 

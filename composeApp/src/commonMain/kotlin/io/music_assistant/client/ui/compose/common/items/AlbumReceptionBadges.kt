@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.DrInfo
 import io.music_assistant.client.data.model.client.DrQuality
+import io.music_assistant.client.data.model.client.ReceptionTags
 import io.music_assistant.client.data.model.client.SourceTags
 import io.music_assistant.client.data.model.client.formatDr
 import io.music_assistant.client.data.model.client.formatScore
@@ -35,6 +36,15 @@ import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.parseAlbumReception
 
 enum class ReceptionBadgeStyle { Tile, Row }
+
+/** Parses (and memoizes by metadata identity) an album's reception data for UI. */
+@Composable
+fun rememberAlbumReceptionTags(album: Album): ReceptionTags = remember(album.metadata) {
+    parseAlbumReception(
+        album.metadata?.criticalReception,
+        album.metadata?.dynamicRange,
+    )
+}
 
 /**
  * Compact DR / AMG / TPS reception chips for album tiles and rows. Renders nothing
@@ -47,12 +57,7 @@ fun AlbumReceptionBadges(
     style: ReceptionBadgeStyle,
     modifier: Modifier = Modifier,
 ) {
-    val tags = remember(album.metadata) {
-        parseAlbumReception(
-            album.metadata?.criticalReception,
-            album.metadata?.dynamicRange,
-        )
-    }
+    val tags = rememberAlbumReceptionTags(album)
     if (!tags.hasAny) return
 
     val contentDesc = buildList {
@@ -106,7 +111,7 @@ private fun DrPill(dr: DrInfo) {
 @Composable
 private fun SourcePill(s: SourceTags) {
     // AMG always shows the star; TPS shows the star only when there is no rating.
-    val showStar = s.source == "AMG" || s.rating == null
+    val showStar = s.kind.alwaysShowsStar || s.rating == null
     Pill(
         text = s.rating?.let { formatScore(it) },
         container = MaterialTheme.colorScheme.surfaceVariant,

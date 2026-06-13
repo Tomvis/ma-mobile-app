@@ -472,7 +472,7 @@ private fun mainNavEntryProvider(
                         ),
                     )
                 },
-                onPlayClick = listenLaterViewModel::onPlayClick,
+                onPlayClick = actionsViewModel::onPlayClick,
             )
         }
     }

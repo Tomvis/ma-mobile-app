@@ -59,6 +59,7 @@ import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 import io.music_assistant.client.ui.compose.common.items.AddToPlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.Badges
 import io.music_assistant.client.ui.compose.common.items.ItemAction
+import io.music_assistant.client.ui.compose.common.items.dispatchLibraryAction
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.localizedSubtitle
@@ -211,7 +212,7 @@ private fun ItemOverflow(
                 -> libraryActions?.onFavoriteClick(item)
                 ItemAction.SaveForLater,
                 ItemAction.RemoveFromLater,
-                -> libraryActions?.onListenLaterClick(item)
+                -> it.dispatchLibraryAction(item, libraryActions)
                 ItemAction.AddToPlaylist -> showPlaylistDialog = true
                 else -> Unit
             }

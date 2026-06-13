@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
@@ -163,4 +165,25 @@ class ActionsViewModel(
     }
 
     fun getProviderIcon(provider: String) = dataSource.providerIcon(provider)
+
+    /**
+     * Plays an item on the selected player's queue. Shared queue-play dispatch used by the
+     * item lists and the Listen Later screen. Radio mode is suppressed for genres (their URI
+     * already resolves to a radio-style stream).
+     */
+    fun onPlayClick(item: AppMediaItem, option: QueueOption, radio: Boolean) {
+        viewModelScope.launch {
+            val queueId = dataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
+            item.mediaUri?.let { mediaUri ->
+                apiClient.sendRequest(
+                    Request.Library.play(
+                        media = listOf(mediaUri),
+                        queueOrPlayerId = queueId,
+                        option = option,
+                        radioMode = radio && item !is Genre,
+                    ),
+                )
+            }
+        }
+    }
 }

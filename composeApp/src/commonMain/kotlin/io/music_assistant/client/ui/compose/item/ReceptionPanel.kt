@@ -25,7 +25,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -43,12 +42,14 @@ import io.music_assistant.client.data.model.client.DrSource
 import io.music_assistant.client.data.model.client.ParsedAccolade
 import io.music_assistant.client.data.model.client.ReceptionTags
 import io.music_assistant.client.data.model.client.SourceTags
+import io.music_assistant.client.data.model.client.formatDated
 import io.music_assistant.client.data.model.client.formatDr
 import io.music_assistant.client.data.model.client.formatScore
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.linksForAccolade
-import io.music_assistant.client.data.model.client.parseAlbumReception
 import io.music_assistant.client.data.model.client.reviewLink
+import io.music_assistant.client.ui.compose.common.items.labelRes
+import io.music_assistant.client.ui.compose.common.items.rememberAlbumReceptionTags
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.reception_accolade_aoty
 import musicassistantclient.composeapp.generated.resources.reception_accolade_honorable_mention
@@ -62,10 +63,6 @@ import musicassistantclient.composeapp.generated.resources.reception_accolade_ty
 import musicassistantclient.composeapp.generated.resources.reception_accolade_ymio
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_fallback
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_reported
-import musicassistantclient.composeapp.generated.resources.reception_dr_excellent
-import musicassistantclient.composeapp.generated.resources.reception_dr_fair
-import musicassistantclient.composeapp.generated.resources.reception_dr_good
-import musicassistantclient.composeapp.generated.resources.reception_dr_poor
 import musicassistantclient.composeapp.generated.resources.reception_dynamic_range
 import musicassistantclient.composeapp.generated.resources.reception_personal_pick
 import musicassistantclient.composeapp.generated.resources.reception_score_with_max
@@ -75,12 +72,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun AlbumReceptionPanel(album: Album, modifier: Modifier = Modifier) {
-    val tags = remember(album.metadata) {
-        parseAlbumReception(
-            album.metadata?.criticalReception,
-            album.metadata?.dynamicRange,
-        )
-    }
+    val tags = rememberAlbumReceptionTags(album)
     if (!tags.hasAny) return
     ReceptionPanel(tags, modifier)
 }
@@ -109,14 +101,7 @@ private fun ReceptionPanel(tags: ReceptionTags, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun drVerdict(quality: DrQuality): String = stringResource(
-    when (quality) {
-        DrQuality.EXCELLENT -> Res.string.reception_dr_excellent
-        DrQuality.GOOD -> Res.string.reception_dr_good
-        DrQuality.FAIR -> Res.string.reception_dr_fair
-        DrQuality.POOR -> Res.string.reception_dr_poor
-    },
-)
+private fun drVerdict(quality: DrQuality): String = stringResource(quality.labelRes())
 
 @Composable
 private fun DrRow(dr: DrInfo, amgDr: AmgDrInfo?) {
@@ -230,16 +215,12 @@ private fun accoladeNameRes(kind: AccoladeKind): StringResource? = when (kind) {
     AccoladeKind.UNKNOWN -> null
 }
 
-// Trailing "(date)" facet from the parsed display string, re-attached to the
-// localized accolade name (mirrors the web's accoladeDisplay).
-private val DATE_PAREN = Regex("""\(([^)]*)\)\s*$""")
-
 @Composable
 private fun accoladeText(accolade: ParsedAccolade): String {
     val res = accoladeNameRes(accolade.kind) ?: return accolade.display
-    val base = stringResource(res)
-    val paren = DATE_PAREN.find(accolade.display)?.groupValues?.get(1)
-    return if (paren != null) "$base ($paren)" else base
+    // Re-attach the parsed date facet to the localized name (mirrors the web's
+    // accoladeDisplay) from the structured year/month the model already carries.
+    return formatDated(stringResource(res), accolade.year, accolade.month)
 }
 
 @Composable

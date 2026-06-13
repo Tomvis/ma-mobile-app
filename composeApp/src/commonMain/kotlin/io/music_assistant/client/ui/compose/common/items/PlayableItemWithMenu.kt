@@ -239,8 +239,7 @@ private fun <T> PlayableItemWithMenu(
 
                     ItemAction.SaveForLater,
                     ItemAction.RemoveFromLater,
-                        -> libraryActions.onListenLaterClick(item)
-
+                        -> action.dispatchLibraryAction(item, libraryActions)
 
                     ItemAction.AddToPlaylist -> showPlaylistDialog = true
                     ItemAction.RemoveFromPlaylist -> onRemoveFromPlaylist?.invoke()

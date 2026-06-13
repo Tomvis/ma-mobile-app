@@ -79,7 +79,7 @@ fun sharedModule(
             )
         }
         factory { LibraryCategoriesViewModel(get()) }
-        factory { ListenLaterViewModel(get(), get(), get()) }
+        factory { ListenLaterViewModel(get()) }
         factory { params -> ItemListViewModel(params[0], get(), get(), get(), get()) }
         factory { params ->
             ItemDetailsViewModel(

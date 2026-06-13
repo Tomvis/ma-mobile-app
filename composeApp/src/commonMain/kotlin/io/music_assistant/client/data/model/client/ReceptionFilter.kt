@@ -44,17 +44,10 @@ data class ReceptionFilter(
     }
 
     companion object {
-        val DR_BUCKETS = listOf("excellent", "good", "fair", "poor", "untagged")
+        // DR buckets and accolade kinds (with their display labels) live in the filter
+        // sheet, which is the only consumer; these numeric selectors stay here.
         val AMG_RATINGS = listOf(1, 2, 3, 4, 5)
         val TPS_BANDS = listOf(1, 3, 5, 7, 9)
-
-        // Accolade kinds the server can filter on (3.2.0 merged shape); shared by AMG
-        // and TPS. Awards first, then review-column kinds. AOTM is gone — folded into
-        // record_of_the_month. "review" is the default column and not a useful filter.
-        val ACCOLADE_KINDS = listOf(
-            "aoty", "record_of_the_month", "honorable_mention", "score_revised",
-            "tymhm", "sitf", "ymio", "lit", "rfu",
-        )
     }
 }
 
