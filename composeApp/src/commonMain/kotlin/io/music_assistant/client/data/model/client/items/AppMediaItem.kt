@@ -8,10 +8,12 @@ import io.music_assistant.client.data.model.client.Metadata
 import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.server.AudioFormat
 import io.music_assistant.client.data.model.server.ProviderMapping
+import io.music_assistant.client.data.model.server.ServerMediaItem
 
 interface PlayableItem {
     val defaultIcon: ImageVector
     val parentName: String?
+    val mediaType: MediaType
     val itemId: String
     val displayName: String
     val version: String?
@@ -34,6 +36,27 @@ interface PlayableItem {
 
 val PlayableItem?.isLongFormSpokenContent: Boolean
     get() = this is Audiobook || this is PodcastEpisode
+
+object LongFormSeekDefaults {
+    const val BACK_SECONDS = 10L
+    const val FORWARD_SECONDS = 30L
+}
+
+/**
+ * Items whose played/unplayed state can be marked on the server. Retains the original
+ * [source] DTO so it can be echoed back verbatim — the server's `music/mark_played`
+ * deserializes it into a full media item, which our decomposed client model can't
+ * reconstruct (e.g. a podcast episode's required `position`/`podcast` fields).
+ */
+interface MarkableItem {
+    val source: ServerMediaItem
+
+    /**
+     * A copy reflecting a new played state, for optimistically patching lists after a
+     * mark request — the server only writes the playlog and emits no update event.
+     */
+    fun withPlayed(fullyPlayed: Boolean): AppMediaItem
+}
 
 sealed class AppMediaItem {
     abstract val itemId: String

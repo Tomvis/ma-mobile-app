@@ -45,6 +45,8 @@ object AppMediaItemFixtures {
         images = emptyList(),
         releaseDate = null,
         chapters = emptyList(),
+        lyrics = null,
+        lrcLyrics = null,
         dynamicRange = 12f,
         criticalReception = CriticalReception(
             amgDr = 11f,
@@ -77,6 +79,8 @@ object AppMediaItemFixtures {
         images = emptyList(),
         releaseDate = null,
         chapters = emptyList(),
+        lyrics = null,
+        lrcLyrics = null,
         dynamicRange = null, // no measured DR -> AMG-reported DR fallback
         criticalReception = CriticalReception(
             amgDr = 9f,

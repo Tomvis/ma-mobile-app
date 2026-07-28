@@ -3,7 +3,9 @@ package io.music_assistant.client.settings
 import com.russhwolf.settings.Settings
 import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.data.model.client.ClickContext
+import io.music_assistant.client.data.model.client.GenreEmptyFilter
 import io.music_assistant.client.data.model.client.ItemKind
+import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortField
@@ -46,7 +48,7 @@ class SettingsRepository(
 
     fun updateConnectionInfo(connectionInfo: ConnectionInfo?) {
         if (connectionInfo != this._connectionInfo.value) {
-            settings.putString("host", connectionInfo?.host ?: "")
+            settings.putString("host", connectionInfo?.host.orEmpty())
             settings.putInt("port", connectionInfo?.port ?: 0)
             settings.putBoolean("isTls", connectionInfo?.isTls == true)
             _connectionInfo.update { connectionInfo }
@@ -72,6 +74,14 @@ class SettingsRepository(
         } else {
             settings.putString("token_$serverIdentifier", token)
         }
+    }
+
+    fun getIdForServer(serverIdentifier: String): String? {
+        return settings.getStringOrNull("id_$serverIdentifier")
+    }
+
+    fun setIdForServer(serverIdentifier: String, id: String) {
+        settings.putString("id_$serverIdentifier", id)
     }
 
     /**
@@ -197,14 +207,14 @@ class SettingsRepository(
     private val _defaultClickActions = MutableStateFlow(loadDefaultClickActions())
     val defaultClickActions = _defaultClickActions.asStateFlow()
 
-    private fun loadDefaultClickActions(): Map<ItemKind, Map<ClickContext, DefaultClickAction>> {
+    private fun loadDefaultClickActions(): Map<ItemKind, Map<ClickContext, DefaultClickOption>> {
         val raw = settings.getStringOrNull("default_click_actions") ?: return emptyMap()
         return runCatching {
             myJson.decodeFromString<Map<String, Map<String, String>>>(raw).mapNotNull { (k, perContext) ->
                 val kind = runCatching { ItemKind.valueOf(k) }.getOrNull() ?: return@mapNotNull null
                 kind to perContext.mapNotNull { (c, v) ->
                     val ctx = runCatching { ClickContext.valueOf(c) }.getOrNull() ?: return@mapNotNull null
-                    val action = runCatching { DefaultClickAction.valueOf(v) }.getOrNull() ?: return@mapNotNull null
+                    val action = runCatching { DefaultClickOption.valueOf(v) }.getOrNull() ?: return@mapNotNull null
                     ctx to action
                 }.toMap()
             }.toMap()
@@ -212,7 +222,7 @@ class SettingsRepository(
     }
 
     /** Replaces the per-context table for a single [kind]; other kinds are preserved. */
-    fun setDefaultClickActions(kind: ItemKind, perContext: Map<ClickContext, DefaultClickAction>) {
+    fun setDefaultClickActions(kind: ItemKind, perContext: Map<ClickContext, DefaultClickOption>) {
         val updated = _defaultClickActions.value.toMutableMap().apply { put(kind, perContext) }
         val encoded = myJson.encodeToString(
             updated.entries.associate { (k, m) -> k.name to m.entries.associate { it.key.name to it.value.name } },
@@ -227,18 +237,18 @@ class SettingsRepository(
     private val _carPlayableClickActions = MutableStateFlow(loadCarPlayableClickActions())
     val carPlayableClickActions = _carPlayableClickActions.asStateFlow()
 
-    private fun loadCarPlayableClickActions(): Map<ItemKind, DefaultClickAction> {
+    private fun loadCarPlayableClickActions(): Map<ItemKind, DefaultClickOption> {
         val raw = settings.getStringOrNull("car_playable_click_actions") ?: return emptyMap()
         return runCatching {
             myJson.decodeFromString<Map<String, String>>(raw).mapNotNull { (k, v) ->
                 val kind = runCatching { ItemKind.valueOf(k) }.getOrNull() ?: return@mapNotNull null
-                val action = runCatching { DefaultClickAction.valueOf(v) }.getOrNull() ?: return@mapNotNull null
+                val action = runCatching { DefaultClickOption.valueOf(v) }.getOrNull() ?: return@mapNotNull null
                 kind to action
             }.toMap()
         }.getOrDefault(emptyMap())
     }
 
-    fun setCarPlayableClickAction(kind: ItemKind, action: DefaultClickAction) {
+    fun setCarPlayableClickAction(kind: ItemKind, action: DefaultClickOption) {
         val updated = _carPlayableClickActions.value.toMutableMap().apply { put(kind, action) }
         settings.putString(
             "car_playable_click_actions",
@@ -253,24 +263,64 @@ class SettingsRepository(
     private val _carBrowsableBulkActions = MutableStateFlow(loadCarBrowsableBulkActions())
     val carBrowsableBulkActions = _carBrowsableBulkActions.asStateFlow()
 
-    private fun loadCarBrowsableBulkActions(): Map<ItemKind, List<DefaultClickAction>> {
+    private fun loadCarBrowsableBulkActions(): Map<ItemKind, List<DefaultClickOption>> {
         val raw = settings.getStringOrNull("car_browsable_bulk_actions") ?: return emptyMap()
         return runCatching {
             myJson.decodeFromString<Map<String, List<String>>>(raw).mapNotNull { (k, list) ->
                 val kind = runCatching { ItemKind.valueOf(k) }.getOrNull() ?: return@mapNotNull null
-                kind to list.mapNotNull { v -> runCatching { DefaultClickAction.valueOf(v) }.getOrNull() }
+                kind to list.mapNotNull { v -> runCatching { DefaultClickOption.valueOf(v) }.getOrNull() }
             }.toMap()
         }.getOrDefault(emptyMap())
     }
 
     /** Replaces the bulk-action list for a single [kind]; other kinds are preserved. */
-    fun setCarBrowsableBulkActions(kind: ItemKind, actions: List<DefaultClickAction>) {
+    fun setCarBrowsableBulkActions(kind: ItemKind, actions: List<DefaultClickOption>) {
         val updated = _carBrowsableBulkActions.value.toMutableMap().apply { put(kind, actions) }
         settings.putString(
             "car_browsable_bulk_actions",
             myJson.encodeToString(updated.entries.associate { (k, v) -> k.name to v.map { it.name } }),
         )
         _carBrowsableBulkActions.update { updated }
+    }
+
+    // Car DSP: what to do to the local player's DSP on connect / disconnect from the car.
+    // Stored as the polymorphic JSON of [CarDspAction] per direction; absent -> Nothing.
+    private val _carDspConnectAction = MutableStateFlow(loadCarDspAction(CAR_DSP_CONNECT_KEY))
+    val carDspConnectAction = _carDspConnectAction.asStateFlow()
+
+    private val _carDspDisconnectAction = MutableStateFlow(loadCarDspAction(CAR_DSP_DISCONNECT_KEY))
+    val carDspDisconnectAction = _carDspDisconnectAction.asStateFlow()
+
+    private fun loadCarDspAction(key: String): CarDspAction {
+        val raw = settings.getStringOrNull(key) ?: return CarDspAction.Nothing
+        return runCatching { myJson.decodeFromString<CarDspAction>(raw) }
+            .getOrDefault(CarDspAction.Nothing)
+    }
+
+    fun setCarDspConnectAction(action: CarDspAction) =
+        persistCarDspAction(CAR_DSP_CONNECT_KEY, action, _carDspConnectAction)
+
+    fun setCarDspDisconnectAction(action: CarDspAction) =
+        persistCarDspAction(CAR_DSP_DISCONNECT_KEY, action, _carDspDisconnectAction)
+
+    private fun persistCarDspAction(
+        key: String,
+        action: CarDspAction,
+        flow: MutableStateFlow<CarDspAction>,
+    ) {
+        settings.putString(key, myJson.encodeToString<CarDspAction>(action))
+        flow.update { action }
+    }
+
+    // Whether player surfaces derive their background from the current track's artwork.
+    private val _dynamicColors = MutableStateFlow(
+        settings.getBoolean("dynamic_colors", true),
+    )
+    val dynamicColors = _dynamicColors.asStateFlow()
+
+    fun setDynamicColors(enabled: Boolean) {
+        settings.putBoolean("dynamic_colors", enabled)
+        _dynamicColors.update { enabled }
     }
 
     // Sendspin settings
@@ -282,6 +332,18 @@ class SettingsRepository(
     fun setSendspinEnabled(enabled: Boolean) {
         settings.putBoolean("sendspin_enabled", enabled)
         _sendspinEnabled.update { enabled }
+    }
+
+    // Persisted dismissal of the "background usage disabled" warning (Android). Set only by an
+    // explicit dialog dismissal; never auto-reset.
+    private val _bgWarningDismissed = MutableStateFlow(
+        settings.getBoolean("sendspin_bg_warning_dismissed", false),
+    )
+    val bgWarningDismissed = _bgWarningDismissed.asStateFlow()
+
+    fun setBgWarningDismissed(dismissed: Boolean) {
+        settings.putBoolean("sendspin_bg_warning_dismissed", dismissed)
+        _bgWarningDismissed.update { dismissed }
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -522,6 +584,51 @@ class SettingsRepository(
         viewModeFlow(mediaType).update { mode }
     }
 
+    // Per-MediaType library filters, persisted like view mode (settings are the
+    // source of truth; the VM folds emissions back into state).
+    private val libraryFilterFlows = mutableMapOf<MediaType, MutableStateFlow<LibraryFilters>>()
+
+    private fun libraryFiltersKey(mediaType: MediaType) = "library_filters_${mediaType.name}"
+
+    private fun libraryFiltersFlow(mediaType: MediaType) = libraryFilterFlows.getOrPut(mediaType) {
+        MutableStateFlow(loadLibraryFilters(mediaType))
+    }
+
+    fun libraryFilters(mediaType: MediaType) = libraryFiltersFlow(mediaType).asStateFlow()
+
+    fun setLibraryFilters(mediaType: MediaType, filters: LibraryFilters) {
+        settings.putString(libraryFiltersKey(mediaType), myJson.encodeToString(filters))
+        libraryFiltersFlow(mediaType).update { filters }
+    }
+
+    private fun loadLibraryFilters(mediaType: MediaType): LibraryFilters {
+        settings.getStringOrNull(libraryFiltersKey(mediaType))?.let { raw ->
+            // coerceInputValues shields top-level nullable enums, but NOT unknown
+            // elements inside albumTypes; a full runCatching fallback is required.
+            return runCatching {
+                myJson.decodeFromString<LibraryFilters>(raw)
+            }.getOrDefault(LibraryFilters())
+        }
+        // Legacy migration: fold the old genres-only single-key filters into the
+        // new per-type object, then drop the legacy keys.
+        if (mediaType == MediaType.GENRE) {
+            val legacyEmpty = settings.getStringOrNull("genre_empty_filter")
+                ?.let { runCatching { GenreEmptyFilter.valueOf(it) }.getOrNull() }
+            val legacyType = MediaType.fromServer(settings.getStringOrNull("genre_media_type_filter"))
+            if (legacyEmpty != null || legacyType != null) {
+                val migrated = LibraryFilters(
+                    hideEmpty = legacyEmpty ?: GenreEmptyFilter.DEFAULT,
+                    genreMediaType = legacyType,
+                )
+                settings.putString(libraryFiltersKey(mediaType), myJson.encodeToString(migrated))
+                settings.remove("genre_empty_filter")
+                settings.remove("genre_media_type_filter")
+                return migrated
+            }
+        }
+        return LibraryFilters()
+    }
+
     fun getSortOption(context: SubItemContext): SortOption {
         val raw = settings.getStringOrNull("sort_sub_${context.name}")
             ?: return SortConfig.defaultFor(context)
@@ -538,5 +645,10 @@ class SettingsRepository(
         val field = runCatching { SortField.valueOf(parts[0]) }.getOrNull() ?: return null
         val desc = parts[1].toBooleanStrictOrNull() ?: return null
         return SortOption(field, desc)
+    }
+
+    private companion object {
+        const val CAR_DSP_CONNECT_KEY = "car_dsp_action_connect"
+        const val CAR_DSP_DISCONNECT_KEY = "car_dsp_action_disconnect"
     }
 }

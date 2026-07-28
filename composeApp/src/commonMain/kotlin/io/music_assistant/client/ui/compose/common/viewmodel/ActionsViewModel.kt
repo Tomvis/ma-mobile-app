@@ -8,7 +8,9 @@ import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Genre
+import io.music_assistant.client.data.model.client.items.MarkableItem
 import io.music_assistant.client.data.model.client.items.Playlist
+import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.toast_added_to_playlist
 import musicassistantclient.composeapp.generated.resources.toast_error_add_playlist
+import musicassistantclient.composeapp.generated.resources.toast_error_create_playlist
 import musicassistantclient.composeapp.generated.resources.toast_error_mark_played
 import musicassistantclient.composeapp.generated.resources.toast_error_mark_unplayed
 import musicassistantclient.composeapp.generated.resources.toast_marked_played
@@ -76,33 +79,24 @@ class ActionsViewModel(
     /**
      * Sets exact or toggles favorite status of the item.
      */
-    override fun onFavoriteClick(item: AppMediaItem) {
-        viewModelScope.launch {
-            val newFavorite = item.favorite != true
-            // Optimistic: the server's queue payload reports a stale `favorite`
-            // for the now-playing track and clobbers the confirmed value, so the
-            // UI is driven from this override until MediaItemUpdatedEvent reconciles.
-            val result = if (newFavorite) {
-                val uri = item.uri ?: return@launch
-                dataSource.setFavoriteOverride(item, true)
-                apiClient.sendRequest(Request.Library.addFavorite(uri))
-            } else {
-                dataSource.setFavoriteOverride(item, false)
-                apiClient.sendRequest(
-                    Request.Library.removeFavorite(item.itemId, item.mediaType),
-                )
-            }
-            // Roll back to the pre-toggle value if the server rejected it.
-            result.onFailure { dataSource.setFavoriteOverride(item, item.favorite) }
-        }
-    }
+    override fun onFavoriteClick(item: AppMediaItem) = dataSource.toggleFavorite(item)
 
     override suspend fun getEditablePlaylists(): List<Playlist> =
         mediaItemRepository.fetchMediaItems(Request.Playlist.listLibrary())
             .getOrNull()
             ?.filterIsInstance<Playlist>()
-            ?.filter { it.isEditable }
+            // Smart/dynamic playlists are rule-generated; tracks can't be added manually.
+            ?.filter { it.isEditable && !it.isDynamic }
             ?: emptyList()
+
+    override suspend fun createPlaylist(name: String): Playlist? =
+        createPlaylistAwaitingConfirmation(
+            name = name,
+            itemChanges = mediaItemRepository.itemChanges,
+            timeoutMs = CREATE_CONFIRM_TIMEOUT_MS,
+            sendCreate = { apiClient.sendRequest(Request.Playlist.create(name)) },
+            onError = { _toasts.emit(getString(Res.string.toast_error_create_playlist)) },
+        )
 
     override fun addToPlaylist(
         itemUri: String?,
@@ -149,12 +143,18 @@ class ActionsViewModel(
      * Mark an audiobook or podcast episode as fully played.
      */
     override fun onMarkPlayed(item: AppMediaItem) {
+        val markable = item as? MarkableItem ?: return
         viewModelScope.launch {
-            item.uri?.let { uri ->
-                apiClient.sendRequest(Request.Library.markPlayed(uri))
-                    .onSuccess { _toasts.emit(getString(Res.string.toast_marked_played)) }
-                    .onFailure { _toasts.emit(getString(Res.string.toast_error_mark_played)) }
-            }
+            apiClient.sendRequest(Request.Library.markPlayed(markable))
+                .onSuccess {
+                    // Server only writes the playlog and emits no update event, so
+                    // optimistically patch lists; reverts on next refetch if wrong.
+                    mediaItemRepository.publishLocalChange(
+                        MediaItemChange.Updated(markable.withPlayed(true)),
+                    )
+                    _toasts.emit(getString(Res.string.toast_marked_played))
+                }
+                .onFailure { _toasts.emit(getString(Res.string.toast_error_mark_played)) }
         }
     }
 
@@ -162,12 +162,16 @@ class ActionsViewModel(
      * Mark an audiobook or podcast episode as unplayed (resets progress).
      */
     override fun onMarkUnplayed(item: AppMediaItem) {
+        val markable = item as? MarkableItem ?: return
         viewModelScope.launch {
-            item.uri?.let { uri ->
-                apiClient.sendRequest(Request.Library.markUnplayed(uri))
-                    .onSuccess { _toasts.emit(getString(Res.string.toast_marked_unplayed)) }
-                    .onFailure { _toasts.emit(getString(Res.string.toast_error_mark_unplayed)) }
-            }
+            apiClient.sendRequest(Request.Library.markUnplayed(markable))
+                .onSuccess {
+                    mediaItemRepository.publishLocalChange(
+                        MediaItemChange.Updated(markable.withPlayed(false)),
+                    )
+                    _toasts.emit(getString(Res.string.toast_marked_unplayed))
+                }
+                .onFailure { _toasts.emit(getString(Res.string.toast_error_mark_unplayed)) }
         }
     }
 
@@ -192,5 +196,10 @@ class ActionsViewModel(
                 )
             }
         }
+    }
+
+    private companion object {
+        // Upper bound for awaiting the server's "playlist added" confirmation.
+        private const val CREATE_CONFIRM_TIMEOUT_MS = 5000L
     }
 }

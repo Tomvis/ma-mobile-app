@@ -22,6 +22,7 @@ import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.ItemKind
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
+import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortField
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.SubItemContext
@@ -32,15 +33,13 @@ import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.settings.CarPlatform
-import io.music_assistant.client.settings.DefaultClickAction
+import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.carBulkActions
 import io.music_assistant.client.settings.carTapAction
 import io.music_assistant.client.settings.toCarDispatch
 import io.music_assistant.client.ui.Timings
 import io.music_assistant.client.ui.compose.library.LibraryCategory
-import io.music_assistant.client.utils.DataConnectionState
-import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.resultAs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,12 +48,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 
 // Unified tag for all Android Auto logs (browse / voice / playback). Filter
 // logcat with `AndroidAuto:V *:S` to see the full pipeline. Shared across the
@@ -86,7 +83,7 @@ class AutoLibrary(
             searchFlow
                 .filterNotNull()
                 .filter { it.first.isNotEmpty() }
-                .debounce(Timings.INPUT_DEBOUNCE)
+                .debounce(Timings.INPUT_DEBOUNCE.milliseconds)
                 .collect { (query, result) ->
                     val answer = apiClient.sendRequest(
                         request = Request.Library.search(
@@ -174,7 +171,6 @@ class AutoLibrary(
         result.detach()
         scope.launch {
             val items = cachedOrFetch(tabId) {
-                if (!waitForCorrectState()) return@cachedOrFetch null
                 val sorted = loadTabItems(
                     MediaType.RADIO,
                     SortOption(SortField.LAST_PLAYED, descending = true),
@@ -201,7 +197,6 @@ class AutoLibrary(
         result.detach()
         scope.launch {
             val items = cachedOrFetch(id) {
-                if (!waitForCorrectState()) return@cachedOrFetch null
                 loadTabItems(mediaType, spec.sort, spec.favoritesOnly)
             }
             result.sendResult(items)
@@ -259,7 +254,7 @@ class AutoLibrary(
         }
         result.detach()
         scope.launch {
-            val items = loadSubItems(context, parent, defaultSortFor(context)) ?: run {
+            val items = loadSubItems(context, parent, SortConfig.defaultFor(context)) ?: run {
                 result.sendResult(null)
                 return@launch
             }
@@ -308,7 +303,9 @@ class AutoLibrary(
         parent: ParentRef,
         sort: SortOption,
     ): List<MediaItem>? {
-        // Server-side sort only works for playlist tracks; the rest must be sorted client-side.
+        // Fetch in natural order and sort client-side, matching ItemDetailsViewModel. The
+        // context-aware clientSorted is what makes SortField.ORIGINAL mean track/disc number
+        // (albums) or playlist position rather than server name order.
         val request = when (context) {
             SubItemContext.ARTIST_ALBUMS ->
                 Request.Artist.getAlbums(parent.itemId, parent.provider)
@@ -316,12 +313,8 @@ class AutoLibrary(
             SubItemContext.ALBUM_TRACKS ->
                 Request.Album.getTracks(parent.itemId, parent.provider)
 
-            SubItemContext.PLAYLIST_TRACKS ->
-                Request.Playlist.getTracks(
-                    itemId = parent.itemId,
-                    providerInstanceIdOrDomain = parent.provider,
-                    orderBy = sort.toServerString(),
-                )
+            SubItemContext.PLAYLIST_ITEMS ->
+                Request.Playlist.getTracks(parent.itemId, parent.provider)
 
             SubItemContext.PODCAST_EPISODES ->
                 Request.Podcast.getEpisodes(parent.itemId, parent.provider)
@@ -332,23 +325,15 @@ class AutoLibrary(
             .resultAs<List<ServerMediaItem>>()
             ?.let { mediaItemFactory.createList(it) }
             ?: return null
-        val sorted =
-            if (context == SubItemContext.PLAYLIST_TRACKS) items else items.clientSorted(sort)
-        return sorted.filter { it.isPlayable }.map { it.toAutoMediaItem(true, defaultIconUri) }
+        val sorted = items.clientSorted(sort, context)
+        // Tracks inside an album/playlist carry the container URI so a PLAY_FROM_HERE tap can
+        // play the whole container starting from the tapped track.
+        val parentUri = parent.uri.takeIf {
+            context == SubItemContext.ALBUM_TRACKS || context == SubItemContext.PLAYLIST_ITEMS
+        }
+        return sorted.filter { it.isPlayable }
+            .map { it.toAutoMediaItem(true, defaultIconUri, parentUri = parentUri) }
     }
-
-    private fun defaultSortFor(context: SubItemContext): SortOption = when (context) {
-        SubItemContext.PODCAST_EPISODES -> SortOption(SortField.RELEASE_DATE, descending = true)
-        else -> SortOption(SortField.NAME, descending = false)
-    }
-
-    private suspend fun waitForCorrectState(): Boolean =
-        withTimeoutOrNull(WAIT_FOR_AUTHENTICATED_TIMEOUT_MS) {
-            apiClient.sessionState
-                .mapNotNull { it as? SessionState.Connected }
-                .mapNotNull { it.dataConnectionState as? DataConnectionState.Authenticated }
-                .first()
-        } != null
 
     private fun actionsForItem(itemId: String, kind: ItemKind): List<MediaItem> =
         settingsRepository.carBrowsableBulkActions.value
@@ -367,21 +352,23 @@ class AutoLibrary(
 
     // Bulk-button labels/icons. AA titles are hard-coded English to match the rest of this
     // library (tab names, sub-lists). "All" framing because the action applies to the container.
-    private fun DefaultClickAction.bulkTitle(): String = when (this) {
-        DefaultClickAction.PLAY_NOW -> "Play all"
-        DefaultClickAction.INSERT_NEXT_AND_PLAY -> "Play all next"
-        DefaultClickAction.INSERT_NEXT -> "Add all next"
-        DefaultClickAction.ADD_TO_QUEUE -> "Add all to queue"
-        DefaultClickAction.START_RADIO -> "Start radio"
+    private fun DefaultClickOption.bulkTitle(): String = when (this) {
+        DefaultClickOption.PLAY_NOW -> "Play all"
+        DefaultClickOption.INSERT_NEXT_AND_PLAY -> "Play all next"
+        DefaultClickOption.INSERT_NEXT -> "Add all next"
+        DefaultClickOption.ADD_TO_QUEUE -> "Add all to queue"
+        DefaultClickOption.START_RADIO -> "Start radio"
+        else -> throw IllegalArgumentException("$name not supported by Android Auto!")
     }
 
     @DrawableRes
-    private fun DefaultClickAction.bulkIcon(): Int = when (this) {
-        DefaultClickAction.PLAY_NOW, DefaultClickAction.INSERT_NEXT_AND_PLAY ->
+    private fun DefaultClickOption.bulkIcon(): Int = when (this) {
+        DefaultClickOption.PLAY_NOW, DefaultClickOption.INSERT_NEXT_AND_PLAY ->
             android.R.drawable.ic_media_play
-        DefaultClickAction.INSERT_NEXT, DefaultClickAction.ADD_TO_QUEUE ->
+        DefaultClickOption.INSERT_NEXT, DefaultClickOption.ADD_TO_QUEUE ->
             android.R.drawable.ic_menu_add
-        DefaultClickAction.START_RADIO -> android.R.drawable.ic_menu_compass
+        DefaultClickOption.START_RADIO -> android.R.drawable.ic_menu_compass
+        else -> throw IllegalArgumentException("$name not supported by Android Auto!")
     }
 
     fun search(
@@ -395,14 +382,9 @@ class AutoLibrary(
 
     fun searchAndPlay(query: String, extras: Bundle?) {
         scope.launch {
-            val ready = waitForCorrectState()
-            if (!ready) {
-                androidAutoLog.w {
-                    "Server not authenticated within ${WAIT_FOR_AUTHENTICATED_TIMEOUT_MS}ms — " +
-                            "aborting voice playback (query=\"$query\")."
-                }
-                return@launch
-            }
+            // Readiness/recovery is driven at the request choke point: every play* path
+            // below issues `apiClient.sendRequest`, which gates on `ensureReadyForCommands`
+            // (kicking reconnect from a stale/errored session). No passive pre-wait here.
             // MediaStore.Audio.{Artists,Albums,Media,Playlists,Genres}.ENTRY_CONTENT_TYPE
             // are deprecated in MediaStore itself but remain the canonical EXTRA_MEDIA_FOCUS
             // values Google Assistant emits, with no documented replacement. Suppress here
@@ -686,8 +668,8 @@ class AutoLibrary(
             androidAutoLog.w { "playUris called with empty media list — no-op." }
             return
         }
-        androidAutoLog.i { "Library.play REPLACE items=${media.size} first=${media.first()}" }
-        dispatchToLocalPlayer(media, QueueOption.REPLACE)
+        androidAutoLog.i { "Library.play PLAY items=${media.size} first=${media.first()}" }
+        dispatchToLocalPlayer(media, QueueOption.PLAY)
     }
 
     private suspend fun playAndShuffle(media: List<String>, shuffle: Boolean) {
@@ -711,6 +693,7 @@ class AutoLibrary(
         uris: List<String>,
         option: QueueOption,
         radioMode: Boolean = false,
+        startItem: String? = null,
     ) {
         val player = mainDataSource.localPlayer.value?.player
         val plan = planLocalPlayerDispatch(
@@ -719,6 +702,7 @@ class AutoLibrary(
             mediaUris = uris,
             option = option,
             radioMode = radioMode,
+            startItem = startItem,
         )
         if (plan == null) {
             androidAutoLog.w {
@@ -760,12 +744,29 @@ class AutoLibrary(
         // car default (encoded MediaType -> ItemKind). valueOf throws on unknown names — a stale
         // item or malformed bundle would crash the service — so every decode falls back silently.
         val explicit = extras?.getString(MediaIds.ACTION_KEY)
-            ?.let { runCatching { DefaultClickAction.valueOf(it) }.getOrNull() }
+            ?.let { runCatching { DefaultClickOption.valueOf(it) }.getOrNull() }
         val action = explicit ?: parts.getOrNull(2)
             ?.let { runCatching { MediaType.valueOf(it) }.getOrNull() }
             ?.toItemKind()
             ?.let { settingsRepository.carPlayableClickActions.value.carTapAction(it) }
-            ?: DefaultClickAction.PLAY_NOW
+            ?: DefaultClickOption.PLAY_NOW
+
+        // PLAY_FROM_HERE plays the parent container starting at this track (start_item). It's the
+        // one action toCarDispatch can't express; resolve it here. Without a parent (flat lists:
+        // search, For You, voice) it falls back to PLAY_NOW on the track itself.
+        if (action == DefaultClickOption.PLAY_FROM_HERE) {
+            val parentUri = extras?.getString(MediaIds.PARENT_URI_KEY)
+            val itemId = parts.getOrNull(0)
+            if (parentUri != null && itemId != null) {
+                scope.launch {
+                    dispatchToLocalPlayer(listOf(parentUri), QueueOption.REPLACE, startItem = itemId)
+                }
+            } else {
+                scope.launch { dispatchToLocalPlayer(listOf(uri), QueueOption.REPLACE) }
+            }
+            return
+        }
+
         val dispatch = action.toCarDispatch()
         scope.launch { dispatchToLocalPlayer(listOf(uri), dispatch.option, dispatch.radioMode) }
     }
@@ -801,8 +802,6 @@ class AutoLibrary(
     }
 
     private companion object {
-        const val WAIT_FOR_AUTHENTICATED_TIMEOUT_MS = 30_000L
-
         // Random-favorites pool size. 200 keeps the shuffle interesting without
         // overloading the play_media RPC payload for users with large libraries.
         const val RANDOM_POOL_SIZE = 200
@@ -827,6 +826,10 @@ internal object MediaIds {
     // Bulk-button extras carry the chosen DefaultClickAction.name so play() dispatches the
     // exact action the user configured (queue option or start-radio) rather than guessing.
     const val ACTION_KEY = "auto_click_action"
+
+    // Carries the parent album/playlist URI on each track inside that drilldown, so a
+    // PLAY_FROM_HERE tap can play the container starting from the tapped track (start_item).
+    const val PARENT_URI_KEY = "auto_parent_uri"
 
     // `_` is taken by tab IDs and `__` by ParentRef; `|` keeps sub-list IDs
     // unambiguous against both (and against keys like BY_NAME that contain `_`).
@@ -872,7 +875,7 @@ internal data class ParentRef(
     fun subItemContext(): SubItemContext? = when (type) {
         MediaType.ARTIST -> SubItemContext.ARTIST_ALBUMS
         MediaType.ALBUM -> SubItemContext.ALBUM_TRACKS
-        MediaType.PLAYLIST -> SubItemContext.PLAYLIST_TRACKS
+        MediaType.PLAYLIST -> SubItemContext.PLAYLIST_ITEMS
         MediaType.PODCAST -> SubItemContext.PODCAST_EPISODES
         else -> null
     }
@@ -919,9 +922,10 @@ private fun AppMediaItem.toAutoMediaItem(
     allowBrowse: Boolean,
     defaultIconUri: Uri,
     category: String? = null,
+    parentUri: String? = null,
 ): MediaItem {
     return MediaItem(
-        toMediaDescription(defaultIconUri, category),
+        toMediaDescription(defaultIconUri, category, parentUri),
         if (allowBrowse && mediaType.isBrowsableInAuto()) {
             MediaItem.FLAG_BROWSABLE
         } else {
@@ -944,6 +948,7 @@ fun @receiver:DrawableRes Int.toUri(context: Context): Uri = Uri.parse(
 fun AppMediaItem.toMediaDescription(
     defaultIconUri: Uri,
     category: String? = null,
+    parentUri: String? = null,
 ): MediaDescriptionCompat {
     return MediaDescriptionCompat.Builder()
         .setMediaId("${itemId}__${uri}__${mediaType}__$provider")
@@ -960,6 +965,7 @@ fun AppMediaItem.toMediaDescription(
                     MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE,
                     category,
                 )
+                parentUri?.let { putString(MediaIds.PARENT_URI_KEY, it) }
             },
         )
         .build()

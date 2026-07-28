@@ -17,7 +17,7 @@ import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
-import io.music_assistant.client.ui.compose.nav.Screen
+import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.listen_later_title
@@ -34,7 +34,7 @@ fun ListenLaterScreen(
     onPlayClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Screen(
+    TopBarLayout(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.listen_later_title)) },

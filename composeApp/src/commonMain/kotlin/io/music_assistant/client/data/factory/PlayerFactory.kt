@@ -22,6 +22,7 @@ class PlayerFactory(
             id = playerId,
             name = displayName,
             provider = provider,
+            icon = icon,
             // Unknown/new server-side player types (coerced to null by myJson) are
             // treated as regular players so they still show up and aren't mistaken
             // for a group. If the server adds a genuinely new group-like type we
@@ -29,10 +30,12 @@ class PlayerFactory(
             type = PlayerType.fromServer(type) ?: PlayerType.PLAYER,
             shouldBeShown = available && enabled && (hidden != true) && (hideInUi != true),
             canSetVolume = supportedFeatures.contains(PlayerFeature.VOLUME_SET),
+            canPower = supportedFeatures.contains(PlayerFeature.POWER) && powerControl != null && powerControl != PLAYER_CONTROL_NONE,
+            isPowered = powered == true,
             volumeLevel = volumeLevel,
             volumeControl = volumeControl,
             volumeMuted = volumeMuted == true,
-            canMute = muteControl != null && muteControl != PLAYER_CONTROL_NONE,
+            canMute = supportedFeatures.contains(PlayerFeature.VOLUME_MUTE) && muteControl != null && muteControl != PLAYER_CONTROL_NONE,
             queueId = activeSource ?: currentMedia?.queueId,
             isPlaying = state == PlayerState.PLAYING,
             isAnnouncing = announcementInProgress == true,
@@ -62,7 +65,6 @@ class PlayerFactory(
             queueItemId = queueItemId,
             mediaType = clientMediaType,
             uri = uri,
-            palette = palette,
         )
     }
 

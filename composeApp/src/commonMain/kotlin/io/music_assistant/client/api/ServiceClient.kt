@@ -16,8 +16,12 @@ interface ServiceClient {
     suspend fun authorize(token: String, isAutoLogin: Boolean = false)
     fun logout()
     val isReadyForCommands: StateFlow<Boolean>
-    val serverBaseUrl: StateFlow<String?>
-    fun resolveImageUrl(path: String, provider: String, isRemotelyAccessible: Boolean): String?
+    fun resolveImageUrl(
+        path: String,
+        provider: String,
+        isRemotelyAccessible: Boolean,
+        proxyId: String?,
+    ): String?
     fun rebaseServerImageUrl(rawUrl: String): String?
     val webRTCHttpProxy: WebRTCHttpProxy?
     fun forceWebRTCReconnect()
@@ -34,4 +38,9 @@ interface ServiceClient {
     fun onPlaybackActive()
     fun onExternalConsumerInactive()
     fun onPlaybackInactive()
+    fun forceDisconnect(reason: Exception)
+    fun noServer()
+
+    /** True while an external consumer (Android Auto / CarPlay) is bound. Cross-platform car edge. */
+    val externalConsumerActive: StateFlow<Boolean>
 }

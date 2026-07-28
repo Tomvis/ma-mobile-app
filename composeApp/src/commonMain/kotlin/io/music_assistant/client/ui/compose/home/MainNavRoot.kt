@@ -2,14 +2,12 @@
 
 package io.music_assistant.client.ui.compose.home
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -20,15 +18,21 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -48,8 +52,7 @@ import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
-import io.music_assistant.client.settings.SettingsRepository
-import io.music_assistant.client.ui.compose.common.DataState
+import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.providers.ProviderIcon
@@ -59,20 +62,26 @@ import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
 import io.music_assistant.client.ui.compose.item.ItemDetailsScreen
 import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
+import io.music_assistant.client.ui.compose.library.BrowseScreen
+import io.music_assistant.client.ui.compose.library.BrowseViewModel
 import io.music_assistant.client.ui.compose.library.ItemListScreen
 import io.music_assistant.client.ui.compose.library.ItemListViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
+import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.LibraryScreen
+import io.music_assistant.client.ui.compose.library.LibraryScreenState
 import io.music_assistant.client.ui.compose.library.ListenLaterScreen
 import io.music_assistant.client.ui.compose.library.ListenLaterViewModel
-import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationScaffold
+import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationBarLayout
 import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.ConditionalBackNavDisplay
 import io.music_assistant.client.ui.compose.nav.MultiBackStack
 import io.music_assistant.client.ui.compose.nav.NavigationItem
+import io.music_assistant.client.ui.compose.nav.ScreenState
 import io.music_assistant.client.ui.compose.nav.createNavigationItem
 import io.music_assistant.client.ui.compose.search.GlobalSearchRequest
 import io.music_assistant.client.ui.compose.search.SearchScreen
+import io.music_assistant.client.ui.compose.search.SearchScreenState
 import io.music_assistant.client.ui.compose.search.SearchViewModel
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
@@ -85,6 +94,7 @@ import musicassistantclient.composeapp.generated.resources.nav_home
 import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
+import musicassistantclient.composeapp.generated.resources.players_remote_volume_hint
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -104,6 +114,7 @@ fun MainNavigationRoot(
     val toastState = rememberToastState()
     val errorBus: ErrorMessageBus = koinInject()
     val deepLinkBus: DeepLinkBus = koinInject()
+    val volumeButtonService: VolumeButtonService = koinInject()
 
     LaunchedEffect(Unit) {
         homeScreenViewModel.links.collectLatest { url -> uriHandler.openUri(url) }
@@ -118,7 +129,6 @@ fun MainNavigationRoot(
         }
     }
 
-    val recommendationsState = homeScreenViewModel.recommendationsState.collectAsStateWithLifecycle()
     val playersState by homeScreenViewModel.playersState.collectAsStateWithLifecycle()
     // Single pager state used across all views
     val data = playersState as? HomeScreenViewModel.PlayersState.Data
@@ -144,10 +154,6 @@ fun MainNavigationRoot(
         }
     }
 
-    val connectionState = recommendationsState.value.connectionState
-    val dataState = recommendationsState.value.recommendations
-    val homeRowsConfig = recommendationsState.value.homeRowsConfig
-
     var playerExpanded by remember { mutableStateOf(false) }
 
     val onExpandPlayer = remember { { expanded: Boolean -> playerExpanded = expanded } }
@@ -165,11 +171,12 @@ fun MainNavigationRoot(
     // pre-auth MainNavigationRoot instance — torn down during the cold-launch
     // Main→Settings→Main churn — never consumes it; only the authenticated
     // instance that stays on screen applies and clears it.
+    val connectionState by homeScreenViewModel.connectionState.collectAsStateWithLifecycle()
     val pendingDeepLink by deepLinkBus.pending.collectAsStateWithLifecycle()
     LaunchedEffect(pendingDeepLink, connectionState) {
         val dest = pendingDeepLink ?: return@LaunchedEffect
         val authenticated = (connectionState as? SessionState.Connected)
-            ?.dataConnectionState == DataConnectionState.Authenticated
+            ?.dataConnectionState is DataConnectionState.Authenticated
         if (!authenticated) return@LaunchedEffect
         when (dest) {
             DeepLinkDestination.Home -> {
@@ -199,21 +206,48 @@ fun MainNavigationRoot(
         deepLinkBus.consume(dest)
     }
 
+    // Each root screen's scroll/collapsing-top-bar state is owned by its NavEntry
+    // (published here while composed) so its lifetime matches the ViewModel it
+    // mirrors. The nav bar reads these to scroll the active tab to top on re-tap;
+    // a tab switch disposes the entry, so re-entry starts fresh instead of stranding
+    // a collapsed top bar.
+    val homeScreenState = remember { mutableStateOf<HomeScreenState?>(null) }
+    val libraryScreenState = remember { mutableStateOf<LibraryScreenState?>(null) }
+    val searchScreenState = remember { mutableStateOf<SearchScreenState?>(null) }
+
+    val remoteVolumeHint = stringResource(Res.string.players_remote_volume_hint)
+    val viewingRemote = data?.selectedPlayer?.isLocal == false
+    val currentHint by rememberUpdatedState(remoteVolumeHint)
+    val observingRemote by rememberUpdatedState(viewingRemote)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, volumeButtonService) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            volumeButtonService.buttonPresses.collect {
+                if (observingRemote) {
+                    toastState.showToast(currentHint, ToastDuration.SHORT)
+                }
+            }
+        }
+    }
+
     val navigationItems = listOf(
         multiBackStack.createNavigationItem(
             backStack = 0,
             icon = Icons.Default.Home,
             label = stringResource(Res.string.nav_home),
+            screenState = homeScreenState.value,
         ),
         multiBackStack.createNavigationItem(
             backStack = 1,
             icon = Icons.Default.LibraryMusic,
             label = stringResource(Res.string.nav_library),
+            screenState = libraryScreenState.value,
         ),
         multiBackStack.createNavigationItem(
             backStack = 2,
             icon = Icons.Default.Search,
             label = stringResource(Res.string.nav_search),
+            screenState = searchScreenState.value,
         ),
         NavigationItem(
             selected = false,
@@ -224,51 +258,47 @@ fun MainNavigationRoot(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-    AdaptiveNavigationScaffold(
-        showNavBar = !playerExpanded,
-        navigationItems = navigationItems,
-    ) { scaffoldContentPadding ->
-        val bottomPadding = scaffoldContentPadding.calculateBottomPadding()
+        AdaptiveNavigationBarLayout(
+            showNavigation = !playerExpanded,
+            navigationItems = navigationItems,
+        ) { scaffoldContentPadding ->
+            FloatingBarLayout(
+                modifier = Modifier.padding(scaffoldContentPadding),
+                floatingBar = {
+                    FloatingBar(
+                        expanded = playerExpanded,
+                        onExpand = onExpandPlayer,
+                        content = { expanded, contentPadding ->
+                            PlayersPager(
+                                playerPagerState = playerPagerState,
+                                state = playersState,
+                                homeScreenViewModel = homeScreenViewModel,
+                                actionsViewModel = actionsViewModel,
+                                dspSettingsViewModel = dspSettingsViewModel,
+                                expanded = expanded,
+                                onClose = { playerExpanded = false },
+                                contentPadding = contentPadding,
+                            ) { item ->
+                                multiBackStack.add(
+                                    MainNav.ItemDetails(
+                                        itemId = item.itemId,
+                                        mediaType = item.mediaType,
+                                        providerId = item.provider,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                },
+            ) { floatingBarContentPadding ->
+                BackHandler(playerExpanded) {
+                    playerExpanded = !playerExpanded
+                }
 
-        FloatingBarLayout(
-            floatingBar = {
-                FloatingBar(
-                    collapsedBottomPadding = bottomPadding,
-                    expanded = playerExpanded,
-                    onExpand = onExpandPlayer,
-                    content = { expanded, contentPadding ->
-                        PlayersPager(
-                            playerPagerState = playerPagerState,
-                            state = playersState,
-                            homeScreenViewModel = homeScreenViewModel,
-                            actionsViewModel = actionsViewModel,
-                            dspSettingsViewModel = dspSettingsViewModel,
-                            expanded = expanded,
-                            onClose = { playerExpanded = false },
-                            contentPadding = contentPadding,
-                        ) { item ->
-                            multiBackStack.add(
-                                MainNav.ItemDetails(
-                                    itemId = item.itemId,
-                                    mediaType = item.mediaType,
-                                    providerId = item.provider,
-                                ),
-                            )
-                        }
-                    },
-                )
-            },
-        ) { floatingBarContentPadding ->
-            BackHandler(playerExpanded) {
-                playerExpanded = !playerExpanded
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-            ) {
                 ConditionalBackNavDisplay(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
                     entries = rememberDecoratedNavEntries(
                         entryDecorators = listOf(
                             rememberSaveableStateHolderNavEntryDecorator(),
@@ -277,12 +307,12 @@ fun MainNavigationRoot(
                         entries = multiBackStack.toEntries(
                             mainNavEntryProvider(
                                 floatingBarContentPadding,
-                                connectionState,
-                                dataState,
-                                homeRowsConfig,
                                 multiBackStack,
                                 homeScreenViewModel,
                                 actionsViewModel,
+                                homeScreenState,
+                                libraryScreenState,
+                                searchScreenState,
                             ),
                         ),
                     ),
@@ -290,17 +320,9 @@ fun MainNavigationRoot(
                         multiBackStack.removeLastOrNull()
                     },
                     backEnabled = !playerExpanded,
-                    // Workaround for CMP 1.10.3 iOS crash: LazyLayout measured inside
-                    // AnimatedContent + CupertinoOverscroll trips a SubcomposeLayout
-                    // precondition on first frame. Disabling transitions removes the
-                    // animating measure path.
-                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
-                    popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
-                    predictivePopTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
                 )
             }
         }
-    }
         ToastHost(toastState = toastState)
     }
 }
@@ -308,23 +330,24 @@ fun MainNavigationRoot(
 @Composable
 private fun mainNavEntryProvider(
     contentPadding: PaddingValues,
-    connectionState: SessionState,
-    dataState: DataState<List<RecommendationFolder>>,
-    homeRowsConfig: List<SettingsRepository.HomeRowPref>,
     multiBackStack: MultiBackStack<NavKey>,
     homeScreenViewModel: HomeScreenViewModel,
     actionsViewModel: ActionsViewModel,
+    homeScreenState: MutableState<HomeScreenState?>,
+    libraryScreenState: MutableState<LibraryScreenState?>,
+    searchScreenState: MutableState<SearchScreenState?>,
 ): (NavKey) -> NavEntry<NavKey> {
     // Hoisted here (outlives the per-NavEntry SearchViewModel) to carry an empty-quick-search
     // escalation from the library tab to the Search tab. Set by ItemList, consumed by SearchScreen.
     var pendingSearch by remember { mutableStateOf<GlobalSearchRequest?>(null) }
     return entryProvider {
         entry<MainNav.Landing> {
+            val screenState = rememberPublishedScreenState(homeScreenState) {
+                HomeScreenState.create()
+            }
             HomeScreen(
                 homeScreenViewModel,
                 contentPadding = contentPadding,
-                connectionState = connectionState,
-                dataState = dataState,
                 onNavigateClick = { item ->
                     when (item) {
                         is Artist,
@@ -333,7 +356,7 @@ private fun mainNavEntryProvider(
                         is Podcast,
                         is Audiobook,
                         is Genre,
-                        -> {
+                            -> {
                             multiBackStack.add(
                                 MainNav.ItemDetails(
                                     itemId = item.itemId,
@@ -346,26 +369,31 @@ private fun mainNavEntryProvider(
                         else -> Unit
                     }
                 },
-                onLibraryItemClick = { type ->
-                    multiBackStack.add(MainNav.ItemList(type))
-                },
                 providerIconFetcher = { modifier, provider ->
                     actionsViewModel.getProviderIcon(provider)
                         ?.let { ProviderIcon(modifier, it) }
                 },
-                homeRowsConfig = homeRowsConfig,
                 actionsViewModel = actionsViewModel,
+                state = screenState,
             )
         }
 
         entry<MainNav.Library> {
             val libraryCategoriesViewModel = koinViewModel<LibraryCategoriesViewModel>()
+            val screenState = rememberPublishedScreenState(libraryScreenState) {
+                LibraryScreenState.create()
+            }
 
             LibraryScreen(
                 libraryCategoriesViewModel,
                 contentPadding = contentPadding,
-                onTypeClick = {
-                    multiBackStack.add(MainNav.ItemList(it))
+                state = screenState,
+                onCategoryClick = { category ->
+                    if (category == LibraryCategory.BROWSE) {
+                        multiBackStack.add(MainNav.Browse(path = null, title = null))
+                    } else {
+                        category.mediaType?.let { multiBackStack.add(MainNav.ItemList(it)) }
+                    }
                 },
                 onListenLaterClick = {
                     multiBackStack.add(MainNav.ListenLater)
@@ -412,6 +440,50 @@ private fun mainNavEntryProvider(
             )
         }
 
+        entry<MainNav.Browse> { browse ->
+            val browseViewModel = koinViewModel<BrowseViewModel> {
+                parametersOf(browse.path)
+            }
+
+            BrowseScreen(
+                browseViewModel = browseViewModel,
+                title = browse.title,
+                contentPadding = contentPadding,
+                actionsViewModel = actionsViewModel,
+                onBack = { multiBackStack.removeLastOrNull() },
+                onNavigateClick = { item ->
+                    when (item) {
+                        is RecommendationFolder ->
+                            if (item.isParentLink) {
+                                // The server's ".." entry maps to our own back navigation.
+                                multiBackStack.removeLastOrNull()
+                            } else {
+                                // BrowseFolder carries an explicit `path`; `uri` is only a fallback.
+                                multiBackStack.add(
+                                    MainNav.Browse(path = item.path ?: item.uri, title = item.displayName),
+                                )
+                            }
+
+                        is Artist,
+                        is Album,
+                        is Playlist,
+                        is Podcast,
+                        is Audiobook,
+                        is Genre,
+                        -> multiBackStack.add(
+                            MainNav.ItemDetails(
+                                itemId = item.itemId,
+                                mediaType = item.mediaType,
+                                providerId = item.provider,
+                            ),
+                        )
+
+                        else -> Unit
+                    }
+                },
+            )
+        }
+
         entry<MainNav.ItemDetails> {
             val itemDetailsViewModel = koinViewModel<ItemDetailsViewModel> {
                 parametersOf(it.itemId, it.mediaType, it.providerId)
@@ -436,6 +508,9 @@ private fun mainNavEntryProvider(
 
         entry<MainNav.Search> {
             val searchViewModel = koinViewModel<SearchViewModel>()
+            val screenState = rememberPublishedScreenState(searchScreenState) {
+                SearchScreenState.create()
+            }
 
             SearchScreen(
                 searchViewModel = searchViewModel,
@@ -450,6 +525,7 @@ private fun mainNavEntryProvider(
                 },
                 contentPadding = contentPadding,
                 actionsViewModel = actionsViewModel,
+                state = screenState,
                 pendingSearch = pendingSearch,
                 onSearchConsumed = { pendingSearch = null },
             )
@@ -478,6 +554,24 @@ private fun mainNavEntryProvider(
     }
 }
 
+/**
+ * Creates a root screen's [ScreenState] scoped to the calling NavEntry and publishes it to a
+ * root-level [holder] while composed, so the navigation bar can drive scroll-to-top on re-tap
+ * without hoisting the state above the entry (which would desync it from the entry's ViewModel).
+ */
+@Composable
+private fun <S : ScreenState> rememberPublishedScreenState(
+    holder: MutableState<S?>,
+    create: @Composable () -> S,
+): S {
+    val screenState = create()
+    DisposableEffect(screenState) {
+        holder.value = screenState
+        onDispose { holder.value = null }
+    }
+    return screenState
+}
+
 private sealed interface MainNav : NavKey {
     @Serializable
     data object Landing : MainNav
@@ -487,6 +581,18 @@ private sealed interface MainNav : NavKey {
 
     @Serializable
     data class ItemList(val mediaType: MediaType) : MainNav
+
+    /**
+     * One level of the folder-style Browse tree. [path] is the server browse path (null = root);
+     * [stackingId] keeps stacked levels distinct in the back stack (mirrors [ItemDetails]).
+     */
+    @OptIn(ExperimentalUuidApi::class)
+    @Serializable
+    data class Browse(
+        val path: String?,
+        val title: String?,
+        val stackingId: String = Uuid.generateV4().toString(),
+    ) : MainNav
 
     /**
      * Multiple instances of the same item can appear in a back stack - [stackingId] ensures they
@@ -518,6 +624,7 @@ private fun rememberMainNavBackStack(bottom: MainNav) = rememberNavBackStack(
                     subclass(MainNav.Landing::class, MainNav.Landing.serializer())
                     subclass(MainNav.Library::class, MainNav.Library.serializer())
                     subclass(MainNav.ItemList::class, MainNav.ItemList.serializer())
+                    subclass(MainNav.Browse::class, MainNav.Browse.serializer())
                     subclass(
                         MainNav.ItemDetails::class,
                         MainNav.ItemDetails.serializer(),

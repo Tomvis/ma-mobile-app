@@ -19,24 +19,58 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private var isReady: Bool = false
     private var readinessSubscription: Cancellable?
 
+    /// Monotonic connection generation, bumped on every connect AND
+    /// disconnect. Async completions capture it at dispatch and re-check on
+    /// delivery: on a rapid disconnect → reconnect, connection A's in-flight
+    /// `loadCarPlayStrings` completion would otherwise see connection B's
+    /// non-nil `interfaceController`, pass the guard, and double-subscribe
+    /// (leaking A's channel subscriptions when B's completion overwrites
+    /// them).
+    private var connectionGen: Int = 0
+
     // Localized CarPlay strings, resolved from the shared Compose catalog once
     // per connect (see didConnect). Always set before any template is built.
     private var strings: CarPlayStrings?
+
+    // MARK: - Now Playing buttons (shuffle/repeat)
+    //
+    // Created once per connection and NEVER rebuilt — installing fresh button
+    // instances on state changes is the flicker/lock-up class this design
+    // exists to avoid. State flows one way per concern:
+    //   - Track channel: profile flips (music ↔ long-form) swap which retained
+    //     instances are installed; long-form content gets no shuffle/repeat.
+    //   - Modes channel: enablement only.
+    // Selected state is never written here: CarPlay renders it from
+    // MPRemoteCommandCenter's currentShuffleType/currentRepeatType, whose sole
+    // writer is NowPlayingCoordinator's modes handler.
+    private var shuffleButton: CPNowPlayingShuffleButton?
+    private var repeatButton: CPNowPlayingRepeatButton?
+    private var trackSubscription: Cancellable?
+    private var modesSubscription: Cancellable?
+    /// nil = nothing applied yet this connection, so the first emission
+    /// always installs.
+    private var nowPlayingButtonsInstalled: Bool?
+    /// Last enablement pushed to the buttons; nil until the first modes
+    /// emission so the initial value always applies.
+    private var nowPlayingButtonsEnabled: Bool?
 
     // Weakly held so a connectivity restore can re-fire the homepage fetch
     // without retaining the template after CarPlay disconnects.
     private weak var libraryTemplate: CPListTemplate?
     private weak var libraryBrowseSection: CPListSection?
 
-    // One-shot subscription that pushes Now Playing the first time
-    // local-player state becomes non-null after `setupTemplates()` runs.
-    // Cancelled either on first push or on disconnect.
-    private var initialPushSubscription: Cancellable?
-
     /// Monotonic id for in-flight Library recommendation fetches so a slow
     /// first attempt (fired before auth) can't overwrite a faster second
     /// attempt (fired by `refreshLibraryOnReconnect` once readiness flipped).
     private var recommendationsFetchGen: Int = 0
+
+    /// Shared completion handler for CarPlay template operations.
+    private let logTemplateError: (Bool, Error?) -> Void = { _, error in
+        if let error = error {
+            os_log("CP: template error: %{public}@",
+                   log: cpLog, type: .error, "\(error)")
+        }
+    }
 
     // MARK: - CPTemplateApplicationSceneDelegate
 
@@ -44,6 +78,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         self.interfaceController = interfaceController
         os_log("CP: didConnect", log: cpLog, type: .default)
         // Reset per-session state for a clean reconnect.
+        connectionGen += 1
         recommendationsFetchGen = 0
         isReady = false
         KmpHelper.shared.onExternalConsumerActive()
@@ -53,23 +88,39 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         // preserves the subscribe-before-setupTemplates ordering that drives the
         // initial Library fetch (see handleReadinessChange / createLibraryTemplate).
         // `(Boolean) -> Unit` from Kotlin exposes as `KotlinBoolean`; unbox.
+        // The generation check (not just `interfaceController != nil`) rejects
+        // completions from a connection that has since been torn down.
+        let gen = connectionGen
         KmpHelper.shared.loadCarPlayStrings { [weak self] loaded in
-            guard let self = self, self.interfaceController != nil else { return }
+            guard let self = self, self.connectionGen == gen,
+                  self.interfaceController != nil else { return }
             self.strings = loaded
             self.readinessSubscription = KmpHelper.shared.observeReadiness { [weak self] ready in
                 self?.handleReadinessChange(ready.boolValue)
             }
+            self.setupNowPlayingButtons()
             self.setupTemplates()
         }
     }
 
     func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didDisconnectInterfaceController interfaceController: CPInterfaceController) {
+        // Invalidate any in-flight didConnect completions for this connection.
+        connectionGen += 1
         // Cancel subscriptions before tearing down state to avoid the
         // callbacks racing with a nil interfaceController.
         readinessSubscription?.cancel()
         readinessSubscription = nil
-        initialPushSubscription?.cancel()
-        initialPushSubscription = nil
+        trackSubscription?.cancel()
+        trackSubscription = nil
+        modesSubscription?.cancel()
+        modesSubscription = nil
+        // The now-playing template is a process-lifetime singleton; leave it
+        // empty rather than holding this connection's button instances.
+        CPNowPlayingTemplate.shared.updateNowPlayingButtons([])
+        shuffleButton = nil
+        repeatButton = nil
+        nowPlayingButtonsInstalled = nil
+        nowPlayingButtonsEnabled = nil
         libraryTemplate = nil
         libraryBrowseSection = nil
         self.interfaceController = nil
@@ -133,37 +184,87 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         interfaceController.presentTemplate(alert, animated: true, completion: nil)
     }
 
-    /// Pushes Library root and arms a one-shot Now Playing push for when
-    /// the local player gains a track (subscription-based because the
-    /// local-player value is cleared on backgrounded disconnect).
-    private func setupTemplates() {
-        guard let strings = strings else { return }
-        let libraryTemplate = createLibraryTemplate(strings)
-        interfaceController?.setRootTemplate(libraryTemplate, animated: true) { [weak self] _, _ in
-            self?.subscribeToLocalPlayerForInitialPush()
+    // MARK: - Now Playing buttons
+
+    /// Creates the shuffle/repeat button instances for this connection and
+    /// subscribes to the channels that drive them. StateFlow replay delivers
+    /// the current values immediately, so a late connect (audiobook mid-play,
+    /// dynamic playlist) starts with the correct profile and enablement.
+    private func setupNowPlayingButtons() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        // Taps deliberately skip the `isReady` gate the navigation taps use:
+        // the lock-screen shuffle/repeat targets don't gate either, and the
+        // buttons are only enabled while a live queue publishes modes, so a
+        // not-ready tap is unreachable in practice.
+        shuffleButton = CPNowPlayingShuffleButton { _ in
+            NowPlayingCoordinator.shared.dispatchCarCommand("toggle_shuffle")
+        }
+        repeatButton = CPNowPlayingRepeatButton { _ in
+            NowPlayingCoordinator.shared.dispatchCarCommand("toggle_repeat")
+        }
+        // Fresh CPNowPlayingButtons default to enabled. Start disabled so the
+        // track replay can't install enabled-looking buttons for the runloop
+        // gap before the modes replay delivers the real enablement.
+        shuffleButton?.isEnabled = false
+        repeatButton?.isEnabled = false
+        nowPlayingButtonsInstalled = nil
+        nowPlayingButtonsEnabled = nil
+
+        trackSubscription = KmpHelper.shared.observeNowPlayingTrack { [weak self] track in
+            // Long-form content swaps prev/next for ±N skips in the command
+            // center; its CarPlay surface likewise drops shuffle/repeat.
+            // A nil track keeps the music profile (buttons present, and the
+            // modes channel's nil disables them).
+            self?.applyNowPlayingButtons(installed: track?.isLongFormContent != true)
+        }
+        modesSubscription = KmpHelper.shared.observeNowPlayingModes { [weak self] modes in
+            guard let self else { return }
+            let enabled = modes?.togglesEnabled == true
+            guard self.nowPlayingButtonsEnabled != enabled else { return }
+            self.nowPlayingButtonsEnabled = enabled
+            self.shuffleButton?.isEnabled = enabled
+            self.repeatButton?.isEnabled = enabled
+            // CarPlay snapshots button state at presentation: a property write
+            // on an already-installed instance does not re-render. Re-present
+            // the SAME retained instances (not new ones) to publish the change.
+            if self.nowPlayingButtonsInstalled == true {
+                self.presentNowPlayingButtons()
+            }
         }
     }
 
-    private func subscribeToLocalPlayerForInitialPush() {
-        // No lock needed — KmpHelper.mainScope is pinned to Dispatchers.Main.
-        var hasPushed = false
-        initialPushSubscription = KmpHelper.shared.observeLocalPlayerPresence { [weak self] present in
-            guard let self = self, !hasPushed, present.boolValue else { return }
-            // If the user has navigated past Library root, pushing Now
-            // Playing on top of their drilldown would be jarring. Identity
-            // comparison is safe because we hold a weak reference to the
-            // same template instance set as root.
-            if self.interfaceController?.topTemplate === self.libraryTemplate {
-                self.interfaceController?.pushTemplate(
-                    CPNowPlayingTemplate.shared,
-                    animated: false,
-                    completion: nil
-                )
-            }
-            hasPushed = true
-            self.initialPushSubscription?.cancel()
-            self.initialPushSubscription = nil
-        }
+    /// Installs or removes the retained button instances, only on profile
+    /// change — never rebuilding them.
+    private func applyNowPlayingButtons(installed: Bool) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard nowPlayingButtonsInstalled != installed else { return }
+        let hadApplied = nowPlayingButtonsInstalled != nil
+        nowPlayingButtonsInstalled = installed
+        // First emission of the long-form profile: the template is already
+        // empty (didDisconnect teardown / fresh process), so there is nothing
+        // to remove — record the state without a misleading "removed" log or
+        // a no-op empty update.
+        guard installed || hadApplied else { return }
+        os_log("CP: now-playing buttons %{public}@",
+               log: cpLog, type: .default, installed ? "installed" : "removed")
+        presentNowPlayingButtons()
+    }
+
+    /// Pushes the current retained instances (or none) to the template.
+    /// The sole `updateNowPlayingButtons` caller besides disconnect teardown.
+    private func presentNowPlayingButtons() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let buttons: [CPNowPlayingButton] = nowPlayingButtonsInstalled == true
+            ? [shuffleButton, repeatButton].compactMap { $0 }
+            : []
+        CPNowPlayingTemplate.shared.updateNowPlayingButtons(buttons)
+    }
+
+    /// Set Library as the initial home screen / Root
+    private func setupTemplates() {
+        guard let strings = strings else { return }
+        let libraryTemplate = createLibraryTemplate(strings)
+        interfaceController?.setRootTemplate(libraryTemplate, animated: true, completion: logTemplateError)
     }
 
     // MARK: - UI Construction
@@ -331,7 +432,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
                     }
                     if index < displayItems.count {
                         CarPlayContentManager.shared.playItem(displayItems[index])
-                        self.interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
+                        self.pushNowPlayingTemplate(animated: true)
                     }
                     completion()
                 }
@@ -356,6 +457,36 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     // MARK: - Navigation Helpers
 
+    /// Centralize template pushes to keep track of how many we have and not go
+    /// over five, a hard-coded CarPlay limit
+    private func safePushTemplate(_ template: CPTemplate, animated: Bool) {
+        guard let interfaceController = interfaceController else { return }
+        if interfaceController.templates.count >= 5 {
+            interfaceController.popToRootTemplate(animated: false) { [weak interfaceController] _, _ in
+                interfaceController?.pushTemplate(template, animated: animated, completion: self.logTemplateError)
+            }
+            return
+        }
+        interfaceController.pushTemplate(template, animated: animated, completion: logTemplateError)
+    }
+
+    /// Safely navigate to the singleton `CPNowPlayingTemplate`
+    private func pushNowPlayingTemplate(animated: Bool) {
+        guard let interfaceController = interfaceController else { return }
+        if interfaceController.topTemplate === CPNowPlayingTemplate.shared {
+            return
+        }
+        if interfaceController.templates.contains(where: { $0 === CPNowPlayingTemplate.shared }) {
+            interfaceController.pop(
+                to: CPNowPlayingTemplate.shared,
+                animated: animated,
+                completion: logTemplateError
+            )
+            return
+        }
+        safePushTemplate(CPNowPlayingTemplate.shared, animated: animated)
+    }
+
     private func pushBrowseGrid() {
         // Gate at entry. The grid template's category fetchers would otherwise
         // spin indefinitely on a dead transport.
@@ -363,17 +494,25 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         guard let strings = strings else { return }
         let imageSize = CGSize(width: 100, height: 100)
         let manager = CarPlayContentManager.shared
+
+        // Full catalog of CarPlay-supported browse categories, keyed by LibraryCategory.name.
         // Symbols match Material Design icons from HomeScreen.kt LibraryRow;
         // titles come from the shared catalog so they follow the app locale.
-        let categories: [(title: String, symbol: String, fetcher: (@escaping ([CPListItem]?) -> Void) -> Void)] = [
-            (strings.artists,    "mic.fill",                          manager.fetchArtists),       // Icons.Default.Mic
-            (strings.albums,     "opticaldisc.fill",                  manager.fetchAlbums),        // Icons.Default.Album
-            (strings.tracks,     "music.note",                        manager.fetchTracks),        // Icons.Default.MusicNote
-            (strings.playlists,  "list.bullet.rectangle.fill",        manager.fetchPlaylists),     // Icons.AutoMirrored.Filled.FeaturedPlayList
-            (strings.audiobooks, "book.fill",                         manager.fetchAudiobooks),    // Icons.AutoMirrored.Filled.MenuBook
-            (strings.podcasts,   "antenna.radiowaves.left.and.right", manager.fetchPodcasts),      // Icons.Default.Podcasts
-            (strings.radio,      "radio.fill",                        manager.fetchRadioStations), // Icons.Default.Radio
+        typealias CategoryEntry = (title: String, symbol: String, fetcher: (@escaping ([CPListItem]?) -> Void) -> Void)
+        let allCategories: [String: CategoryEntry] = [
+            "ARTISTS":    (strings.artists,    "mic.fill",                          manager.fetchArtists),
+            "ALBUMS":     (strings.albums,     "opticaldisc.fill",                  manager.fetchAlbums),
+            "PLAYLISTS":  (strings.playlists,  "list.bullet.rectangle.fill",        manager.fetchPlaylists),
+            "PODCASTS":   (strings.podcasts,   "antenna.radiowaves.left.and.right", manager.fetchPodcasts),
+            "RADIOS":     (strings.radio,      "radio.fill",                        manager.fetchRadioStations),
+            "AUDIOBOOKS": (strings.audiobooks, "book.fill",                         manager.fetchAudiobooks),
         ]
+
+        // Apply the user's Car Tabs ordering and visibility (Settings → Car → Tabs).
+        // Falls back to the full default set when no config is stored.
+        let configuredNames = manager.carBrowseCategories()
+        let categories: [CategoryEntry] = configuredNames.compactMap { allCategories[$0] }
+
         let buttons = categories.map { category -> CPGridButton in
             let image = Self.dynamicCategoryImage(symbol: category.symbol, size: imageSize)
             return CPGridButton(titleVariants: [category.title], image: image) { [weak self] _ in
@@ -381,7 +520,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             }
         }
         let gridTemplate = CPGridTemplate(title: strings.browse, gridButtons: buttons)
-        self.interfaceController?.pushTemplate(gridTemplate, animated: true, completion: nil)
+        self.safePushTemplate(gridTemplate, animated: true)
     }
 
     /// Mirrors `pushDrilldown`'s shape but targets the simpler
@@ -395,7 +534,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         let loadingItem = CPListItem(text: strings.loading, detailText: nil)
         template.updateSections([CPListSection(items: [loadingItem])])
 
-        self.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        self.safePushTemplate(template, animated: true)
 
         fetcher { [weak self] items in
             guard let self = self else { return }
@@ -423,9 +562,9 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         }
     }
 
-    /// Type-aware dispatch: container items (Artist, Album, Playlist) drill
-    /// in to their contained items; leaf items (Track, RadioStation, Podcast,
-    /// Audiobook, PodcastEpisode) play and push Now Playing.
+    /// Type-aware dispatch: container items (Artist, Album, Playlist, Podcast) drill
+    /// in to their contained items; leaf items (Track, RadioStation, Audiobook,
+    /// PodcastEpisode) play and push Now Playing.
     private func handleItemSelection(_ item: CPSelectableListItem) {
         // Drop offline taps with a visible alert.
         guard isReady else { showOfflineAlert(); return }
@@ -440,31 +579,16 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             pushTracksForAlbum(album)
         } else if let playlist = mediaItem as? Playlist {
             pushTracksForPlaylist(playlist)
+        } else if let podcast = mediaItem as? Podcast {
+            pushEpisodesForPodcast(podcast)
         } else {
-            // Track / RadioStation / Podcast / Audiobook / PodcastEpisode — leaf items run the
-            // per-kind configured tap action. Only push Now Playing when it actually starts
-            // playback (a configured "add to queue" tap is non-disruptive).
+            // Track / RadioStation / Audiobook / PodcastEpisode — leaf items run the per-kind
+            // configured tap action. Only push Now Playing when it actually starts playback
+            // (a configured "add to queue" tap is non-disruptive).
             let dispatched = CarPlayContentManager.shared.playWithDefault(mediaItem)
             if let name = dispatched, Self.actionStartsPlayback(name) {
-                playAndShowNowPlaying()
+                pushNowPlayingTemplate(animated: true)
             }
-        }
-    }
-
-    /// `popToRoot` first, then push Now Playing — CarPlay caps the template
-    /// stack at 5, and Browse → Category → Artist → Albums → Tracks already
-    /// fills it. A naive push from the leaf crashes with a hierarchy-depth
-    /// exception.
-    private func playAndShowNowPlaying() {
-        guard let interfaceController = interfaceController else { return }
-        os_log("CP: playAndShowNowPlaying — popToRoot then push NowPlaying",
-               log: cpLog, type: .default)
-        interfaceController.popToRootTemplate(animated: false) { [weak self] _, _ in
-            self?.interfaceController?.pushTemplate(
-                CPNowPlayingTemplate.shared,
-                animated: true,
-                completion: nil
-            )
         }
     }
 
@@ -498,6 +622,15 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         }
     }
 
+    private func pushEpisodesForPodcast(_ podcast: Podcast) {
+        pushDrilldown(
+            title: podcast.displayName,
+            bulkActionParent: podcast
+        ) { completion in
+            CarPlayContentManager.shared.fetchEpisodesForPodcast(podcast, completion: completion)
+        }
+    }
+
     /// Push a loading template, fire `fetcher`, swap rows in on result —
     /// empty-state on `[]`, disconnected row on `nil` (timeout).
     private func pushDrilldown(
@@ -509,7 +642,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         let template = CPListTemplate(title: title, sections: [])
         let loadingItem = CPListItem(text: strings.loading, detailText: nil)
         template.updateSections([CPListSection(items: [loadingItem])])
-        self.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        self.safePushTemplate(template, animated: true)
 
         fetcher { [weak self] items in
             guard let self = self else { return }
@@ -552,7 +685,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         // Push Now Playing only for actions that start playback; queue-additive actions are
         // non-disruptive so the user stays on the drilldown to keep stacking adds.
         if dispatched && Self.actionStartsPlayback(actionName) {
-            playAndShowNowPlaying()
+            pushNowPlayingTemplate(animated: true)
         }
     }
 

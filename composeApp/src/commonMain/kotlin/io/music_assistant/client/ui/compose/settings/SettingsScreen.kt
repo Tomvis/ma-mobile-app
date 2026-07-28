@@ -3,6 +3,7 @@ package io.music_assistant.client.ui.compose.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,9 +50,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.Defaults
+import io.music_assistant.client.auth.ServerIdMismatchException
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.User
 import io.music_assistant.client.player.sendspin.audio.Codecs
@@ -70,8 +74,9 @@ import io.music_assistant.client.ui.compose.common.OverflowMenuButton
 import io.music_assistant.client.ui.compose.common.OverflowMenuOption
 import io.music_assistant.client.ui.compose.common.clearFocusOnScroll
 import io.music_assistant.client.ui.compose.common.localizedTitle
+import io.music_assistant.client.ui.compose.common.toDisplayString
 import io.music_assistant.client.ui.compose.nav.BackHandler
-import io.music_assistant.client.ui.compose.nav.Screen
+import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.DataConnectionState
@@ -89,6 +94,7 @@ import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.common_cancel
 import musicassistantclient.composeapp.generated.resources.common_delete
 import musicassistantclient.composeapp.generated.resources.nav_settings
+import musicassistantclient.composeapp.generated.resources.server_id_mismatch_error
 import musicassistantclient.composeapp.generated.resources.settings_about_description
 import musicassistantclient.composeapp.generated.resources.settings_about_learn_more
 import musicassistantclient.composeapp.generated.resources.settings_codec_preference
@@ -102,6 +108,7 @@ import musicassistantclient.composeapp.generated.resources.settings_connecting
 import musicassistantclient.composeapp.generated.resources.settings_connecting_remote
 import musicassistantclient.composeapp.generated.resources.settings_connecting_to
 import musicassistantclient.composeapp.generated.resources.settings_connection_direct
+import musicassistantclient.composeapp.generated.resources.settings_connection_experimental
 import musicassistantclient.composeapp.generated.resources.settings_connection_method
 import musicassistantclient.composeapp.generated.resources.settings_connection_webrtc
 import musicassistantclient.composeapp.generated.resources.settings_custom_sendspin
@@ -133,6 +140,7 @@ import musicassistantclient.composeapp.generated.resources.settings_use_tls
 import musicassistantclient.composeapp.generated.resources.settings_use_tls_wss
 import musicassistantclient.composeapp.generated.resources.settings_version_info
 import musicassistantclient.composeapp.generated.resources.settings_webrtc_description
+import musicassistantclient.composeapp.generated.resources.settings_webrtc_disclaimer
 import musicassistantclient.composeapp.generated.resources.settings_webrtc_info
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -150,7 +158,7 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
     val connectionHistory by viewModel.connectionHistory.collectAsStateWithLifecycle()
     val dataConnection = (sessionState as? SessionState.Connected)?.dataConnectionState
-    val isAuthenticated = dataConnection == DataConnectionState.Authenticated
+    val isAuthenticated = dataConnection is DataConnectionState.Authenticated
     val sendspinEnabled by viewModel.sendspinEnabled.collectAsStateWithLifecycle()
     val hasCrashLog by viewModel.hasCrashLog.collectAsStateWithLifecycle()
     val isPreparingShare by viewModel.isPreparingShare.collectAsStateWithLifecycle()
@@ -164,7 +172,7 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
         }
     }
 
-    Screen(
+    TopBarLayout(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.nav_settings)) },
@@ -242,9 +250,6 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
                             )
                         }
                         // If user changed connection info, don't auto-retry - let them manually retry
-                    } else if (sessionState is SessionState.Connected) {
-                        // Reset flag on successful connection
-                        autoReconnectAttempted = false
                     }
                 }
 
@@ -313,7 +318,7 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
                         LoginSection(connectedState.user)
 
                         when (dataConnection) {
-                            DataConnectionState.Authenticated -> {
+                            is DataConnectionState.Authenticated -> {
                                 // State 4: Connected and authenticated
 
                                 // Local Player Section
@@ -450,6 +455,23 @@ private fun AboutSection() {
 }
 
 @Composable
+private fun ExperimentalPill() {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+    ) {
+        Text(
+            text = stringResource(Res.string.settings_connection_experimental),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
+@Composable
 private fun ConnectionMethodTabs(
     viewModel: SettingsViewModel,
     ipAddress: String,
@@ -490,7 +512,13 @@ private fun ConnectionMethodTabs(
             Tab(
                 selected = selectedTab == 1,
                 onClick = { viewModel.setPreferredConnectionMethod("webrtc") },
-                text = { Text(stringResource(Res.string.settings_connection_webrtc)) },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(Res.string.settings_connection_webrtc))
+                        Spacer(modifier = Modifier.size(6.dp))
+                        ExperimentalPill()
+                    }
+                },
             )
         }
 
@@ -523,6 +551,22 @@ private fun ConnectionMethodTabs(
                     sessionState = sessionState,
                     hasToken = webrtcHasToken,
                     onShowHistory = { showHistoryDialog = true },
+                )
+            }
+        }
+
+        val error = (sessionState as? SessionState.Disconnected.Error)?.reason
+        if (error != null) {
+            val errorMessage = when (error) {
+                is ServerIdMismatchException -> Res.string.server_id_mismatch_error.toDisplayString()
+                else -> error.message?.toDisplayString()
+            }
+
+            if (errorMessage != null) {
+                Text(
+                    errorMessage.string(),
+                    modifier = Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         }
@@ -673,6 +717,13 @@ private fun WebRTCConnectionContent(
         text = stringResource(Res.string.settings_webrtc_description),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 12.dp),
+    )
+
+    Text(
+        text = stringResource(Res.string.settings_webrtc_disclaimer),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(bottom = 12.dp),
     )
 
@@ -888,7 +939,7 @@ private fun ServerInfoSection(
                 text = stringResource(
                     Res.string.settings_version_info,
                     server.serverVersion ?: "",
-                    server.schemaVersion?.toString() ?: "",
+                    server.schemaVersion?.toString().orEmpty(),
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),

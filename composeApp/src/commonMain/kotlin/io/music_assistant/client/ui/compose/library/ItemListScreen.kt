@@ -13,34 +13,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,15 +39,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import compose.icons.TablerIcons
 import compose.icons.tablericons.Plus
 import io.music_assistant.client.data.model.client.ClickContext
+import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
@@ -66,10 +52,12 @@ import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.compose.common.DataState
+import io.music_assistant.client.ui.compose.common.SelectOption
 import io.music_assistant.client.ui.compose.common.SortChip
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.ToastState
 import io.music_assistant.client.ui.compose.common.clearFocusOnScroll
+import io.music_assistant.client.ui.compose.common.items.CreatePlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
 import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
@@ -77,17 +65,14 @@ import io.music_assistant.client.ui.compose.common.items.ProgressActions
 import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
-import io.music_assistant.client.ui.compose.nav.Screen
+import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
+import io.music_assistant.client.ui.compose.search.SearchInput
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_add_playlist
 import musicassistantclient.composeapp.generated.resources.cd_reception_filter
 import musicassistantclient.composeapp.generated.resources.cd_toggle_view_mode
 import musicassistantclient.composeapp.generated.resources.common_back
-import musicassistantclient.composeapp.generated.resources.common_cancel
-import musicassistantclient.composeapp.generated.resources.common_clear
-import musicassistantclient.composeapp.generated.resources.common_create
-import musicassistantclient.composeapp.generated.resources.filter_favorites
 import musicassistantclient.composeapp.generated.resources.library_empty
 import musicassistantclient.composeapp.generated.resources.library_error
 import musicassistantclient.composeapp.generated.resources.library_quick_search
@@ -101,8 +86,6 @@ import musicassistantclient.composeapp.generated.resources.media_type_podcasts
 import musicassistantclient.composeapp.generated.resources.media_type_radio
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
 import musicassistantclient.composeapp.generated.resources.playlist_add_new
-import musicassistantclient.composeapp.generated.resources.playlist_create_title
-import musicassistantclient.composeapp.generated.resources.playlist_name_label
 import org.jetbrains.compose.resources.stringResource
 
 // Cap the reception-filter active-count badge so it stays within Material's badge width.
@@ -124,24 +107,33 @@ fun ItemListScreen(
             toastState.showToast(toast)
         }
     }
+    LaunchedEffect(Unit) {
+        itemListViewModel.toasts.collect { toast ->
+            toastState.showToast(toast)
+        }
+    }
 
     val state by itemListViewModel.state.collectAsStateWithLifecycle()
+    val providerOptions by itemListViewModel.providerOptions.collectAsStateWithLifecycle()
+    val genreOptions by itemListViewModel.genreOptions.collectAsStateWithLifecycle()
 
-    Screen(
+    TopBarLayout(
         topBar = {
             ItemListTopBar(
                 onBack = onBack,
                 onToggleViewMode = itemListViewModel::toggleViewMode,
                 viewMode = state.viewMode,
                 searchQuery = state.searchQuery,
-                onSearchQueryChanged = {
-                    itemListViewModel.onSearchQueryChanged(it)
-                },
+                onSearchQueryChanged = itemListViewModel::onSearchQueryChanged,
+                onSearch = itemListViewModel::onSearch,
                 onSortChanged = { itemListViewModel.onSortChanged(it) },
                 mediaType = state.mediaType,
                 sortOption = state.sortOption,
-                onlyFavorites = state.onlyFavorites,
-                onToggleFavorites = itemListViewModel::toggleFavorites,
+                filters = state.filters,
+                onFiltersChange = itemListViewModel::setFilters,
+                providerOptions = providerOptions,
+                genreOptions = genreOptions,
+                onLoadFilterOptions = itemListViewModel::loadFilterOptions,
                 receptionFilter = state.receptionFilter,
                 onReceptionFilterChanged = itemListViewModel::onReceptionFilterChanged,
             )
@@ -149,29 +141,32 @@ fun ItemListScreen(
     ) {
         var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
         ProvideClickActions(ClickContext.LIBRARY) {
-        ItemList(
-            showCreatePlaylistDialog = showCreatePlaylistDialog,
-            toastState = toastState,
-            onNavigateClick = onNavigateClick,
-            onGlobalSearch = onGlobalSearch,
-            searchQuery = state.searchQuery,
-            onPlayClick = { item, option, radio, _ ->
-                itemListViewModel.onPlayClick(item, option, radio)
-            },
-            onCreatePlaylistClick = { showCreatePlaylistDialog = true },
-            onLoadMore = { itemListViewModel.loadMore() },
-            onDismissCreatePlaylistDialog = { showCreatePlaylistDialog = false },
-            onCreatePlaylist = itemListViewModel::createPlaylist,
-            playlistActions = actionsViewModel,
-            libraryActions = actionsViewModel,
-            progressActions = actionsViewModel,
-            contentPadding = contentPadding,
-            dataState = state.dataState,
-            mediaType = state.mediaType,
-            isLoadingMore = state.isLoadingMore,
-            hasMore = state.hasMore,
-            viewMode = state.viewMode,
-        )
+            ItemList(
+                showCreatePlaylistDialog = showCreatePlaylistDialog,
+                toastState = toastState,
+                onNavigateClick = onNavigateClick,
+                onGlobalSearch = onGlobalSearch,
+                searchQuery = state.searchQuery,
+                onPlayClick = { item, option, radio, _ ->
+                    itemListViewModel.onPlayClick(item, option, radio)
+                },
+                onCreatePlaylistClick = { showCreatePlaylistDialog = true },
+                onLoadMore = { itemListViewModel.loadMore() },
+                onDismissCreatePlaylistDialog = { showCreatePlaylistDialog = false },
+                onCreatePlaylist = { name ->
+                    itemListViewModel.createPlaylist(name)
+                    showCreatePlaylistDialog = false
+                },
+                playlistActions = actionsViewModel,
+                libraryActions = actionsViewModel,
+                progressActions = actionsViewModel,
+                contentPadding = contentPadding,
+                dataState = state.dataState,
+                mediaType = state.mediaType,
+                isLoadingMore = state.isLoadingMore,
+                hasMore = state.hasMore,
+                viewMode = state.viewMode,
+            )
         }
     }
 }
@@ -184,11 +179,15 @@ private fun ItemListTopBar(
     viewMode: ViewMode,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
+    onSearch: () -> Unit,
     onSortChanged: (SortOption) -> Unit,
     mediaType: MediaType,
     sortOption: SortOption,
-    onlyFavorites: Boolean,
-    onToggleFavorites: () -> Unit,
+    filters: LibraryFilters,
+    onFiltersChange: (LibraryFilters) -> Unit,
+    providerOptions: DataState<List<SelectOption<String>>>,
+    genreOptions: DataState<List<SelectOption<Int>>>,
+    onLoadFilterOptions: () -> Unit,
     receptionFilter: ReceptionFilter,
     onReceptionFilterChanged: (ReceptionFilter) -> Unit,
 ) {
@@ -198,41 +197,11 @@ private fun ItemListTopBar(
         TwoRowTopAppBar(
             title = {
                 if (showSearch) {
-                    val focusRequester = remember { FocusRequester() }
-                    LaunchedEffect(Unit) {
-                        focusRequester.requestFocus()
-                    }
-
-                    Surface(
-                        shape = SearchBarDefaults.inputFieldShape,
-                        color = SearchBarDefaults.colors().containerColor,
-                        contentColor = contentColorFor(SearchBarDefaults.colors().containerColor),
-                        tonalElevation = SearchBarDefaults.TonalElevation,
-                        shadowElevation = SearchBarDefaults.ShadowElevation,
-                    ) {
-                        SearchBarDefaults.InputField(
-                            modifier = Modifier.focusRequester(focusRequester),
-                            state = TextFieldState(initialText = searchQuery),
-                            onSearch = { onSearchQueryChanged(it) },
-                            expanded = false,
-                            onExpandedChange = {},
-                            placeholder = {
-                                Text(stringResource(Res.string.library_quick_search))
-                            },
-                            trailingIcon = if (searchQuery.isNotEmpty()) {
-                                {
-                                    IconButton(onClick = { onSearchQueryChanged("") }) {
-                                        Icon(
-                                            Icons.Default.Clear,
-                                            contentDescription = stringResource(Res.string.common_clear),
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                    }
+                    SearchInput(
+                        query = searchQuery,
+                        onQueryChanged = onSearchQueryChanged,
+                        onSearch = onSearch,
+                    )
                 } else {
                     val title = when (mediaType) {
                         MediaType.ARTIST -> stringResource(
@@ -274,6 +243,18 @@ private fun ItemListTopBar(
                 }
             },
             actions = {
+                if (!showSearch) {
+                    LibraryFilterAction(
+                        mediaType = mediaType,
+                        filters = filters,
+                        providerOptions = providerOptions,
+                        genreOptions = genreOptions,
+                        onLoadOptions = onLoadFilterOptions,
+                        onApply = {
+                            onFiltersChange(it)
+                        },
+                    )
+                }
                 IconButton(
                     onClick = {
                         if (showSearch) {
@@ -297,57 +278,52 @@ private fun ItemListTopBar(
             secondRow = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    FilterChip(
-                        selected = onlyFavorites,
-                        onClick = onToggleFavorites,
-                        label = { Text(stringResource(Res.string.filter_favorites)) },
-                    )
-
-                    Row {
-                        // mediaType is fixed for the lifetime of this screen, so the
-                        // album-only filter control (and its remembered state) is stable.
-                        if (mediaType == MediaType.ALBUM) {
-                            var showFilter by rememberSaveable { mutableStateOf(false) }
-                            BadgedBox(
-                                badge = {
-                                    val count = receptionFilter.activeCount
-                                    if (count > 0) {
-                                        Badge { Text(if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else "$count") }
-                                    }
-                                },
-                            ) {
-                                IconButton(onClick = { showFilter = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.FilterList,
-                                        contentDescription = stringResource(Res.string.cd_reception_filter),
-                                    )
+                    // mediaType is fixed for the lifetime of this screen, so the
+                    // album-only reception filter control (and its remembered state)
+                    // is stable. It sits alongside upstream's generic library filter
+                    // action, which lives in the top-bar `actions` slot.
+                    if (mediaType == MediaType.ALBUM) {
+                        var showFilter by rememberSaveable { mutableStateOf(false) }
+                        BadgedBox(
+                            badge = {
+                                val count = receptionFilter.activeCount
+                                if (count > 0) {
+                                    Badge { Text(if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else "$count") }
                                 }
-                            }
-                            if (showFilter) {
-                                ReceptionFilterSheet(
-                                    filter = receptionFilter,
-                                    onChange = onReceptionFilterChanged,
-                                    onDismiss = { showFilter = false },
+                            },
+                        ) {
+                            IconButton(onClick = { showFilter = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = stringResource(Res.string.cd_reception_filter),
                                 )
                             }
                         }
-                        SortChip(
-                            currentSort = sortOption,
-                            availableFields = SortConfig.fieldsFor(mediaType),
-                            onSortChanged = { onSortChanged(it) },
-                        )
-
-                        IconButton(onClick = onToggleViewMode) {
-                            Icon(
-                                imageVector = when (viewMode) {
-                                    ViewMode.LIST -> Icons.Default.GridView
-                                    ViewMode.GRID -> Icons.AutoMirrored.Filled.ViewList
-                                },
-                                contentDescription = stringResource(Res.string.cd_toggle_view_mode),
+                        if (showFilter) {
+                            ReceptionFilterSheet(
+                                filter = receptionFilter,
+                                onChange = onReceptionFilterChanged,
+                                onDismiss = { showFilter = false },
                             )
                         }
+                    }
+
+                    SortChip(
+                        currentSort = sortOption,
+                        availableFields = SortConfig.fieldsFor(mediaType),
+                        onSortChanged = { onSortChanged(it) },
+                    )
+
+                    IconButton(onClick = onToggleViewMode) {
+                        Icon(
+                            imageVector = when (viewMode) {
+                                ViewMode.LIST -> Icons.Default.GridView
+                                ViewMode.GRID -> Icons.AutoMirrored.Filled.ViewList
+                            },
+                            contentDescription = stringResource(Res.string.cd_toggle_view_mode),
+                        )
                     }
                 }
             },
@@ -386,7 +362,7 @@ private fun ItemList(
         ) {
             // Content area
             Box(modifier = Modifier.fillMaxSize()) {
-                when (val dataState = dataState) {
+                when (dataState) {
                     is DataState.Loading -> LoadingState()
                     is DataState.Error -> ErrorState()
                     is DataState.NoData -> EmptyState(searchQuery, onGlobalSearch)
@@ -455,59 +431,11 @@ private fun ItemList(
     }
 }
 
-@Composable
-private fun CreatePlaylistDialog(
-    onDismiss: () -> Unit,
-    onCreate: (String) -> Unit,
-) {
-    val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-    var playlistName by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.playlist_create_title)) },
-        text = {
-            OutlinedTextField(
-                modifier = Modifier.focusRequester(focusRequester),
-                value = playlistName,
-                onValueChange = { playlistName = it },
-                label = { Text(stringResource(Res.string.playlist_name_label)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        val trimmed = playlistName.trim()
-                        if (trimmed.isNotEmpty()) onCreate(trimmed)
-                    },
-                ),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (playlistName.trim().isNotEmpty()) {
-                        onCreate(playlistName.trim())
-                    }
-                },
-                enabled = playlistName.trim().isNotEmpty(),
-            ) {
-                Text(stringResource(Res.string.common_create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
-}
-
+// CreatePlaylistDialog moved upstream to
+// io.music_assistant.client.ui.compose.common.items.CreatePlaylistDialog; the local
+// copy is gone and the import above now supplies it.
+// LoadingState/ErrorState/EmptyState stay `internal` (not upstream's `private`) so the
+// fork's ListenLaterScreen can reuse them.
 @Composable
 internal fun LoadingState() {
     Box(

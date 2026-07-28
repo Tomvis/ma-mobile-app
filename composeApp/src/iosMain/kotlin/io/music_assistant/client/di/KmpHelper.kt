@@ -13,24 +13,35 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.carplay.CarPlayStrings
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.data.NowPlayingModes
+import io.music_assistant.client.data.NowPlayingTrack
+import io.music_assistant.client.data.NowPlayingTransport
 import io.music_assistant.client.data.executeLocalPlayerDispatch
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
+import io.music_assistant.client.data.model.client.SortConfig
+import io.music_assistant.client.data.model.client.SubItemContext
+import io.music_assistant.client.data.model.client.clientSorted
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
 import io.music_assistant.client.data.model.client.items.Playlist
+import io.music_assistant.client.data.model.client.items.Podcast
+import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.toItemKind
 import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.settings.CarPlatform
-import io.music_assistant.client.settings.DefaultClickAction
+import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.carBulkActions
 import io.music_assistant.client.settings.carTapAction
 import io.music_assistant.client.settings.toCarDispatch
+import io.music_assistant.client.ui.compose.library.LibraryCategory
+import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.currentTimeMillis
 import kotlinx.cinterop.BetaInteropApi
@@ -41,8 +52,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.component.KoinComponent
@@ -69,14 +78,11 @@ object KmpHelper : KoinComponent {
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
+    private val volumeButtonService: VolumeButtonService by inject()
     private val artworkHttpClient: HttpClient by inject(named("webrtcHttpClient"))
 
     // Provide a scope for Swift to launch coroutines if needed
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    fun getServerUrl(): String? {
-        return serviceClient.serverBaseUrl.value
-    }
 
     /**
      * The connected MA server's stable identifier (UUID-style, e.g.
@@ -96,6 +102,10 @@ object KmpHelper : KoinComponent {
      * silently ignored.
      */
     fun handleDeepLink(urlString: String) = deepLinkBus.handle(urlString)
+
+    fun onPlatformVolumeButtonPressed() {
+        volumeButtonService.onPlatformVolumeButtonPressed()
+    }
 
     // MARK: - External Consumer Lifecycle (CarPlay)
 
@@ -131,7 +141,7 @@ object KmpHelper : KoinComponent {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                log.w(e) { "loadArtworkBytes failed for $urlString" }
+                log.w { "loadArtworkBytes failed for $urlString: ${e.message}" }
                 null
             }
             completion(bytes?.toNSData())
@@ -167,7 +177,7 @@ object KmpHelper : KoinComponent {
 
     /**
      * Subscribe to transport command-readiness. Fires with the current value
-     * on subscribe and on every change. Caller must `cancel()` on teardown.
+     * on subscribe and on every change.
      */
     fun observeReadiness(onChanged: (Boolean) -> Unit): Cancellable {
         val job = mainScope.launch {
@@ -176,16 +186,41 @@ object KmpHelper : KoinComponent {
         return Cancellable { job.cancel() }
     }
 
+    // MARK: - Now Playing channels
+    //
+    // Per-concern state for the system media UI (lock screen / Control Center /
+    // CarPlay). Each observer replays the current value on subscribe — late
+    // subscribers (CarPlay connecting mid-playback, foreground return) catch up
+    // immediately. Callbacks arrive on the main thread; Swift needs no dispatch
+    // hop. `null` means "nothing to present" (no current track).
+
     /**
-     * Subscribe to "local player has a current track" transitions. Fires
-     * with the current value on subscribe, then on every distinct change.
+     * Subscribe to track metadata changes (identity, titles, artwork URL,
+     * duration, long-form flag).
      */
-    fun observeLocalPlayerPresence(onChanged: (Boolean) -> Unit): Cancellable {
+    fun observeNowPlayingTrack(onChanged: (NowPlayingTrack?) -> Unit): Cancellable {
         val job = mainScope.launch {
-            mainDataSource.localPlayer
-                .map { it?.queueInfo?.currentItem != null }
-                .distinctUntilChanged()
-                .collect { onChanged(it) }
+            mainDataSource.nowPlayingTrack.collect { onChanged(it) }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    /**
+     * Subscribe to transport anchor changes (playing state, position anchor,
+     * rate). The anchor timestamp is only meaningful on the Kotlin side;
+     * Swift re-stamps arrival with its own clock.
+     */
+    fun observeNowPlayingTransport(onChanged: (NowPlayingTransport?) -> Unit): Cancellable {
+        val job = mainScope.launch {
+            mainDataSource.nowPlayingTransport.collect { onChanged(it) }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    /** Subscribe to queue-mode changes (shuffle, repeat, toggle availability). */
+    fun observeNowPlayingModes(onChanged: (NowPlayingModes?) -> Unit): Cancellable {
+        val job = mainScope.launch {
+            mainDataSource.nowPlayingModes.collect { onChanged(it) }
         }
         return Cancellable { job.cancel() }
     }
@@ -323,7 +358,6 @@ object KmpHelper : KoinComponent {
                 Request.Artist.getAlbums(
                     itemId = artist.itemId,
                     providerInstanceIdOrDomain = artist.provider,
-                    inLibraryOnly = false,
                 ),
             ).getOrNull()
                 ?.filterIsInstance<Album>()
@@ -340,7 +374,6 @@ object KmpHelper : KoinComponent {
                 Request.Album.getTracks(
                     itemId = album.itemId,
                     providerInstanceIdOrDomain = album.provider,
-                    inLibraryOnly = false,
                 ),
             ).getOrNull()
                 ?.filterIsInstance<Track>()
@@ -361,6 +394,26 @@ object KmpHelper : KoinComponent {
                 ),
             ).getOrNull()
                 ?.filterIsInstance<Track>()
+                ?: emptyList()
+        }
+    }
+
+    fun fetchEpisodesByPodcast(
+        podcast: Podcast,
+        completion: (List<AppMediaItem>?) -> Unit,
+    ) {
+        launchFetch("episodesByPodcast:${podcast.itemId}", completion) {
+            mediaItemRepository.fetchMediaItems(
+                Request.Podcast.getEpisodes(
+                    itemId = podcast.itemId,
+                    providerInstanceIdOrDomain = podcast.provider,
+                ),
+            ).getOrNull()
+                ?.filterIsInstance<PodcastEpisode>()
+                ?.clientSorted(
+                    SortConfig.defaultFor(SubItemContext.PODCAST_EPISODES),
+                    SubItemContext.PODCAST_EPISODES,
+                )
                 ?: emptyList()
         }
     }
@@ -415,9 +468,9 @@ object KmpHelper : KoinComponent {
             .map { it.name }
     }
 
-    /** Dispatch a named [DefaultClickAction] (a bulk button) onto [item]. False if invalid/no-op. */
+    /** Dispatch a named [DefaultClickOption] (a bulk button) onto [item]. False if invalid/no-op. */
     fun playCarAction(item: AppMediaItem, actionName: String): Boolean {
-        val action = runCatching { DefaultClickAction.valueOf(actionName) }.getOrNull() ?: return false
+        val action = runCatching { DefaultClickOption.valueOf(actionName) }.getOrNull() ?: return false
         val dispatch = action.toCarDispatch()
         return dispatchLocal(item, dispatch.option, dispatch.radioMode)
     }
@@ -430,9 +483,30 @@ object KmpHelper : KoinComponent {
     fun playCarDefaultTap(item: AppMediaItem): String? {
         val action = item.mediaType.toItemKind()
             ?.let { settingsRepository.carPlayableClickActions.value.carTapAction(it) }
-            ?: DefaultClickAction.PLAY_NOW
+            ?: DefaultClickOption.PLAY_NOW
         val dispatch = action.toCarDispatch()
         return if (dispatchLocal(item, dispatch.option, dispatch.radioMode)) action.name else null
+    }
+
+    /**
+     * The ordered, enabled CarPlay browse-grid categories from the user's Car Tabs setting.
+     * Returns LibraryCategory.name strings (e.g. "ARTISTS", "ALBUMS") so Swift can map each
+     * to its fetcher and icon. Falls back to [carTabCategories] when no config is stored.
+     * Tracks and Genres are excluded because they are not in [carTabCategories].
+     */
+    fun carBrowseCategories(): List<String> {
+        val stored = settingsRepository.carTabsConfig.value
+            ?: return carTabCategories.map { it.name }
+        val parsed = stored.mapNotNull { pref ->
+            runCatching { LibraryCategory.valueOf(pref.name) }.getOrNull()
+                ?.takeIf { it in carTabCategories }
+                ?.let { it to pref.enabled }
+        }
+        val present = parsed.map { it.first }.toSet()
+        val missing = carTabCategories.filter { it !in present }.map { it to true }
+        return (parsed + missing)
+            .filter { (_, enabled) -> enabled }
+            .map { (category, _) -> category.name }
     }
 
     // MARK: - Library Actions (Siri)

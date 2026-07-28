@@ -18,7 +18,9 @@ data class ServerQueue(
     // @SerialName("items") val items: Int,
     @SerialName("shuffle_enabled") val shuffleEnabled: Boolean = false,
     @SerialName("repeat_mode") val repeatMode: String? = null,
+    // TODO replace with "auto_play" when available. This one is deprecated.
     @SerialName("dont_stop_the_music_enabled") val dontStopTheMusicEnabled: Boolean? = null,
+    @SerialName("is_dynamic") val isDynamic: Boolean = false,
     @SerialName("current_index") val currentIndex: Int? = null,
     // @SerialName("index_in_buffer") val indexInBuffer: Int? = null,
     @SerialName("elapsed_time") val elapsedTime: Double? = null,

@@ -5,10 +5,16 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
+import io.music_assistant.client.ui.compose.common.providers.MdiCodepoints
 import io.music_assistant.client.ui.compose.support.inScrollable
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.compose.KoinApplication
+import org.koin.core.KoinApplication
+import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.koinConfiguration
+import org.koin.dsl.module
 
 @RunWith(AndroidJUnit4::class)
 class SelectPlayerDialogTest {
@@ -22,9 +28,22 @@ class SelectPlayerDialogTest {
         }
 
         composeTestRule.setContent {
-            SelectPlayerDialog(
-                selectedPlayer = players[0],
-                players,
+            KoinApplication(
+                configuration = koinConfiguration(declaration = {
+                modules(
+                    module {
+                    singleOf(
+                        ::MdiCodepoints,
+                    )
+                },
+                )
+            }),
+                content = {
+                SelectPlayerDialog(
+                    selectedPlayer = players[0],
+                    players,
+                )
+            },
             )
         }
 

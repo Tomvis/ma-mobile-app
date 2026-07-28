@@ -14,8 +14,8 @@ android {
         applicationId = "io.music_assistant.client"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 6
-        versionName = "0.5.0"
+        versionCode = 10
+        versionName = "0.9.0"
     }
     packaging {
         resources {
@@ -53,12 +53,6 @@ android {
             )
         }
 
-        create("selfSignedDebug") {
-            isDebuggable = true
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("selfSigned")
-        }
-
         create("selfSignedRelease") {
             isDebuggable = false
             isMinifyEnabled = true
@@ -71,18 +65,20 @@ android {
         }
     }
 
-    // ABI splits for the GitHub-distributed APK only. The Play AAB path
-    // (bundleRelease) handles per-device delivery natively, so leave it alone.
+    // ABI splits for the GitHub-distributed APK only. Harmless to the Play AAB:
+    // `splits` is ignored when building an app bundle, so a combined
+    // `bundleRelease assembleRelease` invocation still yields an all-ABI bundle.
     splits {
         abi {
             isEnable = gradle.startParameter.taskNames.any {
-                it.contains("SelfSignedRelease", ignoreCase = true)
+                it.contains("assembleRelease", ignoreCase = true) ||
+                    it.contains("SelfSignedRelease", ignoreCase = true)
             }
             reset()
-            include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = true
+            include("arm64-v8a")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -111,10 +107,12 @@ android {
 
 dependencies {
     implementation(projects.composeApp)
+    implementation(libs.compose.components.resources)
     implementation(libs.androidx.activity.compose)
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
     implementation(libs.androidx.media)
+    implementation(libs.androidx.car.app)
     implementation(libs.coil)
     implementation(libs.kermit)
     debugImplementation(libs.compose.ui.tooling)

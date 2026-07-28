@@ -22,9 +22,12 @@ import io.music_assistant.client.R
 import io.music_assistant.client.auto.toMediaDescription
 import io.music_assistant.client.auto.toUri
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.data.model.client.items.LongFormSeekDefaults
+import io.music_assistant.client.data.model.client.items.canBeFavorited
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +69,12 @@ class SharedMediaSessionManager(
     private var writerScope: CoroutineScope? = null
     private var refCount = 0
 
+    // Localized labels, resolved once before the writer collectors start (see
+    // [startWriter]). The synchronous writers read these; null only in the brief
+    // window before load completes, which the collector ordering rules out.
+    @Volatile
+    private var strings: MediaSessionStrings? = null
+
     private val imageLoader: ImageLoader by lazy { SingletonImageLoader.get(applicationContext) }
     private val defaultIconUri: Uri by lazy {
         R.drawable.baseline_library_music_24.toUri(applicationContext)
@@ -95,7 +104,10 @@ class SharedMediaSessionManager(
     // the LOCAL player: when a host is connected the session presents/controls only the
     // local player; otherwise it presents the canonical all-players now-playing (the phone
     // notification, with its switch-player action). SystemUI binds never flip this.
-    private val autoHostActive = MutableStateFlow(false)
+    private val _autoHostActive = MutableStateFlow(false)
+
+    /** True while a real Android Auto / media host is bound to the LOCAL player. */
+    val autoHostActive: StateFlow<Boolean> = _autoHostActive
 
     // Cached last playback data — used to restore state after clearing errors.
     private var lastData: MediaNotificationData? = null
@@ -137,19 +149,20 @@ class SharedMediaSessionManager(
             lastData = null
             lastBitmap = null
             autoPlayHandler = null
+            strings = null
         }
     }
 
     /** A real AA host connected: isolate the session to the local player + accept browse/voice play. */
     fun bindAutoHost(handler: AutoPlayHandler) {
         autoPlayHandler = handler
-        autoHostActive.value = true
+        _autoHostActive.value = true
     }
 
     /** The AA host went away: return to the all-players notification view, drop any host error. */
     fun unbindAutoHost() {
         autoPlayHandler = null
-        autoHostActive.value = false
+        _autoHostActive.value = false
         clearErrorState()
     }
 
@@ -172,6 +185,16 @@ class SharedMediaSessionManager(
     }
 
     private fun startWriter(scope: CoroutineScope) {
+        // Resolve localized labels once before any collector runs, so the synchronous
+        // writers below always see a non-null [strings].
+        scope.launch {
+            strings = MediaSessionStrings.load()
+            launchPlaybackWriter(scope)
+            launchQueueWriter(scope)
+        }
+    }
+
+    private fun launchPlaybackWriter(scope: CoroutineScope) {
         // Playback state + metadata. 200ms debounce coalesces rapid updates; bitmap
         // loading runs async via [withAsyncBitmap] (keyed by imageUrl, so position ticks
         // never restart or starve a slow load). The notification trigger is keyed by track
@@ -189,6 +212,9 @@ class SharedMediaSessionManager(
                     updatePlaybackState(data, bitmap, multiPlayer = true)
                 }
         }
+    }
+
+    private fun launchQueueWriter(scope: CoroutineScope) {
         // Queue (separate session property). Dedup on the stable id list: setQueue is an
         // expensive IPC write AA hosts react to, so unrelated emissions (volume, etc.)
         // must not churn it.
@@ -272,8 +298,8 @@ class SharedMediaSessionManager(
 
             override fun onCustomAction(action: String, extras: Bundle?) {
                 when (action) {
-                    "ACTION_SEEK_BACK" -> act(PlayerAction.SeekBy(-10))
-                    "ACTION_SEEK_FORWARD" -> act(PlayerAction.SeekBy(30))
+                    "ACTION_SEEK_BACK" -> act(PlayerAction.SeekBy(-LongFormSeekDefaults.BACK_SECONDS))
+                    "ACTION_SEEK_FORWARD" -> act(PlayerAction.SeekBy(LongFormSeekDefaults.FORWARD_SECONDS))
                     "ACTION_SWITCH_PLAYER" -> dataSource.switchSessionPlayer()
                     "ACTION_TOGGLE_SHUFFLE" -> currentPlayer()?.let { pd ->
                         pd.queueInfo?.let {
@@ -292,6 +318,11 @@ class SharedMediaSessionManager(
                             )
                         }
                     }
+
+                    "ACTION_TOGGLE_FAVORITE" ->
+                        (currentPlayer()?.queueInfo?.currentItem?.track as? AppMediaItem)
+                            ?.takeIf { it.mediaType == MediaType.TRACK && it.canBeFavorited }
+                            ?.let { dataSource.toggleFavorite(it) }
                 }
             }
         }
@@ -340,7 +371,7 @@ class SharedMediaSessionManager(
     @Synchronized
     private fun updateQueue(queue: List<MediaSessionCompat.QueueItem>) {
         mediaSession?.setQueue(queue)
-        mediaSession?.setQueueTitle("Now playing")
+        mediaSession?.setQueueTitle(strings?.nowPlaying ?: "")
     }
 
     // --- Private writers ---
@@ -379,23 +410,24 @@ class SharedMediaSessionManager(
                     builder.addCustomAction(
                         PlaybackStateCompat.CustomAction.Builder(
                             "ACTION_SEEK_BACK",
-                            "Rewind 10s",
+                            strings?.rewind ?: "",
                             R.drawable.baseline_replay_10_24,
-                        ).build(),
-                    )
-                    builder.addCustomAction(
-                        PlaybackStateCompat.CustomAction.Builder(
-                            "ACTION_SEEK_FORWARD",
-                            "Forward 30s",
-                            R.drawable.baseline_forward_30_24,
                         ).build(),
                     )
                     if (data.multiplePlayers) {
                         builder.addCustomAction(
                             PlaybackStateCompat.CustomAction.Builder(
                                 "ACTION_SWITCH_PLAYER",
-                                "Next player",
+                                strings?.nextPlayer ?: "",
                                 R.drawable.ic_speaker,
+                            ).build(),
+                        )
+                    } else {
+                        builder.addCustomAction(
+                            PlaybackStateCompat.CustomAction.Builder(
+                                "ACTION_SEEK_FORWARD",
+                                strings?.forward ?: "",
+                                R.drawable.baseline_forward_30_24,
                             ).build(),
                         )
                     }
@@ -404,7 +436,7 @@ class SharedMediaSessionManager(
                         builder.addCustomAction(
                             PlaybackStateCompat.CustomAction.Builder(
                                 "ACTION_TOGGLE_SHUFFLE",
-                                "Shuffle",
+                                strings?.shuffle ?: "",
                                 getShuffleModeIcon(shuffle),
                             ).build(),
                         )
@@ -413,8 +445,18 @@ class SharedMediaSessionManager(
                         builder.addCustomAction(
                             PlaybackStateCompat.CustomAction.Builder(
                                 "ACTION_SWITCH_PLAYER",
-                                "Next player",
+                                strings?.nextPlayer ?: "",
                                 R.drawable.ic_speaker,
+                            ).build(),
+                        )
+                    } else if (data.isFavoritableTrack) {
+                        // Only 2 custom-action slots exist; on a favoritable track the
+                        // favorite toggle takes the repeat slot (see plan / issue).
+                        builder.addCustomAction(
+                            PlaybackStateCompat.CustomAction.Builder(
+                                "ACTION_TOGGLE_FAVORITE",
+                                strings?.favorite ?: "",
+                                getFavoriteIcon(data.isFavorite),
                             ).build(),
                         )
                     } else {
@@ -422,7 +464,7 @@ class SharedMediaSessionManager(
                             builder.addCustomAction(
                                 PlaybackStateCompat.CustomAction.Builder(
                                     "ACTION_TOGGLE_REPEAT",
-                                    "Repeat",
+                                    strings?.repeat ?: "",
                                     getRepeatModeIcon(repeatMode),
                                 ).build(),
                             )
@@ -436,12 +478,11 @@ class SharedMediaSessionManager(
         val metadata = MediaMetadataCompat.Builder()
             .putString(
                 MediaMetadataCompat.METADATA_KEY_TITLE,
-                data.name ?: "Unknown Track",
+                data.name ?: strings?.unknownTrack ?: "",
             )
             .putString(
                 MediaMetadataCompat.METADATA_KEY_ARTIST,
-                (data.artist ?: "Unknown Artist") +
-                        (if (multiPlayer) data.playerName?.let { " (on $it)" } ?: "" else ""),
+                artistMetadata(data, multiPlayer),
             )
             .putString(
                 MediaMetadataCompat.METADATA_KEY_ALBUM,
@@ -457,6 +498,14 @@ class SharedMediaSessionManager(
         session.setMetadata(metadata)
     }
 
+    // Artist line, with the "(on <player>)" suffix appended for remote players when
+    // multiple players are active (mirrors the pre-localization concatenation).
+    private fun artistMetadata(data: MediaNotificationData, multiPlayer: Boolean): String {
+        val artist = data.artist ?: strings?.unknownArtist ?: ""
+        val player = data.playerName?.takeIf { multiPlayer } ?: return artist
+        return strings?.artistWithPlayer(artist, player) ?: artist
+    }
+
     private fun writeErrorToSession(error: ErrorState) {
         val session = mediaSession ?: return
         val extras = error.resolution?.let { intent ->
@@ -467,7 +516,7 @@ class SharedMediaSessionManager(
                 )
                 putString(
                     MediaConstants.PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL,
-                    "Open app",
+                    strings?.openApp ?: "",
                 )
             }
         }
@@ -484,6 +533,13 @@ class SharedMediaSessionManager(
         RepeatMode.ONE -> R.drawable.baseline_repeat_one_24
         RepeatMode.OFF -> R.drawable.baseline_no_repeat_24
     }
+
+    private fun getFavoriteIcon(isFavorite: Boolean): Int =
+        if (isFavorite) {
+            R.drawable.baseline_favorite_24
+        } else {
+            R.drawable.baseline_favorite_border_24
+        }
 
     private fun getShuffleModeIcon(shuffleMode: Boolean): Int =
         if (shuffleMode) {

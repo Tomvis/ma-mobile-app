@@ -50,6 +50,8 @@ obj/
 .externalNativeBuild
 composeApp/keystore.properties
 composeApp/upload-keystore.jks
+androidApp/keystore.properties
+androidApp/upload-keystore.jks
 gha-creds-*.json
 
 .local_gitignore
@@ -71,3 +73,7 @@ iosApp/Frameworks/
 
 # Google Play developer-verification token (per-account, do not commit)
 androidApp/src/selfSignedRelease/assets/adi-registration.properties
+
+# Logs and other junk files
+tmp/
+.server

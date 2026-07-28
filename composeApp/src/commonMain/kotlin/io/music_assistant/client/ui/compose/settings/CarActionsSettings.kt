@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.music_assistant.client.data.model.client.ItemKind
-import io.music_assistant.client.settings.DefaultClickAction
+import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.carBrowsableKinds
 import io.music_assistant.client.settings.carPlayableKinds
 import io.music_assistant.client.settings.carTapAction
@@ -43,6 +43,7 @@ import io.music_assistant.client.settings.defaultCarBulkActions
 import io.music_assistant.client.settings.isCarSupported
 import io.music_assistant.client.ui.compose.common.ReorderableEnabledList
 import io.music_assistant.client.ui.compose.common.items.ActionDropdown
+import io.music_assistant.client.ui.compose.common.items.LocalClickActionConfig
 import io.music_assistant.client.ui.compose.common.items.labelRes
 import io.music_assistant.client.ui.compose.common.items.title
 import io.music_assistant.client.ui.compose.common.items.toItemAction
@@ -53,6 +54,7 @@ import musicassistantclient.composeapp.generated.resources.common_done
 import musicassistantclient.composeapp.generated.resources.default_click_dialog_save
 import musicassistantclient.composeapp.generated.resources.settings_car
 import musicassistantclient.composeapp.generated.resources.settings_car_bulk_for
+import musicassistantclient.composeapp.generated.resources.settings_car_dsp
 import musicassistantclient.composeapp.generated.resources.settings_car_enqueue_action
 import musicassistantclient.composeapp.generated.resources.settings_car_item_actions
 import musicassistantclient.composeapp.generated.resources.settings_car_tabs
@@ -73,6 +75,7 @@ fun CarSection() {
     var showEnqueue by remember { mutableStateOf(false) }
     var bulkKind by remember { mutableStateOf<ItemKind?>(null) }
     var showTabs by remember { mutableStateOf(false) }
+    var showDsp by remember { mutableStateOf(false) }
 
     SectionCard {
         SectionTitle(stringResource(Res.string.settings_car))
@@ -85,6 +88,11 @@ fun CarSection() {
             modifier = Modifier.fillMaxWidth(),
             onClick = { showSheet = true },
         ) { Text(stringResource(Res.string.settings_car_item_actions)) }
+        Spacer(Modifier.size(8.dp))
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showDsp = true },
+        ) { Text(stringResource(Res.string.settings_car_dsp)) }
     }
 
     // Tap a sheet row → close the sheet, then open its dialog (no stacked overlays).
@@ -105,6 +113,7 @@ fun CarSection() {
             onConfirm = viewModel::saveTabs,
         )
     }
+    if (showDsp) CarDspSettingsDialog { showDsp = false }
 }
 
 /** Bottom sheet listing the configurable action groups; each row opens its dialog. */
@@ -154,7 +163,7 @@ private fun CarEnqueueActionDialog(viewModel: CarActionsViewModel, onDismiss: ()
     val stored by viewModel.playableClickActions.collectAsStateWithLifecycle()
     val platform = remember { currentCarPlatform() }
     val selection = remember {
-        mutableStateMapOf<ItemKind, DefaultClickAction>().apply {
+        mutableStateMapOf<ItemKind, DefaultClickOption>().apply {
             carPlayableKinds.forEach { put(it, stored.carTapAction(it)) }
         }
     }
@@ -168,7 +177,7 @@ private fun CarEnqueueActionDialog(viewModel: CarActionsViewModel, onDismiss: ()
             ) {
                 carPlayableKinds.forEach { kind ->
                     val options = remember(kind) {
-                        DefaultClickAction.entries.filter { it.isCarSupported(platform, kind) }
+                        DefaultClickOption.entries.filter { it.isCarSupported(platform, kind) }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -178,8 +187,9 @@ private fun CarEnqueueActionDialog(viewModel: CarActionsViewModel, onDismiss: ()
                             overflow = TextOverflow.Ellipsis,
                         )
                         ActionDropdown(
+                            context = LocalClickActionConfig.current.context,
                             options = options,
-                            selected = selection[kind] ?: DefaultClickAction.PLAY_NOW,
+                            selected = selection[kind] ?: DefaultClickOption.PLAY_NOW,
                             onSelect = { selection[kind] = it },
                             modifier = Modifier.weight(1f),
                         )
@@ -212,7 +222,7 @@ private fun CarBulkActionsDialog(
     val platform = remember { currentCarPlatform() }
     // Enabled+ordered actions first, then the remaining applicable ones (disabled) so they can be added.
     val initial = remember(kind, stored) {
-        val universe = DefaultClickAction.entries.filter { it.isCarSupported(platform, kind) }
+        val universe = DefaultClickOption.entries.filter { it.isCarSupported(platform, kind) }
         val enabled = (stored[kind] ?: defaultCarBulkActions).filter { it in universe }
         val disabled = universe.filter { it !in enabled }
         enabled.map { it to true } + disabled.map { it to false }

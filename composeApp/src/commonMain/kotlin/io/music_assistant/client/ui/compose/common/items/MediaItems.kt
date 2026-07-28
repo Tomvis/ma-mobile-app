@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Explicit
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
@@ -59,8 +60,10 @@ import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RadioStation
+import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.items.image
+import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.compose.common.icons.ArtistIcon
 import io.music_assistant.client.ui.compose.common.icons.BookAudioIcon
 import io.music_assistant.client.ui.compose.common.icons.GenreIcon
@@ -791,7 +794,7 @@ private fun GridPlayableItemLabels(item: PlayableItem) {
     Text(
         text = "${item.displayName}${
             item.version
-                ?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""
+                ?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
         }",
         style = MaterialTheme.typography.bodyMedium,
         maxLines = 1,
@@ -923,7 +926,7 @@ fun BoxScope.ProgressBadge(
 internal fun TrackRowItem(
     modifier: Modifier = Modifier,
     item: Track,
-    isAlbumRow: Boolean,
+    showTrackNumber: Boolean,
     onClick: (Track) -> Unit,
     onLongClick: (Track) -> Unit,
     providerIconFetcher: (@Composable (Modifier, String) -> Unit)?,
@@ -932,7 +935,7 @@ internal fun TrackRowItem(
         modifier = modifier,
         name = item.displayName,
         subtitle = item.localizedSubtitle(),
-        prefixContent = if (isAlbumRow) {
+        prefixContent = if (showTrackNumber) {
             item.trackNumber?.toString()?.let { trackNumber ->
                 {
                     Text(
@@ -1200,6 +1203,71 @@ internal fun GenreRowItem(
         onClick = { onClick(item) },
         onLongClick = { onLongClick(item) },
     )
+}
+
+/**
+ * Browse-only cell for a [RecommendationFolder]: icon + name, no long-press menu — tapping it
+ * navigates one level deeper. Folders never appear in library lists, so this is exercised only
+ * by the Browse screen.
+ */
+@Composable
+fun FolderCell(
+    item: RecommendationFolder,
+    viewMode: ViewMode = ViewMode.GRID,
+    onNavigateClick: (RecommendationFolder) -> Unit,
+) {
+    when (viewMode) {
+        ViewMode.LIST -> RowItem(
+            modifier = Modifier.fillMaxWidth(),
+            name = item.displayName,
+            subtitle = null,
+            prefixContent = { FolderImage(item) },
+            onClick = { onNavigateClick(item) },
+            onLongClick = {},
+        )
+        ViewMode.GRID -> GridItem(
+            onClick = { onNavigateClick(item) },
+            onLongClick = {},
+        ) {
+            FolderImage(item)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = item.displayName,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FolderImage(item: RecommendationFolder) {
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(primaryContainer),
+    ) {
+        val placeholder = rememberPlaceholderPainter(
+            backgroundColor = primaryContainer,
+            iconColor = onPrimaryContainer,
+            icon = Icons.Default.Folder,
+        )
+        AsyncImage(
+            placeholder = placeholder,
+            fallback = placeholder,
+            model = item.image(ImageType.THUMB)?.url,
+            contentDescription = item.displayName,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 @Composable

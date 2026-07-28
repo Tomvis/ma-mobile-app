@@ -46,8 +46,11 @@ data class ServerPlayer(
     @SerialName("display_name") val displayName: String = "",
     @SerialName("hidden") val hidden: Boolean? = null,
     @SerialName("hide_in_ui") val hideInUi: Boolean? = null,
-    // @SerialName("icon") val icon: String,
-    // @SerialName("power_control") val powerControl: String,
+    // Nullable: distinguishes "server didn't send one" from a real value, and tolerates a
+    // missing key or explicit null without failing the whole player's deserialization.
+    @SerialName("icon") val icon: String? = null,
+    @SerialName("power_control") val powerControl: String? = null,
+    @SerialName("powered") val powered: Boolean? = null,
     @SerialName("volume_control") val volumeControl: String = "",
     @SerialName("mute_control") val muteControl: String? = null,
     // @SerialName("enabled_by_default") val enabledByDefault: Boolean? = null,
@@ -80,7 +83,7 @@ data class ServerPlayerMedia(
     @SerialName("duration") val duration: Double? = null,
     @SerialName("queue_id") val queueId: String? = null,
     @SerialName("queue_item_id") val queueItemId: String? = null,
-    @SerialName("palette") val palette: MediaItemPalette? = null,
+    // @SerialName("palette") val palette: MediaItemPalette? = null,
 //    @SerialName("custom_data") val customData: JsonObject? = null,
 )
 

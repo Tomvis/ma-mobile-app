@@ -6,66 +6,99 @@
 package io.music_assistant.client.ui.compose.common
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.LocalPlatformContext
-import com.kmpalette.palette.graphics.Palette
 import io.music_assistant.client.data.model.server.MediaItemPalette
 import io.music_assistant.client.data.model.server.RgbColor
+import io.music_assistant.client.settings.SettingsRepository
 import org.koin.compose.koinInject
 
 /**
  * Theme-independent extraction result kept in [DominantColorViewModel]'s cache.
- * A single vivid [background] serves both themes; the readable tint is pre-computed
- * per surface luminance so consumers select cheaply.
+ * Background and tint colors are pre-computed for dark and light surfaces so consumers
+ * can select cheaply without re-deriving palette roles during recomposition.
  */
 data class ExtractedColors(
-    val background: Color,
+    val backgroundOnDark: Color,
+    val backgroundOnLight: Color,
     val tintOnDark: Color,
     val tintOnLight: Color,
 )
 
 private fun RgbColor.toColor() = Color(r, g, b) // Compose Color(Int, Int, Int) expects 0..255
 
+internal const val MIN_DARK_WASH_CHROMA = 48
+internal const val MIN_DARK_WASH_LUMINANCE = 0.12
+
+internal fun RgbColor.chroma(): Int = maxOf(r, g, b) - minOf(r, g, b)
+
+internal fun RgbColor.isDarkBackgroundWashCandidate(): Boolean =
+    !isBlackOrWhite() && chroma() >= MIN_DARK_WASH_CHROMA && relativeLuminance(this) >= MIN_DARK_WASH_LUMINANCE
+
+private fun MediaItemPalette.chromaticBackgroundWash(): RgbColor? =
+    listOfNotNull(accent, primary).firstOrNull { it.isDarkBackgroundWashCandidate() }
+
+private fun MediaItemPalette.artworkWashColor(): RgbColor? =
+    chromaticBackgroundWash()
+        ?: listOfNotNull(primary, accent).firstOrNull { !it.isBlackOrWhite() }
+        ?: backgroundDark
+        ?: primary
+        ?: accent
+
 /**
- * Build extraction colors from a server-provided palette. Uses the vivid `primary` (falling
- * back to `accent`) as the single background for both themes and derives the readable control
- * tint via [ensureReadable] — mirroring local artwork extraction so the server path looks
- * equally punchy. The muted `background_*`/`on_*` slots are intentionally unused. Returns null
- * when neither vivid slot is present, so the caller falls back to local extraction.
+ * Build theme-specific UI colors from a server-provided or locally derived palette.
+ * Both dark and light surfaces use the same artwork-identity wash color so the hero hue stays
+ * consistent across themes; only foreground/control tints are adapted per surface luminance.
  */
 fun MediaItemPalette.toExtractedColors(): ExtractedColors? {
-    val base = (primary ?: accent)?.toColor() ?: return null
+    val wash = artworkWashColor()?.toColor() ?: return null
+    val base = (primary ?: accent)?.toColor() ?: wash
+    val darkTint = onDark?.toColor() ?: base.ensureReadable(onDarkSurface = true)
+    val lightTint = onLight?.toColor() ?: base.ensureReadable(onDarkSurface = false)
     return ExtractedColors(
-        background = base,
-        tintOnDark = base.ensureReadable(onDarkSurface = true),
-        tintOnLight = base.ensureReadable(onDarkSurface = false),
+        backgroundOnDark = wash,
+        backgroundOnLight = wash,
+        tintOnDark = darkTint,
+        tintOnLight = lightTint,
     )
 }
 
 /**
- * Suspending fetcher used by [rememberAnimatedPlayerColors] — supplied by the screen
- * so the composable doesn't depend on Koin and is trivially testable with a fake.
+ * Color source used by [rememberAnimatedPlayerColors] — supplied by the screen so the
+ * composable doesn't depend on Koin and is trivially testable with a fake.
+ *
+ * [peek] is a synchronous cache hit (or null) so an already-known color can be applied on
+ * first composition without animating; [fetch] is the suspending extract-or-cache path.
  */
-typealias ExtractedColorsFetcher = suspend (imageUrl: String) -> ExtractedColors?
+interface ExtractedColorsSource {
+    fun peek(imageUrl: String): ExtractedColors?
+    suspend fun fetch(imageUrl: String): ExtractedColors?
+}
 
 @Composable
-fun rememberExtractedColorsFetcher(): ExtractedColorsFetcher {
+fun rememberExtractedColorsSource(): ExtractedColorsSource {
     val viewModel: DominantColorViewModel = koinInject()
     val platformContext = LocalPlatformContext.current
     return remember(viewModel, platformContext) {
-        {
-            url ->
-                viewModel.getColors(platformContext, url)
-            }
+        object : ExtractedColorsSource {
+            override fun peek(imageUrl: String) = viewModel.peekColors(imageUrl)
+            override suspend fun fetch(imageUrl: String) = viewModel.getColors(platformContext, imageUrl)
+        }
     }
 }
 
@@ -79,61 +112,62 @@ data class PlayerColors(
     val controlTint: Color,
 )
 
+/**
+ * Reads the persisted "Dynamic colors" preference (default on). Guards [LocalInspectionMode]
+ * so previews render without a Koin graph.
+ */
+@Composable
+fun rememberDynamicColorsEnabled(): Boolean {
+    if (LocalInspectionMode.current) return true
+    val settings: SettingsRepository = koinInject()
+    return settings.dynamicColors.collectAsStateWithLifecycle().value
+}
+
 @Composable
 fun rememberAnimatedPlayerColors(
     imageUrl: String?,
-    palette: MediaItemPalette?,
     fallback: Color,
-    fetchColors: ExtractedColorsFetcher,
+    source: ExtractedColorsSource,
+    enabled: Boolean = true,
 ): State<PlayerColors> {
     val onDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
-    val serverColors = remember(palette) { palette?.toExtractedColors() }
-    val localColors by produceState<ExtractedColors?>(
-        initialValue = null,
-        key1 = imageUrl,
-        key2 = serverColors,
-    ) {
-        value = if (serverColors != null) null else imageUrl?.let { fetchColors(it) }
+    // Synchronous cache hit (consecutive launch): seed the value so the first target is already
+    // final and animateColorAsState renders it without a tween. A miss seeds null → fallback and
+    // animates once fetch() resolves. remember(imageUrl) is required over produceState here:
+    // produceState doesn't re-apply initialValue when its key changes, so a cached value would
+    // never replace the previous image's colors. [enabled] is a key so toggling the preference
+    // re-seeds to null → fallback and animates the artwork tint away.
+    val cached = remember(imageUrl, enabled) { if (enabled) imageUrl?.let { source.peek(it) } else null }
+    var extracted by remember(imageUrl, enabled) { mutableStateOf(cached) }
+    LaunchedEffect(imageUrl, enabled) {
+        if (enabled && cached == null) extracted = imageUrl?.let { source.fetch(it) }
     }
-    val extracted = serverColors ?: localColors
 
-    val targetDominant = extracted?.background ?: fallback
+    val targetDominant = extracted
+        ?.let { if (onDark) it.backgroundOnDark else it.backgroundOnLight }
+        ?: fallback
     val targetTint = extracted
         ?.let { if (onDark) it.tintOnDark else it.tintOnLight }
         ?: fallback.ensureReadable(onDarkSurface = onDark)
 
-    val animatedDominant by animateColorAsState(
+    // Animate the fallback → extracted transition on a cache miss; snap instantly on a hit, where
+    // the final color is already known on the first frame and a tween would just be flicker.
+    val animate = cached == null
+    val animatedDominant by rememberAnimatedColorAsState(
         targetValue = targetDominant,
+        animate = animate,
         animationSpec = tween(durationMillis = 500),
     )
-    val animatedTint by animateColorAsState(
+    val animatedTint by rememberAnimatedColorAsState(
         targetValue = targetTint,
+        animate = animate,
         animationSpec = tween(durationMillis = 500),
     )
 
-    val state = remember { mutableStateOf(PlayerColors(targetDominant, targetTint)) }
-    state.value = PlayerColors(animatedDominant, animatedTint)
-    return state
-}
-
-/**
- * This tries to identify the "best" color: if the "dominant" color is very close to black or
- * white (which will cause control color problems), fallback to the "vibrant" color. For
- * completely black/white images (see Weezer, Spinal Tap, The Beatles or Metallica for
- * examples), a vibrant color might not exist and in that case we still use the dominant one.
- */
-fun Palette.getBestColor(): Color? {
-    val dominantColor = this.dominantSwatch?.let { Color(it.rgb) }
-    val vibrantColor = this.vibrantSwatch?.let { Color(it.rgb) }
-    val color =
-        if (dominantColor != null && (dominantColor.luminance() in 0.01..0.99 || vibrantColor == null)) {
-            dominantColor
-        } else {
-            vibrantColor
-        }
-
-    return color
+    return derivedStateOf {
+        PlayerColors(animatedDominant, animatedTint)
+    }
 }
 
 /**
@@ -186,5 +220,22 @@ private fun hueToRgb(p: Float, q: Float, t: Float): Float {
         tt < 1f / 2f -> q
         tt < 2f / 3f -> p + (q - p) * (2f / 3f - tt) * 6f
         else -> p
+    }
+}
+
+@Composable
+private fun rememberAnimatedColorAsState(
+    targetValue: Color,
+    animate: Boolean,
+    animationSpec: AnimationSpec<Color>,
+): State<Color> {
+    if (!animate) return remember(targetValue) { mutableStateOf(targetValue) }
+
+    var animated by rememberSaveable(targetValue) { mutableStateOf(false) }
+
+    return if (!animated) {
+        animateColorAsState(targetValue, animationSpec) { animated = true }
+    } else {
+        mutableStateOf(targetValue)
     }
 }

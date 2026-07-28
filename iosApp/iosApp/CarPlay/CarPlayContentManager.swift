@@ -133,6 +133,15 @@ class CarPlayContentManager {
         }
     }
 
+    func fetchEpisodesForPodcast(
+        _ podcast: Podcast,
+        completion: @escaping ([CPListItem]?) -> Void
+    ) {
+        KmpHelper.shared.fetchEpisodesByPodcast(podcast: podcast) { items in
+            completion(self.mapItems(items))
+        }
+    }
+
     // MARK: - Action Handling
 
     func playItem(_ item: AppMediaItem) {
@@ -148,6 +157,13 @@ class CarPlayContentManager {
     }
 
     // MARK: - Configurable car actions (shared with Android Auto via SettingsRepository)
+
+    /// Ordered, enabled CarPlay browse-grid category names from the user's Car Tabs setting.
+    /// Returns LibraryCategory.name strings (e.g. "ARTISTS", "ALBUMS"). Falls back to the
+    /// default tab set when no config has been stored.
+    func carBrowseCategories() -> [String] {
+        KmpHelper.shared.carBrowseCategories()
+    }
 
     /// Ordered, CarPlay-supported bulk-action names configured for a browsable container's kind.
     func bulkActionNames(for item: AppMediaItem) -> [String] {
@@ -192,6 +208,8 @@ class CarPlayContentManager {
             iconName = "music.note.list"
         } else if item is Artist {
             iconName = "person.2.crop.square.stack"
+        } else if item is Podcast {
+            iconName = "antenna.radiowaves.left.and.right"
         } else {
             iconName = "music.note"
         }

@@ -11,6 +11,10 @@ data class Metadata(
     val images: List<ImageInfo>,
     val releaseDate: String?,
     val chapters: List<Chapter>,
+    // Embedded lyrics the server may ship with the item; when present they spare a
+    // metadata/get_track_lyrics round-trip. [lrcLyrics] is timestamped LRC, [lyrics] plain.
+    val lyrics: String?,
+    val lrcLyrics: String?,
     val dynamicRange: Float? = null,
     val criticalReception: CriticalReception? = null,
 )

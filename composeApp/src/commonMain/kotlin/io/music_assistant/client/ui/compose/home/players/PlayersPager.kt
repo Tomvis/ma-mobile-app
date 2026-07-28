@@ -11,8 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -44,8 +42,7 @@ import androidx.compose.material.icons.filled.CellTower
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Smartphone
-import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,13 +65,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
@@ -82,6 +76,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
+import io.music_assistant.client.data.model.client.Lyrics
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
 import io.music_assistant.client.data.model.client.PlayerDataFixtures.toQueue
@@ -98,20 +93,22 @@ import io.music_assistant.client.ui.compose.common.OverflowMenuOption
 import io.music_assistant.client.ui.compose.common.PlayerColors
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
-import io.music_assistant.client.ui.compose.common.icons.SpeakerMultipleIcon
+import io.music_assistant.client.ui.compose.common.dynamicColorsMenuOption
 import io.music_assistant.client.ui.compose.common.icons.VolumeIcon
 import io.music_assistant.client.ui.compose.common.icons.VolumeMutedIcon
 import io.music_assistant.client.ui.compose.common.items.AddToPlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.navigationOptions
 import io.music_assistant.client.ui.compose.common.rememberAnimatedPlayerColors
-import io.music_assistant.client.ui.compose.common.rememberExtractedColorsFetcher
+import io.music_assistant.client.ui.compose.common.rememberDynamicColorsEnabled
+import io.music_assistant.client.ui.compose.common.rememberExtractedColorsSource
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.CollapsibleQueue
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.HorizontalPagerIndicator
 import io.music_assistant.client.ui.compose.home.Queue
 import io.music_assistant.client.ui.inactive
+import io.music_assistant.client.utils.LrcParser
 import io.music_assistant.client.utils.WindowClass
 import io.music_assistant.client.utils.conditional
 import kotlinx.coroutines.flow.Flow
@@ -124,16 +121,17 @@ import musicassistantclient.composeapp.generated.resources.bound_player_playing_
 import musicassistantclient.composeapp.generated.resources.cd_more
 import musicassistantclient.composeapp.generated.resources.cd_mute
 import musicassistantclient.composeapp.generated.resources.cd_unmute
+import musicassistantclient.composeapp.generated.resources.player_power_off
+import musicassistantclient.composeapp.generated.resources.player_power_on
 import musicassistantclient.composeapp.generated.resources.players_dsp_settings
 import musicassistantclient.composeapp.generated.resources.players_loading
 import musicassistantclient.composeapp.generated.resources.players_none_available
+import musicassistantclient.composeapp.generated.resources.queue_autoplay_disable
+import musicassistantclient.composeapp.generated.resources.queue_autoplay_enable
 import musicassistantclient.composeapp.generated.resources.queue_clear
-import musicassistantclient.composeapp.generated.resources.queue_dsm_disable
-import musicassistantclient.composeapp.generated.resources.queue_dsm_enable
 import musicassistantclient.composeapp.generated.resources.queue_no_other_players
 import musicassistantclient.composeapp.generated.resources.queue_transfer
 import org.jetbrains.compose.resources.stringResource
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -163,7 +161,8 @@ fun PlayersPager(
                 ?.let { homeScreenViewModel.selectPlayer(it.player) }
         }
 
-        val fetchColors = rememberExtractedColorsFetcher()
+        val colorsSource = rememberExtractedColorsSource()
+        val dynamicColorsEnabled = rememberDynamicColorsEnabled()
 
         val playerAction1 =
             { data: PlayerData, action: PlayerAction ->
@@ -194,9 +193,9 @@ fun PlayersPager(
             val media = it.player.currentMedia
             rememberAnimatedPlayerColors(
                 imageUrl = media?.imageUrl,
-                palette = media?.palette,
                 fallback = MaterialTheme.colorScheme.primaryContainer,
-                fetchColors = fetchColors,
+                source = colorsSource,
+                enabled = dynamicColorsEnabled,
             )
         }
         val isExpandedScreen = WindowClass.isAtLeastExpanded()
@@ -271,6 +270,24 @@ fun PlayersPager(
                         val livePositionFlow = remember(queueId) {
                             queueId?.let { homeScreenViewModel.observePosition(it) }
                         }
+                        // Lyrics: only the displayed page drives the shared VM, so the
+                        // fetch (and the button) track the player currently on screen.
+                        val currentTrack = player.queueInfo?.currentItem?.track as? Track
+                        val isCurrentPage = page == playerPagerState.currentPage
+
+                        val lyrics = currentTrack?.metadata?.let { metadata ->
+                            val plain = metadata.lyrics
+                            val lrc = metadata.lrcLyrics
+                            when {
+                                !lrc.isNullOrBlank() ->
+                                    LrcParser.parse(lrc).takeIf { it.isNotEmpty() }
+                                        ?.let { Lyrics.Synced(it) }
+                                        ?: Lyrics.Plain(lrc)
+                                !plain.isNullOrBlank() -> Lyrics.Plain(plain)
+                                else -> null
+                            }
+                        }
+                        var sheetLyrics by remember(currentTrack) { mutableStateOf<Lyrics?>(null) }
                         if (!expanded) {
                             CollapsedPlayerPage(
                                 isExpandedScreen = isExpandedScreen,
@@ -302,9 +319,18 @@ fun PlayersPager(
                                 isQueueExpanded = isQueueExpanded,
                                 onExpandQueue = { isQueueExpanded = it },
                                 contentPadding = contentPadding,
-                                isCurrentPage = page == playerPagerState.currentPage,
+                                isCurrentPage = isCurrentPage,
                                 navigateToItem = navigateToItem,
                                 livePositionFlow = livePositionFlow,
+                                lyricsAvailable = isCurrentPage && lyrics != null,
+                                onLyricsClick = { sheetLyrics = lyrics },
+                            )
+                        }
+                        sheetLyrics?.let { shown ->
+                            LyricsSheet(
+                                lyrics = shown,
+                                livePositionFlow = livePositionFlow,
+                                onDismiss = { sheetLyrics = null },
                             )
                         }
                     }
@@ -389,6 +415,8 @@ private fun ExpandedPlayerPage(
     isCurrentPage: Boolean,
     navigateToItem: (AppMediaItem) -> Unit = {},
     livePositionFlow: Flow<Double>?,
+    lyricsAvailable: Boolean = false,
+    onLyricsClick: () -> Unit = {},
 ) {
     val isLargeScreen = WindowClass.isAtLeastLarge()
     val dismissThresholdPx = with(LocalDensity.current) { 120.dp.toPx() }
@@ -548,6 +576,8 @@ private fun ExpandedPlayerPage(
                             colors = colors,
                             playerAction = playerAction,
                             onFavoriteClick = onFavoriteClick,
+                            lyricsAvailable = lyricsAvailable,
+                            onLyricsClick = onLyricsClick,
                             livePositionFlow = livePositionFlow,
                         )
                     }
@@ -567,11 +597,7 @@ private fun ExpandedPlayerPage(
                             inactiveTrackColor = controlTint.inactive(),
                         )
                         val isGroupBound = player.childrenBinds.any { it.isBound }
-                        val volumeForGesture by rememberUpdatedState(currentVolume)
                         val isGroupForGesture by rememberUpdatedState(isGroupBound)
-                        val density = LocalDensity.current
-                        val touchSlopPx = LocalViewConfiguration.current.touchSlop
-                        val thumbHitPx = with(density) { 24.dp.toPx() }
                         Row(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -605,63 +631,29 @@ private fun ExpandedPlayerPage(
                                 },
                                 tint = controlTint,
                             )
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .pointerInput(Unit) {
-                                        awaitEachGesture {
-                                            val widthPx = size.width
-                                            if (widthPx == 0) return@awaitEachGesture
-                                            val down = awaitFirstDown(
-                                                requireUnconsumed = false,
-                                                pass = PointerEventPass.Initial,
-                                            )
-                                            val thumbCenter =
-                                                (volumeForGesture / 100f) * widthPx
-                                            // Tap on/near thumb: hand off to the Slider so
-                                            // dragging works normally.
-                                            if (abs(down.position.x - thumbCenter) <= thumbHitPx) {
-                                                return@awaitEachGesture
-                                            }
-                                            down.consume()
-                                            var dragged = false
-                                            while (true) {
-                                                val event = awaitPointerEvent(
-                                                    PointerEventPass.Initial,
-                                                )
-                                                val change = event.changes
-                                                    .firstOrNull { it.id == down.id } ?: break
-                                                if (!dragged &&
-                                                    (change.position - down.position)
-                                                        .getDistance() > touchSlopPx
-                                                ) {
-                                                    dragged = true
-                                                }
-                                                if (change.changedToUp()) {
-                                                    change.consume()
-                                                    if (!dragged) {
-                                                        val action = if (down.position.x < widthPx / 2f) {
-                                                            if (isGroupForGesture) {
-                                                                PlayerAction.GroupVolumeDown
-                                                            } else {
-                                                                PlayerAction.VolumeDown
-                                                            }
-                                                        } else {
-                                                            if (isGroupForGesture) {
-                                                                PlayerAction.GroupVolumeUp
-                                                            } else {
-                                                                PlayerAction.VolumeUp
-                                                            }
-                                                        }
-                                                        playerAction(player, action)
-                                                    }
-                                                    break
-                                                } else {
-                                                    change.consume()
-                                                }
-                                            }
-                                        }
-                                    },
+                            VolumeSliderBox(
+                                modifier = Modifier.weight(1f),
+                                volume = { currentVolume },
+                                onStepDown = {
+                                    playerAction(
+                                        player,
+                                        if (isGroupForGesture) {
+                                            PlayerAction.GroupVolumeDown
+                                        } else {
+                                            PlayerAction.VolumeDown
+                                        },
+                                    )
+                                },
+                                onStepUp = {
+                                    playerAction(
+                                        player,
+                                        if (isGroupForGesture) {
+                                            PlayerAction.GroupVolumeUp
+                                        } else {
+                                            PlayerAction.VolumeUp
+                                        },
+                                    )
+                                },
                             ) {
                                 Slider(
                                     modifier = Modifier.fillMaxWidth(),
@@ -797,21 +789,21 @@ private fun PlayerOverflowMenu(
                     onClick = { queueAction(QueueAction.ClearQueue(queueId)) },
                 ),
             )
-            if (queueData.data.info.let { it.dontStopTheMusicEnabled != null && !it.isDynamicPlaylist }) {
+            if (queueData.data.info.let { it.autoPlayEnabled != null && !it.isDynamicPlaylist }) {
                 add(
                     OverflowMenuOption(
                         title = stringResource(
-                            if (queueData.data.info.dontStopTheMusicEnabled == true) {
-                                Res.string.queue_dsm_disable
+                            if (queueData.data.info.autoPlayEnabled == true) {
+                                Res.string.queue_autoplay_disable
                             } else {
-                                Res.string.queue_dsm_enable
+                                Res.string.queue_autoplay_enable
                             },
                         ),
                         icon = Icons.Default.AllInclusive,
                         onClick = {
                             playerAction(
                                 PlayerAction.ToggleDontStopTheMusic(
-                                    queueData.data.info.dontStopTheMusicEnabled == true,
+                                    queueData.data.info.autoPlayEnabled == true,
                                 ),
                             )
                         },
@@ -831,10 +823,12 @@ private fun PlayerOverflowMenu(
                 options = allPlayers.filter { p -> p.player.id != queueId }.map { playerData ->
                     OverflowMenuOption(
                         title = playerData.player.nameAndSuffix,
-                        icon = when {
-                            playerData.isLocal -> Icons.Default.Smartphone
-                            playerData.player.isGroup -> SpeakerMultipleIcon
-                            else -> Icons.Default.Speaker
+                        leadingContent = {
+                            PlayerIcon(
+                                player = playerData.player,
+                                isLocal = playerData.isLocal,
+                                modifier = Modifier.size(24.dp),
+                            )
                         },
                         onClick = {
                             queueAction(
@@ -859,6 +853,22 @@ private fun PlayerOverflowMenu(
         }
     }
 
+    // Power sits at the very top of the menu, ahead of queue/player/navigation options.
+    val powerOption = if (currentPlayer.player.canPower) {
+        val isPowered = currentPlayer.player.isPowered
+        listOf(
+            OverflowMenuOption(
+                title = stringResource(
+                    if (isPowered) Res.string.player_power_off else Res.string.player_power_on,
+                ),
+                icon = Icons.Default.PowerSettingsNew,
+                onClick = { playerAction(PlayerAction.SetPower(!isPowered)) },
+            ),
+        )
+    } else {
+        emptyList()
+    }
+
     val playerOptions = buildList {
         if (onOpenDsp != null) {
             add(
@@ -878,6 +888,7 @@ private fun PlayerOverflowMenu(
                 ),
             )
         }
+        add(dynamicColorsMenuOption())
     }
 
     val navigationOptions =
@@ -886,7 +897,7 @@ private fun PlayerOverflowMenu(
         )
             ?: emptyList()
 
-    val menuOptions = queueOptions + playerOptions + navigationOptions
+    val menuOptions = powerOption + queueOptions + playerOptions + navigationOptions
     if (menuOptions.isNotEmpty()) {
         OverflowMenuButton(
             modifier = Modifier,

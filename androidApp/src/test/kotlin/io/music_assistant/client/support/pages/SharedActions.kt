@@ -3,7 +3,9 @@ package io.music_assistant.client.support.pages
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -15,33 +17,49 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.isTab
+import io.music_assistant.client.support.withinTag
 import io.music_assistant.client.ui.compose.home.FloatingBarSemantics
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_pause
 import musicassistantclient.composeapp.generated.resources.action_play
+import musicassistantclient.composeapp.generated.resources.banner_no_network
+import musicassistantclient.composeapp.generated.resources.banner_reconnecting
 import musicassistantclient.composeapp.generated.resources.cd_current_player
+import musicassistantclient.composeapp.generated.resources.cd_filter
 import musicassistantclient.composeapp.generated.resources.cd_playing
+import musicassistantclient.composeapp.generated.resources.common_apply
 import musicassistantclient.composeapp.generated.resources.nav_home
 import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
+import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_nothing
 
 fun ComposePage.clickOnMedia(
     serverMediaItem: ServerMediaItem,
     navigationItem: String,
+    withinTag: String? = null,
 ): ItemPage {
     return clickOnMedia(
         serverMediaItem.name,
         MediaType.fromServer(serverMediaItem.mediaType) ?: MediaType.UNKNOWN,
         navigationItem,
+        withinTag,
     )
 }
 
-fun ComposePage.clickOnMedia(name: String, type: MediaType, navigationItem: String): ItemPage {
-    composeTestRule.onNodeWithText(name)
-        .assertIsDisplayed()
-        .performClick()
+fun ComposePage.clickOnMedia(
+    name: String,
+    type: MediaType,
+    navigationItem: String,
+    withinTag: String? = null,
+): ItemPage {
+    val matcher = if (withinTag != null) {
+        withinTag(withinTag).and(hasText(name))
+    } else {
+        hasText(name)
+    }
 
+    composeTestRule.onNode(matcher).assertIsDisplayed().performClick()
     return ItemPage(name, type, navigationItem, composeTestRule).assertOnPage()
 }
 
@@ -90,8 +108,19 @@ fun <T : Page> ComposePage.clickLibrary(destination: T): T {
     return destination.assertOnPage()
 }
 
-fun <T : ComposePage> T.assertMediaDisplayed(name: String): T {
-    composeTestRule.onNodeWithText(name).assertIsDisplayed()
+fun ComposePage.clickSettings(): SettingsPage {
+    clickNavBarItem(Res.string.nav_settings.get())
+    return SettingsPage(composeTestRule).assertOnPage()
+}
+
+fun <T : ComposePage> T.assertMediaDisplayed(name: String, withinTag: String? = null): T {
+    val matcher = if (withinTag != null) {
+        withinTag(withinTag).and(hasText(name))
+    } else {
+        hasText(name)
+    }
+
+    composeTestRule.onNode(matcher).assertIsDisplayed()
     return this
 }
 
@@ -100,8 +129,14 @@ fun <T : ComposePage> T.assertMediaNotDisplayed(name: String): T {
     return this
 }
 
-fun <T : ComposePage> T.playMedia(item: ServerMediaItem): T {
-    composeTestRule.onNodeWithText(item.name).performClick()
+fun <T : ComposePage> T.playMedia(item: ServerMediaItem, withinTag: String? = null): T {
+    val matcher = if (withinTag != null) {
+        withinTag(withinTag).and(hasText(item.name))
+    } else {
+        hasText(item.name)
+    }
+
+    composeTestRule.onNode(matcher).performClick()
     return this
 }
 
@@ -155,4 +190,34 @@ fun <T : ComposePage> T.expandPlayer(
 ): ExpandedPlayerPage {
     composeTestRule.onNodeWithTag(FloatingBarSemantics.TAG).performClick()
     return ExpandedPlayerPage(name, playing, item, composeTestRule).assertOnPage()
+}
+
+fun <T : ComposePage> T.assertReconnectingBanner(showing: Boolean): T {
+    if (showing) {
+        composeTestRule.onNodeWithText(Res.string.banner_reconnecting.get(1)).assertIsDisplayed()
+    } else {
+        composeTestRule.onNodeWithText(Res.string.banner_reconnecting.get(1)).assertIsNotDisplayed()
+    }
+
+    return this
+}
+
+fun <T : ComposePage> T.assertNoNetworkBanner(showing: Boolean): T {
+    if (showing) {
+        composeTestRule.onNodeWithText(Res.string.banner_no_network.get()).assertIsDisplayed()
+    } else {
+        composeTestRule.onNodeWithText(Res.string.banner_no_network.get()).assertIsNotDisplayed()
+    }
+
+    return this
+}
+
+fun <T : ComposePage> T.enableFilter(action: (FilterSheetPage) -> Unit): T {
+    composeTestRule.onNodeWithContentDescription(Res.string.cd_filter.get()).performClick()
+    action(FilterSheetPage(composeTestRule).assertOnPage())
+    composeTestRule.onNodeWithText(Res.string.common_apply.get()).performClick()
+
+    composeTestRule.onNodeWithContentDescription(Res.string.cd_filter.get()).assertIsOn()
+
+    return this
 }

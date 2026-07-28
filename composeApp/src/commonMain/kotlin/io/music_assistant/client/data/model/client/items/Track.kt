@@ -5,6 +5,7 @@ import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
 import io.music_assistant.client.data.model.server.ProviderMapping
+import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 
 data class Track(
@@ -25,11 +26,20 @@ data class Track(
     val trackNumber: Int?,
     val position: Int?,
     override val version: String?,
+    // Retained DTO echoed back for metadata/get_track_lyrics — the server resolves
+    // lyrics from the full track it can't reconstruct from our decomposed model.
+    // Synthetic default for previews/tests; the factory always supplies the real DTO.
+    val source: ServerMediaItem = ServerMediaItem(
+        itemId = itemId,
+        provider = provider,
+        name = name,
+        mediaType = MediaType.TRACK.serverValue,
+    ),
 ) : AppMediaItem(), PlayableItem {
     override val mediaType: MediaType = MediaType.TRACK
     override val canStartRadio: Boolean = true
     override val displayName =
-        "${name}${version?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}"
+        "${name}${version?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()}"
     override val subtitle = artists.joinToString(separator = ", ") { it.displayName }
     override val parentName: String? = album?.displayName
     override val defaultIcon = TrackIcon

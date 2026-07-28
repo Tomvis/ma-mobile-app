@@ -74,6 +74,9 @@ class MessageDispatcher(
     private var messageListenerJob: Job? = null
     private var clockSyncJob: Job? = null
 
+    // Last state value we logged; the heartbeat sends every ~2s but we only log on change.
+    private var lastLoggedState: PlayerStateValue? = null
+
     private val _serverHelloEvent = MutableSharedFlow<ServerHelloPayload>(extraBufferCapacity = 1)
     val serverHelloEvent: Flow<ServerHelloPayload> = _serverHelloEvent.asSharedFlow()
 
@@ -98,6 +101,7 @@ class MessageDispatcher(
 
     fun start() {
         logger.i { "Starting MessageDispatcher" }
+        lastLoggedState = null
         startMessageListener()
     }
 
@@ -243,7 +247,10 @@ class MessageDispatcher(
             payload = ClientStatePayload(player = state),
         )
         val json = myJson.encodeToString(message)
-        logger.i { "Sending client/state: $json" }
+        if (state.state != lastLoggedState) {
+            logger.i { "Sending client/state: ${state.state}" }
+            lastLoggedState = state.state
+        }
         transport.sendText(json)
     }
 
@@ -257,7 +264,7 @@ class MessageDispatcher(
     }
 
     suspend fun sendCommand(command: String, value: CommandValue?) {
-        logger.d { "Sending client/command: $command" }
+        logger.i { "Sending client/command: $command" }
         val message = ClientCommandMessage(
             payload = CommandPayload(command = command, value = value),
         )
@@ -361,7 +368,7 @@ class MessageDispatcher(
     }
 
     private suspend fun handleServerCommand(message: ServerCommandMessage) {
-        logger.d { "Received server/command: ${message.payload.player.command}" }
+        logger.i { "Received server/command: ${message.payload.player.command}" }
         _serverCommandEvent.emit(message)
     }
 
@@ -393,7 +400,7 @@ class MessageDispatcher(
                             album = album,
                             artworkUrl = artworkUrl,
                         )
-                        logger.d { "Updated stream metadata from server/state: $title by $artist" }
+                        logger.i { "Updated stream metadata from server/state: $title by $artist" }
                     }
                 }
             } catch (e: Exception) {

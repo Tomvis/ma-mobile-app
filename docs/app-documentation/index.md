@@ -7,7 +7,7 @@
 **Onboarding**
 - [First time setup](app-settings.md)
   - [Connect to Server — Direct Connection](connection-to-server-direct.md)
-  - [Connect to Server — WebRTC](connection-to-server-webrtc.md)
+  - [Connect to Server — WebRTC](connection-to-server-webrtc.md) (Experimental)
 - [Local Sendspin Player](local-sendspin-player-settings.md)
 
 **Using the App**
@@ -16,6 +16,7 @@
 - [The Global Search Tab](global-search.md)
 - [The Item Details View](item-details.md)
 - [The Players Pager](players-pager.md)
+- [Managing Playlists](playlists.md)
 
 ## 🔗 Quick Links
 

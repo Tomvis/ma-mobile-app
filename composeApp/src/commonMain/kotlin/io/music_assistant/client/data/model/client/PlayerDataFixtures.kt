@@ -16,9 +16,17 @@ object PlayerDataFixtures {
         name: String = "Player ${uniqueIdGenerator.nextInt()}",
         groupChildren: List<ChildBind> = emptyList(),
         playerType: PlayerType = PlayerType.PLAYER,
+        canPower: Boolean = false,
+        isPowered: Boolean = true,
     ): PlayerData {
         return PlayerData(
-            player = player(name = name, playerType = playerType, queueId = queueId),
+            player = player(
+                name = name,
+                playerType = playerType,
+                queueId = queueId,
+                canPower = canPower,
+                isPowered = isPowered,
+            ),
             queue = DataState.Data(
                 Queue(
                     info = QueueInfo(
@@ -27,7 +35,7 @@ object PlayerDataFixtures {
                         currentIndex = null,
                         shuffleEnabled = false,
                         repeatMode = RepeatMode.OFF,
-                        dontStopTheMusicEnabled = false,
+                        autoPlayEnabled = false,
                         elapsedTime = 100.0,
                         elapsedTimeLastUpdated = null,
                         currentItem = null,
@@ -59,9 +67,12 @@ object PlayerDataFixtures {
         playerType: PlayerType = PlayerType.PLAYER,
         queueId: String = uniqueIdGenerator.nextInt().toString(),
         currentMedia: PlayerMedia? = null,
+        canPower: Boolean = false,
+        isPowered: Boolean = true,
     ): Player {
         return Player(
             id = id,
+            icon = "mdi-speaker",
             name = name,
             provider = "provider",
             type = playerType,
@@ -82,6 +93,8 @@ object PlayerDataFixtures {
             activeGroup = null,
             syncedTo = null,
             currentMedia = currentMedia,
+            canPower = canPower,
+            isPowered = isPowered,
         )
     }
 
@@ -106,7 +119,7 @@ object PlayerDataFixtures {
             currentIndex = null,
             shuffleEnabled = false,
             repeatMode = RepeatMode.OFF,
-            dontStopTheMusicEnabled = false,
+            autoPlayEnabled = false,
             elapsedTime = 100.0,
             elapsedTimeLastUpdated = null,
             currentItem = first(),
@@ -134,7 +147,6 @@ object PlayerDataFixtures {
             queueItemId = queueItemId,
             mediaType = (this as? AppMediaItem)?.mediaType,
             uri = null,
-            palette = null,
         )
     }
 

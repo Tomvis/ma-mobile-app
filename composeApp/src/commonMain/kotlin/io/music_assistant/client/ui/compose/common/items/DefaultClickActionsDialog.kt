@@ -21,11 +21,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.ItemKind
 import io.music_assistant.client.data.model.client.appearsIn
-import io.music_assistant.client.settings.DefaultClickAction
+import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.ui.compose.settings.DefaultClickActionsViewModel
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.clickctx_album
 import musicassistantclient.composeapp.generated.resources.clickctx_artist
+import musicassistantclient.composeapp.generated.resources.clickctx_browse
 import musicassistantclient.composeapp.generated.resources.clickctx_detail
 import musicassistantclient.composeapp.generated.resources.clickctx_home
 import musicassistantclient.composeapp.generated.resources.clickctx_library
@@ -43,6 +44,7 @@ private val CTX_LABEL_WIDTH = 64.dp
 private fun ClickContext.label(): StringResource = when (this) {
     ClickContext.HOME -> Res.string.clickctx_home
     ClickContext.LIBRARY -> Res.string.clickctx_library
+    ClickContext.BROWSE -> Res.string.clickctx_browse
     ClickContext.ALBUM -> Res.string.clickctx_album
     ClickContext.PLAYLIST -> Res.string.clickctx_playlist
     ClickContext.ARTIST -> Res.string.clickctx_artist
@@ -64,9 +66,9 @@ fun DefaultClickActionsDialog(itemKind: ItemKind, onDismiss: () -> Unit) {
 
     // Local working copy; missing keys default to PLAY_NOW (the historic behavior).
     val selection = remember(itemKind) {
-        mutableStateMapOf<ClickContext, DefaultClickAction>().apply {
+        mutableStateMapOf<ClickContext, DefaultClickOption>().apply {
             val saved = stored[itemKind].orEmpty()
-            contexts.forEach { put(it, saved[it] ?: DefaultClickAction.PLAY_NOW) }
+            contexts.forEach { put(it, saved[it] ?: DefaultClickOption.PLAY_NOW) }
         }
     }
 
@@ -85,7 +87,7 @@ fun DefaultClickActionsDialog(itemKind: ItemKind, onDismiss: () -> Unit) {
             ) {
                 contexts.forEach { ctx ->
                     val options = remember(itemKind, ctx) {
-                        DefaultClickAction.entries.filter { it.isAvailableIn(ctx, itemKind) }
+                        DefaultClickOption.entries.filter { it.isAvailableIn(ctx, itemKind) }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -95,8 +97,9 @@ fun DefaultClickActionsDialog(itemKind: ItemKind, onDismiss: () -> Unit) {
                             overflow = TextOverflow.Ellipsis,
                         )
                         ActionDropdown(
+                            context = ctx,
                             options = options,
-                            selected = selection[ctx] ?: DefaultClickAction.PLAY_NOW,
+                            selected = selection[ctx] ?: DefaultClickOption.PLAY_NOW,
                             onSelect = { selection[ctx] = it },
                             modifier = Modifier.weight(1f),
                         )

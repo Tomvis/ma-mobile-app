@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -31,6 +32,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,14 +54,19 @@ import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
 import io.music_assistant.client.data.model.client.items.Genre
+import io.music_assistant.client.imageloader.rememberArtworkRequest
 import io.music_assistant.client.ui.INACTIVE_ALPHA
 import io.music_assistant.client.ui.compose.common.OverflowMenuButton
+import io.music_assistant.client.ui.compose.common.OverflowMenuOption
 import io.music_assistant.client.ui.compose.common.PlayerColors
+import io.music_assistant.client.ui.compose.common.RemoveFromLibraryConfirmationDialog
+import io.music_assistant.client.ui.compose.common.dynamicColorsMenuOption
 import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 import io.music_assistant.client.ui.compose.common.items.AddToPlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.Badges
 import io.music_assistant.client.ui.compose.common.items.ItemAction
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.LocalClickActionConfig
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.common.items.localizedSubtitle
 import io.music_assistant.client.ui.compose.common.items.navigationOptions
@@ -67,9 +74,11 @@ import io.music_assistant.client.ui.compose.common.items.resolveDetailOverflowAc
 import io.music_assistant.client.ui.compose.common.items.toOverflowOption
 import io.music_assistant.client.ui.compose.common.painters.rememberPlaceholderPainter
 import io.music_assistant.client.ui.contentColorByLuminance
+import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.ui.inactive
 import io.music_assistant.client.utils.WindowClass
 import musicassistantclient.composeapp.generated.resources.Res
+import musicassistantclient.composeapp.generated.resources.action_similar_artists
 import musicassistantclient.composeapp.generated.resources.cd_more
 import musicassistantclient.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
@@ -124,8 +133,9 @@ fun ItemHeader(
                 }
             }
         } else {
+            // Horizontal
             Column(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 image()
@@ -146,6 +156,7 @@ internal fun ItemTopBar(
     libraryActions: LibraryActions?,
     playlistActions: PlaylistActions?,
     navigateToItem: (AppMediaItem) -> Unit,
+    onSimilarArtistsClick: () -> Unit,
 ) {
     // Flat fill equal to the header gradient's top color, so the bar reads as one
     // continuous wash with the header below it. Back/overflow icons are NOT control-tinted
@@ -181,6 +192,7 @@ internal fun ItemTopBar(
                     libraryActions = libraryActions,
                     playlistActions = playlistActions,
                     navigateToItem = navigateToItem,
+                    onSimilarArtistsClick = onSimilarArtistsClick,
                 )
             },
         )
@@ -193,32 +205,52 @@ private fun ItemOverflow(
     libraryActions: LibraryActions?,
     playlistActions: PlaylistActions?,
     navigateToItem: (AppMediaItem) -> Unit,
+    onSimilarArtistsClick: () -> Unit,
 ) {
     var showPlaylistDialog by rememberSaveable { mutableStateOf(false) }
+    var showRemoveConfirmation by remember { mutableStateOf(false) }
+
+    // Artist-only, appended last: opens the similar-artists sheet rather than acting on the item,
+    // so it stays out of the shared ItemAction/car-action vocabulary.
+    val similarArtists = if (item is Artist) {
+        listOf(
+            OverflowMenuOption(
+                title = stringResource(Res.string.action_similar_artists),
+                icon = Icons.Default.Groups,
+                onClick = onSimilarArtistsClick,
+            ),
+        )
+    } else {
+        emptyList()
+    }
 
     val canonical = resolveDetailOverflowActions(
         item = item,
         librarySupported = libraryActions != null && item !is Genre,
         canAddToPlaylist = playlistActions != null,
     ).map { action ->
-        action.toOverflowOption {
+        action.toOverflowOption(LocalClickActionConfig.current.context) {
             when (it) {
-                ItemAction.AddToLibrary,
-                ItemAction.RemoveFromLibrary,
-                -> libraryActions?.onLibraryClick(item)
+                ItemAction.AddToLibrary -> libraryActions?.onLibraryClick(item)
+                ItemAction.RemoveFromLibrary -> showRemoveConfirmation = true
+
                 ItemAction.Favorite,
                 ItemAction.Unfavorite,
-                -> libraryActions?.onFavoriteClick(item)
+                    -> libraryActions?.onFavoriteClick(item)
+
                 ItemAction.SaveForLater,
                 ItemAction.RemoveFromLater,
-                -> libraryActions?.onListenLaterClick(item)
+                    -> libraryActions?.onListenLaterClick(item)
+
+
                 ItemAction.AddToPlaylist -> showPlaylistDialog = true
                 else -> Unit
             }
         }
     }
     OverflowMenuButton(
-        options = canonical + item.navigationOptions(navigateToItem),
+        options = canonical + item.navigationOptions(navigateToItem) + similarArtists +
+            dynamicColorsMenuOption(),
     ) { onClick ->
         IconButton(onClick = onClick) {
             Icon(
@@ -233,6 +265,14 @@ private fun ItemOverflow(
             item = item,
             playlistActions = playlistActions,
             onDismiss = { showPlaylistDialog = false },
+        )
+    }
+
+    if (showRemoveConfirmation) {
+        RemoveFromLibraryConfirmationDialog(
+            item = item,
+            onConfirm = { libraryActions?.onLibraryClick(item) },
+            onDismiss = { showRemoveConfirmation = false },
         )
     }
 }
@@ -255,7 +295,11 @@ private fun ItemText(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            modifier = Modifier.basicMarquee(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .fadingEdges()
+                .basicMarquee()
+                .padding(horizontal = 16.dp),
             text = item.name,
             textAlign = textAlign,
             style = MaterialTheme.typography.titleLarge,
@@ -264,7 +308,11 @@ private fun ItemText(
         (item as? Album)?.version?.let {
             if (it.isNotBlank()) {
                 Text(
-                    modifier = Modifier.basicMarquee(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fadingEdges()
+                        .basicMarquee()
+                        .padding(horizontal = 16.dp),
                     text = it,
                     textAlign = textAlign,
                     style = MaterialTheme.typography.titleSmall,
@@ -274,7 +322,11 @@ private fun ItemText(
 
         item.localizedSubtitle()?.let {
             Text(
-                modifier = Modifier.basicMarquee(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fadingEdges()
+                    .basicMarquee()
+                    .padding(horizontal = 16.dp),
                 text = it,
                 textAlign = textAlign,
                 style = MaterialTheme.typography.titleMedium,
@@ -306,7 +358,7 @@ private fun Image(
             RoundedCornerShape(16.dp)
         }
         AsyncImage(
-            model = item.image(ImageType.THUMB)?.url,
+            model = rememberArtworkRequest(item.image(ImageType.THUMB)?.url),
             placeholder = placeholder,
             fallback = placeholder,
             contentDescription = null,

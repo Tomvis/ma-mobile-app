@@ -36,6 +36,15 @@ class SendspinClient(
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisorJob
 
+    companion object {
+        /** Max reconnect attempt index that still triggers auto-resume.
+         *  Matches attempt 9 = ~4 minutes on the backoff ladder.
+         *  Beyond this the outage is considered too long for safe
+         *  auto-resume — the server may have rebooted or the user
+         *  context may have changed. */
+        private const val RECONNECT_AUTO_RESUME_MAX_ATTEMPTS = 9
+    }
+
     // Components
     private var transport: SendspinTransport? = null
     private var messageDispatcher: MessageDispatcher? = null
@@ -49,6 +58,13 @@ class SendspinClient(
     // MainDataSource should monitor this to pause the MA server player
     private val _playbackStoppedDueToError = MutableStateFlow<Throwable?>(null)
     val playbackStoppedDueToError: StateFlow<Throwable?> = _playbackStoppedDueToError.asStateFlow()
+
+    // Reactive buffer-starvation state from the pipeline. The owner composes this with transport
+    // and play state to decide on teardown — see LocalPlayerController.
+    val isStarved: StateFlow<Boolean> get() = audioPipeline.isStarved
+
+    /** Stop the audio stream (release the sink), leaving the client/transport intact. */
+    suspend fun stopStream() = audioPipeline.stopStream()
 
     // Track current volume/mute state
     // Initialize with current system volume (not hardcoded 100)
@@ -168,7 +184,13 @@ class SendspinClient(
                 when (wsState) {
                     WebSocketState.Connected -> {
                         when (_state.value) {
-                            is SendspinState.Connecting, is SendspinState.Reconnecting -> {
+                            is SendspinState.Connecting,
+                            is SendspinState.Reconnecting,
+                            is SendspinState.Error,
+                            -> {
+                                val reconnecting = _state.value as? SendspinState.Reconnecting
+                                val wasStreaming = reconnecting?.wasStreaming ?: false
+                                val reconnectAttempt = reconnecting?.attempt ?: 0
                                 try {
                                     if (config.requiresAuth) {
                                         _state.update { SendspinState.Authenticating }
@@ -179,6 +201,22 @@ class SendspinClient(
                                     }
                                 } catch (e: Exception) {
                                     logger.w { "Failed to send auth/hello (transport closed during handshake): ${e.message}" }
+                                }
+                                // Auto-resume playback if we were streaming before the disconnect
+                                // and the outage wasn't too long (attempt <= threshold).
+                                // Beyond ~4 minutes (attempt 9) the server may have rebooted or
+                                // the user context changed — don't startle the user.
+                                if (wasStreaming && reconnectAttempt < RECONNECT_AUTO_RESUME_MAX_ATTEMPTS) {
+                                    try {
+                                        mediaPlayerController.resume()
+                                        logger.i { "Auto-resumed playback after reconnect (attempt $reconnectAttempt)" }
+                                    } catch (e: Exception) {
+                                        logger.w(e) { "Auto-resume failed" }
+                                    }
+                                } else if (wasStreaming) {
+                                    logger.i {
+                                        "Skipped auto-resume after $reconnectAttempt attempts (max=$RECONNECT_AUTO_RESUME_MAX_ATTEMPTS)"
+                                    }
                                 }
                             }
                             else -> Unit
@@ -198,13 +236,11 @@ class SendspinClient(
                             wsState.error.message?.contains("Failed to reconnect") == true
 
                         if (isPermanent) {
-                            val current = _state.value
-                            val wasStreaming = current is SendspinState.Reconnecting &&
-                                    current.wasStreaming
-                            if (wasStreaming) {
-                                audioPipeline.stopStream()
-                                stateReporter?.stop()
-                            }
+                            // Don't stop the pipeline: let it keep draining whatever is buffered.
+                            // If reconnect lands within the window, chunks resume into the live
+                            // queue; otherwise it goes silent on its own. Only a user stop,
+                            // server stream/end, or a genuine reset tears the audio down.
+                            stateReporter?.stop()
                             _state.update {
                                 SendspinState.Error(
                                     SendspinError.Permanent(
@@ -301,6 +337,8 @@ class SendspinClient(
                 // Update playback state based on sync quality
                 if (clockSynchronizer.currentQuality == SyncQuality.GOOD) {
                     if (_state.value is SendspinState.Buffering) {
+                        val stats = clockSynchronizer.getStats()
+                        logger.i { "Playback synchronized (offset=${stats.offsetMs}ms, rtt=${stats.rttMs}ms)" }
                         _state.update { SendspinState.Synchronized }
                         stateReporter?.reportNow(PlayerStateValue.SYNCHRONIZED)
                     }

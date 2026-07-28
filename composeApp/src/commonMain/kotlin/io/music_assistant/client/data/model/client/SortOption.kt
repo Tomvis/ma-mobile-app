@@ -83,20 +83,15 @@ object SortConfig {
     fun fieldsFor(context: SubItemContext): List<SortField> = when (context) {
         SubItemContext.ARTIST_ALBUMS -> listOf(SortField.NAME, SortField.YEAR)
         SubItemContext.ARTIST_TRACKS -> listOf(SortField.NAME, SortField.DURATION)
-        SubItemContext.ALBUM_TRACKS -> listOf(SortField.ORIGINAL, SortField.NAME, SortField.DURATION)
-        SubItemContext.PLAYLIST_TRACKS -> listOf(
-            SortField.ORIGINAL,
-            SortField.NAME,
-            SortField.ARTIST_NAME,
-            SortField.DURATION,
-        )
+        SubItemContext.ALBUM_TRACKS -> listOf(SortField.ORIGINAL)
+        SubItemContext.PLAYLIST_ITEMS -> listOf(SortField.ORIGINAL)
         SubItemContext.PODCAST_EPISODES -> listOf(SortField.NAME, SortField.RELEASE_DATE, SortField.DURATION)
     }
 
     fun defaultFor(context: SubItemContext): SortOption = when (context) {
         SubItemContext.ARTIST_ALBUMS -> SortOption(SortField.YEAR, descending = true)
         SubItemContext.ALBUM_TRACKS -> SortOption(SortField.ORIGINAL)
-        SubItemContext.PLAYLIST_TRACKS -> SortOption(SortField.ORIGINAL)
+        SubItemContext.PLAYLIST_ITEMS -> SortOption(SortField.ORIGINAL)
         SubItemContext.PODCAST_EPISODES -> SortOption(SortField.RELEASE_DATE, descending = true)
         else -> SortOption(SortField.NAME)
     }
@@ -106,34 +101,43 @@ enum class SubItemContext {
     ARTIST_ALBUMS,
     ARTIST_TRACKS,
     ALBUM_TRACKS,
-    PLAYLIST_TRACKS,
+    PLAYLIST_ITEMS,
     PODCAST_EPISODES,
 }
 
-fun <T> List<T>.clientSorted(option: SortOption): List<T> {
+fun <T> List<T>.clientSorted(option: SortOption, context: SubItemContext? = null): List<T> {
     val comparator: Comparator<T> = when (option.field) {
-        SortField.ORIGINAL -> compareBy<T, Int?>(nullsLast()) {
-            (it as? Track)?.discNumber
-        }.thenBy(nullsLast()) {
-            (it as? Track)?.trackNumber
+        SortField.ORIGINAL -> if (context == SubItemContext.PLAYLIST_ITEMS) {
+            compareBy<T, Int?>(nullsLast()) { (it as? Track)?.position }
+        } else {
+            compareBy<T, Int?>(nullsLast()) {
+                (it as? Track)?.discNumber
+            }.thenBy(nullsLast()) {
+                (it as? Track)?.trackNumber
+            }
         }
         SortField.NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) {
-            (it as? AppMediaItem)?.sortName ?: (it as? AppMediaItem)?.displayName
-                ?: (it as? PlayableItem)?.displayName ?: ""
+            (
+                (it as? AppMediaItem)?.sortName ?: (it as? AppMediaItem)?.displayName
+                ?: (it as? PlayableItem)?.displayName
+            ).orEmpty()
         }
         SortField.DURATION -> compareBy { (it as? PlayableItem)?.duration ?: 0.0 }
         SortField.YEAR -> compareBy { (it as? Album)?.year ?: 0 }
         SortField.RELEASE_DATE -> compareBy(String.CASE_INSENSITIVE_ORDER) {
-            (it as? PodcastEpisode)?.releaseDate ?: ""
+            (it as? PodcastEpisode)?.releaseDate.orEmpty()
         }
         SortField.ARTIST_NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) {
-            (it as? Track)?.artists?.firstOrNull()?.displayName
+            (
+                (it as? Track)?.artists?.firstOrNull()?.displayName
                 ?: (it as? Album)?.artists?.firstOrNull()?.displayName
-                ?: ""
+            ).orEmpty()
         }
         else -> compareBy(String.CASE_INSENSITIVE_ORDER) {
-            (it as? AppMediaItem)?.sortName ?: (it as? AppMediaItem)?.displayName
-                ?: (it as? PlayableItem)?.displayName ?: ""
+            (
+                (it as? AppMediaItem)?.sortName ?: (it as? AppMediaItem)?.displayName
+                ?: (it as? PlayableItem)?.displayName
+            ).orEmpty()
         }
     }
     return if (option.descending) sortedWith(comparator.reversed()) else sortedWith(comparator)

@@ -86,6 +86,7 @@ class MediaItemFactory(
                 trackNumber = trackNumber,
                 position = position?.takeIf { it in 0L..Int.MAX_VALUE.toLong() }?.toInt(),
                 version = version,
+                source = server,
             )
 
             MediaType.PLAYLIST -> Playlist(
@@ -109,6 +110,7 @@ class MediaItemFactory(
                 uri = uri,
                 images = resolveImageInfo(image, metadata),
                 items = items?.let { createList(it) },
+                path = path,
             )
 
             MediaType.PODCAST -> Podcast(
@@ -140,6 +142,7 @@ class MediaItemFactory(
                 resumePositionMs = resumePositionMs,
                 releaseDate = metadata?.releaseDate,
                 version = version,
+                source = server,
             )
 
             MediaType.RADIO -> RadioStation(
@@ -174,6 +177,7 @@ class MediaItemFactory(
                 fullyPlayed = fullyPlayed,
                 resumePositionMs = resumePositionMs,
                 version = version,
+                source = server,
             )
 
             MediaType.GENRE -> Genre(
@@ -216,6 +220,8 @@ class MediaItemFactory(
             images = it.images?.map(::createImageInfo).orEmpty(),
             releaseDate = it.releaseDate,
             chapters = it.chapters?.map(::createChapter).orEmpty(),
+            lyrics = it.lyrics,
+            lrcLyrics = it.lrcLyrics,
             dynamicRange = it.dynamicRange?.toFloat(),
             criticalReception = createCriticalReception(it.criticalReception),
         )
@@ -271,7 +277,7 @@ class MediaItemFactory(
             path = server.path,
             isRemotelyAccessible = server.remotelyAccessible,
             provider = server.provider,
-            url = apiClient.resolveImageUrl(server.path, server.provider, server.remotelyAccessible),
+            url = apiClient.resolveImageUrl(server.path, server.provider, server.remotelyAccessible, server.proxyId),
         )
 
     private fun resolveImageInfo(

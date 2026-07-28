@@ -2,7 +2,7 @@ package io.music_assistant.client.data.model.client
 
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.model.client.items.Album
-import io.music_assistant.client.data.model.server.FakeClient
+import io.music_assistant.client.data.model.server.StubServiceClient
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.utils.myJson
 import kotlin.test.Test
@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class AlbumMetadataMappingTest {
-    private val factory = MediaItemFactory(FakeClient())
+    private val factory = MediaItemFactory(StubServiceClient())
 
     private fun albumJson() = """
         {"item_id":"a1","provider":"library","name":"Album",

@@ -5,8 +5,12 @@ data class Player(
     val name: String,
     val provider: String,
     val type: PlayerType,
+    /** Server-provided Material Design Icons name (e.g. "speaker"); null when absent. */
+    val icon: String? = null,
     val shouldBeShown: Boolean,
     val canSetVolume: Boolean,
+    val canPower: Boolean,
+    val isPowered: Boolean,
     val volumeLevel: Float?,
     val volumeControl: String?,
     val volumeMuted: Boolean,
@@ -23,6 +27,8 @@ data class Player(
     val groupVolumeMuted: Boolean,
     val currentMedia: PlayerMedia?,
 ) {
+    val isPoweredOff: Boolean get() = canPower && !isPowered
+
     val isGroup = type == PlayerType.GROUP
     val isGrouped = !isGroup && groupMembers?.isNotEmpty() == true
 
@@ -39,7 +45,7 @@ data class Player(
     val currentVolume = if (groupMembers?.isNotEmpty() == true) groupVolume else volumeLevel
     val currentMuteState = if (groupMembers?.isNotEmpty() == true) groupVolumeMuted else volumeMuted
 
-    val isVolumeSliderAccessible = (isGroup || canSetVolume) && currentVolume != null
+    val isVolumeSliderAccessible = (isGroup || canSetVolume) && currentVolume != null && !isPoweredOff
 
     val canPlay = when {
         isGroup -> groupMembers?.isNotEmpty() == true

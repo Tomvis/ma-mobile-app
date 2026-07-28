@@ -5,6 +5,7 @@ object APICommands {
     const val PLAYERS_ALL = "players/all"
     const val PLAYERS_CMD = "players/cmd"
     const val PLAYERS_CMD_SEEK = "$PLAYERS_CMD/seek"
+    const val PLAYERS_CMD_POWER = "$PLAYERS_CMD/power"
     const val PLAYERS_CMD_VOLUME_SET = "$PLAYERS_CMD/volume_set"
     const val PLAYERS_CMD_VOLUME_MUTE = "$PLAYERS_CMD/volume_mute"
     const val PLAYERS_CMD_GROUP_VOLUME = "$PLAYERS_CMD/group_volume"
@@ -50,6 +51,9 @@ object APICommands {
     const val MUSIC_ARTISTS_LIBRARY_ITEMS = "music/artists/library_items"
     const val MUSIC_ARTISTS_ARTIST_ALBUMS = "music/artists/artist_albums"
     const val MUSIC_ARTISTS_ARTIST_TRACKS = "music/artists/artist_tracks"
+    const val MUSIC_ARTISTS_TOP_ALBUMS = "music/artists/top_albums"
+    const val MUSIC_ARTISTS_TOP_TRACKS = "music/artists/top_tracks"
+    const val MUSIC_ARTISTS_SIMILAR_ARTISTS = "music/artists/similar_artists"
 
     // Album commands
     const val MUSIC_ALBUMS_LIBRARY_ITEMS = "music/albums/library_items"
@@ -70,19 +74,30 @@ object APICommands {
     const val MUSIC_FAVORITES_REMOVE_ITEM = "music/favorites/remove_item"
 
     // Mark commands
-    const val MUSIC_MARK_ITEM_PLAYED = "music/mark_item_played"
-    const val MUSIC_MARK_ITEM_UNPLAYED = "music/mark_item_unplayed"
+    const val MUSIC_MARK_PLAYED = "music/mark_played"
+    const val MUSIC_MARK_UNPLAYED = "music/mark_unplayed"
+
+    // Metadata commands
+    const val METADATA_GET_TRACK_LYRICS = "metadata/get_track_lyrics"
+
+    // Browse
+    const val MUSIC_BROWSE = "music/browse"
 
     // Search and recommendations
     const val MUSIC_SEARCH = "music/search"
     const val MUSIC_RECOMMENDATIONS = "music/recommendations"
     const val PROVIDERS_MANIFESTS = "providers/manifests"
+    const val PROVIDERS = "providers"
+
+    // Items
+    const val MUSIC_ITEM_BY_URI = "music/item_by_uri"
 
     // Auth commands
     const val AUTH_PROVIDERS = "auth/providers"
     const val AUTH_AUTHORIZATION_URL = "auth/authorization_url"
     const val AUTH_LOGIN = "auth/login"
     const val AUTH_LOGOUT = "auth/logout"
+    const val AUTH_ME = "auth/me"
     const val AUTH = "auth"
 
     // DSP commands

@@ -14,26 +14,28 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun FloatingBar(
-    collapsedBottomPadding: Dp = 0.dp,
     expanded: Boolean = false,
     onExpand: (Boolean) -> Unit = {},
     content: @Composable (expanded: Boolean, contentPadding: PaddingValues) -> Unit,
@@ -42,17 +44,10 @@ fun FloatingBar(
     val padding by animateDpAsState(if (expanded) 0.dp else 8.dp)
     val paddingValues = PaddingValues(padding)
 
-    val modifier = if (expanded) {
-        Modifier
-    } else {
-        Modifier.padding(bottom = collapsedBottomPadding)
-    }
-
-    Box(
-        modifier = modifier
+    Surface(
+        modifier = Modifier
             .testTag(FloatingBarSemantics.TAG)
             .padding(paddingValues)
-            .clip(RoundedCornerShape(clip))
             .fillMaxWidth()
             .let {
                 if (expanded) {
@@ -60,8 +55,9 @@ fun FloatingBar(
                 } else {
                     it.wrapContentHeight().clickable { onExpand(true) }
                 }
-            }
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            },
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(clip),
     ) {
         Column {
             val contentPadding = if (expanded) {
@@ -90,10 +86,19 @@ fun FloatingBarLayout(
                 .first()
                 .measure(looseConstraints)
 
-        val contentPadding = PaddingValues(bottom = floatingBarPlaceable.height.toDp())
-        val contentPlaceable = subcompose("content") { Box { content(contentPadding) } }
-            .first()
-            .measure(looseConstraints)
+        val contentSubcompose = subcompose("content") {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val floatingBarHeightDp = floatingBarPlaceable.height.toDp()
+                content(PaddingValues(bottom = floatingBarHeightDp))
+
+                FloatingBarShadow(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .height(floatingBarHeightDp),
+                )
+            }
+        }
+        val contentPlaceable = contentSubcompose.first().measure(looseConstraints)
 
         val layoutWidth = constraints.maxWidth
         val layoutHeight = constraints.maxHeight
@@ -102,6 +107,22 @@ fun FloatingBarLayout(
             floatingBarPlaceable.place(0, layoutHeight - floatingBarPlaceable.height)
         }
     }
+}
+
+@Composable
+private fun FloatingBarShadow(modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.6f),
+                    ),
+                ),
+            ),
+    )
 }
 
 object FloatingBarSemantics {

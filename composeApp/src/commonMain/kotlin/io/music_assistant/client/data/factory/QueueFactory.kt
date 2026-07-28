@@ -27,11 +27,12 @@ class QueueFactory(
             currentIndex = currentIndex,
             shuffleEnabled = shuffleEnabled,
             repeatMode = RepeatMode.fromServer(repeatMode) ?: RepeatMode.OFF,
-            dontStopTheMusicEnabled = dontStopTheMusicEnabled,
+            autoPlayEnabled = dontStopTheMusicEnabled,
             elapsedTime = elapsedTime,
             elapsedTimeLastUpdated = elapsedTimeLastUpdated,
             currentItem = currentItem?.let(::createTrack),
             radioSource = radioSource?.let { mediaItemFactory.createList(it) } ?: emptyList(),
+            isDynamicPlaylist = isDynamic,
             playbackSpeed = playbackSpeed,
         )
     }
