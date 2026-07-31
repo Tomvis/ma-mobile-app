@@ -71,17 +71,29 @@ private val DR_BUCKET_LABELS: Map<String, StringResource> = linkedMapOf(
 
 // Awards first, then review-column kinds. AOTM is gone — folded into record_of_the_month.
 // "review" is the default column and not a useful filter.
-private val ACCOLADE_LABELS: Map<String, StringResource> = linkedMapOf(
+private val AWARD_ACCOLADE_LABELS: Map<String, StringResource> = linkedMapOf(
     "aoty" to Res.string.filter_label_aoty,
     "record_of_the_month" to Res.string.filter_label_record_of_the_month,
     "honorable_mention" to Res.string.filter_label_honorable_mention,
     "score_revised" to Res.string.filter_label_score_revised,
+)
+
+// The five review columns only ever appear on AMG entries, so they belong in the AMG
+// row alone: the server scopes each accolade clause to its own source, so offering
+// them under TPS makes a dead control that always filters to zero. Mirrors the web
+// frontend's AWARD_ACCOLADE_KINDS / AMG_COLUMN_ACCOLADE_KINDS split.
+private val AMG_COLUMN_ACCOLADE_LABELS: Map<String, StringResource> = linkedMapOf(
     "tymhm" to Res.string.filter_label_tymhm,
     "sitf" to Res.string.filter_label_sitf,
     "ymio" to Res.string.filter_label_ymio,
     "lit" to Res.string.filter_label_lit,
     "rfu" to Res.string.filter_label_rfu,
 )
+
+private val AMG_ACCOLADE_LABELS: Map<String, StringResource> =
+    AWARD_ACCOLADE_LABELS + AMG_COLUMN_ACCOLADE_LABELS
+
+private val TPS_ACCOLADE_LABELS: Map<String, StringResource> = AWARD_ACCOLADE_LABELS
 
 @Composable
 fun ReceptionFilterSheet(
@@ -148,6 +160,7 @@ fun ReceptionFilterSheet(
                 }
             }
             SourceAccoladeRow(
+                labels = AMG_ACCOLADE_LABELS,
                 accolades = filter.amgAccolades,
                 favorite = filter.amgFavorite,
                 untagged = filter.amgUntagged,
@@ -167,6 +180,7 @@ fun ReceptionFilterSheet(
                 }
             }
             SourceAccoladeRow(
+                labels = TPS_ACCOLADE_LABELS,
                 accolades = filter.tpsAccolades,
                 favorite = filter.tpsFavorite,
                 untagged = filter.tpsUntagged,
@@ -180,6 +194,7 @@ fun ReceptionFilterSheet(
 
 @Composable
 private fun SourceAccoladeRow(
+    labels: Map<String, StringResource>,
     accolades: Set<String>,
     favorite: Boolean,
     untagged: Boolean,
@@ -188,7 +203,7 @@ private fun SourceAccoladeRow(
     onToggleUntagged: () -> Unit,
 ) {
     ChipRow {
-        ACCOLADE_LABELS.forEach { (kind, labelRes) ->
+        labels.forEach { (kind, labelRes) ->
             FilterChip(
                 selected = kind in accolades,
                 onClick = { onToggleAccolade(kind) },
