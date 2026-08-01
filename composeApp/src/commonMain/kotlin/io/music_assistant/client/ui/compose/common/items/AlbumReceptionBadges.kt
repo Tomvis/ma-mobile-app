@@ -60,11 +60,16 @@ fun AlbumReceptionBadges(
     val tags = rememberAlbumReceptionTags(album)
     if (!tags.hasAny) return
 
-    val contentDesc = buildList {
-        tags.dr?.let { add("DR ${formatDr(it.value)}") }
-        tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-        tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
-    }.joinToString(", ")
+    // Keyed on the already-memoized tags: these badges render in every visible
+    // cell of a lazy grid/list, so rebuilding the string on each recomposition
+    // would allocate two lists and a joined string per cell per scroll frame.
+    val contentDesc = remember(tags) {
+        buildList {
+            tags.dr?.let { add("DR ${formatDr(it.value)}") }
+            tags.amg?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+            tags.tps?.let { s -> add(s.source + (s.rating?.let { " ${formatScore(it)}" } ?: "")) }
+        }.joinToString(", ")
+    }
 
     val container = if (style == ReceptionBadgeStyle.Tile) {
         modifier
