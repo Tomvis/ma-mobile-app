@@ -20,13 +20,21 @@ import io.music_assistant.client.ui.compose.common.SettingsSheet
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_filter
 import musicassistantclient.composeapp.generated.resources.filter_sheet_title
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Filter icon button plus the sheet it opens. [title] and [contentDescription] are
+ * parameterised because a screen can carry more than one filter action (the albums list
+ * has both the library filter and the reception filter), and they must not read alike.
+ */
 @Composable
 fun <T> FilterAction(
     active: Boolean,
     state: () -> T,
     onApply: (T) -> Unit,
+    title: StringResource = Res.string.filter_sheet_title,
+    contentDescription: StringResource = Res.string.cd_filter,
     filters: @Composable ColumnScope.(state: T) -> Unit,
 ) {
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -39,7 +47,7 @@ fun <T> FilterAction(
     ) {
         Icon(
             imageVector = Icons.Default.FilterList,
-            contentDescription = stringResource(Res.string.cd_filter),
+            contentDescription = stringResource(contentDescription),
             tint = if (active) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -50,7 +58,7 @@ fun <T> FilterAction(
 
     if (showFilterSheet) {
         SettingsSheet(
-            title = stringResource(Res.string.filter_sheet_title),
+            title = stringResource(title),
             state,
             onApply = {
                 onApply(it)

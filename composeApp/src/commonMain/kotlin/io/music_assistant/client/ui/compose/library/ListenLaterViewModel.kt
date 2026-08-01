@@ -24,7 +24,9 @@ class ListenLaterViewModel(
         viewModelScope.launch {
             mediaItemRepository.itemChanges.collect { change ->
                 when (change) {
-                    is MediaItemChange.Deleted -> removeItem(change.item)
+                    // Only albums can be in this list, so ignore deletions of any
+                    // other media type instead of rescanning the whole list.
+                    is MediaItemChange.Deleted -> (change.item as? Album)?.let { removeItem(it) }
                     // Added and Updated reconcile the same way: keep the album in the
                     // list while it's still saved-for-later, drop it otherwise. Saving an
                     // album from another surface fires Updated(listenLater=true) (and
@@ -63,6 +65,8 @@ class ListenLaterViewModel(
         _state.update { current ->
             val data = current as? DataState.Data ?: return@update current
             val newList = data.data.filterNot { it.matchesIdentityOf(removed) }
+            // Nothing matched: keep the current instance so collectors don't recompose.
+            if (newList.size == data.data.size) return@update current
             DataState.Data(newList)
         }
     }

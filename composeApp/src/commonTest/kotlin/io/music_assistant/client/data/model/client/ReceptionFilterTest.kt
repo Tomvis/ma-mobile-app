@@ -17,17 +17,29 @@ class ReceptionFilterTest {
     }
 
     @Test fun drBucketsSerializeSortedArray() {
-        val args = ReceptionFilter(drBuckets = setOf("good", "excellent")).toRequestArgs()
+        val args = ReceptionFilter(drBuckets = setOf(DrQuality.GOOD, DrQuality.EXCELLENT)).toRequestArgs()
         assertEquals(
             JsonArray(listOf(JsonPrimitive("excellent"), JsonPrimitive("good"))),
             args["dr_buckets"],
         )
     }
 
+    @Test fun drUntaggedFoldsIntoBucketArray() {
+        // "untagged" is a pseudo-bucket: the server takes it as one more dr_buckets entry.
+        assertEquals(
+            JsonArray(listOf(JsonPrimitive("good"), JsonPrimitive("untagged"))),
+            ReceptionFilter(drBuckets = setOf(DrQuality.GOOD), drUntagged = true).toRequestArgs()["dr_buckets"],
+        )
+        assertEquals(
+            JsonArray(listOf(JsonPrimitive("untagged"))),
+            ReceptionFilter(drUntagged = true).toRequestArgs()["dr_buckets"],
+        )
+    }
+
     @Test fun ratingsSerializeSortedIntArrays() {
         val args = ReceptionFilter(
-            amgRatings = setOf(5, 3),
-            tpsRatings = setOf(9, 1),
+            amg = SourceFilter(ratings = setOf(5, 3)),
+            tps = SourceFilter(ratings = setOf(9, 1)),
         ).toRequestArgs()
         assertEquals(listOf(3, 5), (args["amg_ratings"] as JsonArray).map { it.toString().toInt() })
         assertEquals(listOf(1, 9), (args["tps_ratings"] as JsonArray).map { it.toString().toInt() })
@@ -35,8 +47,8 @@ class ReceptionFilterTest {
 
     @Test fun labelsSerializeSortedArrays() {
         val args = ReceptionFilter(
-            amgAccolades = setOf("record_of_the_month", "aoty"),
-            tpsAccolades = setOf("honorable_mention"),
+            amg = SourceFilter(accolades = setOf(AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.AOTY)),
+            tps = SourceFilter(accolades = setOf(AccoladeKind.HONORABLE_MENTION)),
         ).toRequestArgs()
         assertEquals(
             JsonArray(listOf(JsonPrimitive("aoty"), JsonPrimitive("record_of_the_month"))),
@@ -47,8 +59,8 @@ class ReceptionFilterTest {
 
     @Test fun flagsEmittedOnlyWhenTrue() {
         val args = ReceptionFilter(
-            amgFavorite = true,
-            tpsUntagged = true,
+            amg = SourceFilter(favorite = true),
+            tps = SourceFilter(untagged = true),
         ).toRequestArgs()
         assertEquals(JsonPrimitive(true), args["amg_favorite"])
         assertEquals(JsonPrimitive(true), args["tps_untagged"])
@@ -60,7 +72,10 @@ class ReceptionFilterTest {
         assertNull(ReceptionFilter(matchAny = false).toRequestArgs()["critical_reception_match"])
         assertEquals(
             JsonPrimitive("any"),
-            ReceptionFilter(matchAny = true, drBuckets = setOf("good")).toRequestArgs()["critical_reception_match"],
+            ReceptionFilter(
+                matchAny = true,
+                drBuckets = setOf(DrQuality.GOOD),
+            ).toRequestArgs()["critical_reception_match"],
         )
     }
 
@@ -71,11 +86,9 @@ class ReceptionFilterTest {
 
     @Test fun activeCountSumsSelectionsAndFlagsNotMatch() {
         val f = ReceptionFilter(
-            drBuckets = setOf("good", "fair"),
-            amgRatings = setOf(4),
-            amgAccolades = setOf("aoty"),
-            amgFavorite = true,
-            tpsUntagged = true,
+            drBuckets = setOf(DrQuality.GOOD, DrQuality.FAIR),
+            amg = SourceFilter(ratings = setOf(4), accolades = setOf(AccoladeKind.AOTY), favorite = true),
+            tps = SourceFilter(untagged = true),
             matchAny = true,
         )
         assertTrue(f.isActive)

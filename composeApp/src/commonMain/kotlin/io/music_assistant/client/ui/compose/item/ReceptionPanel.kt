@@ -33,8 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import io.music_assistant.client.data.model.client.AccoladeKind
-import io.music_assistant.client.data.model.client.AmgDrInfo
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.DrInfo
 import io.music_assistant.client.data.model.client.DrQuality
@@ -51,23 +49,12 @@ import io.music_assistant.client.data.model.client.reviewLink
 import io.music_assistant.client.ui.compose.common.items.labelRes
 import io.music_assistant.client.ui.compose.common.items.rememberAlbumReceptionTags
 import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.reception_accolade_aoty
-import musicassistantclient.composeapp.generated.resources.reception_accolade_honorable_mention
-import musicassistantclient.composeapp.generated.resources.reception_accolade_lit
-import musicassistantclient.composeapp.generated.resources.reception_accolade_record_of_the_month
-import musicassistantclient.composeapp.generated.resources.reception_accolade_review
-import musicassistantclient.composeapp.generated.resources.reception_accolade_rfu
-import musicassistantclient.composeapp.generated.resources.reception_accolade_score_revised
-import musicassistantclient.composeapp.generated.resources.reception_accolade_sitf
-import musicassistantclient.composeapp.generated.resources.reception_accolade_tymhm
-import musicassistantclient.composeapp.generated.resources.reception_accolade_ymio
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_fallback
 import musicassistantclient.composeapp.generated.resources.reception_amg_dr_reported
 import musicassistantclient.composeapp.generated.resources.reception_dynamic_range
 import musicassistantclient.composeapp.generated.resources.reception_personal_pick
 import musicassistantclient.composeapp.generated.resources.reception_score_with_max
 import musicassistantclient.composeapp.generated.resources.reception_title
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -104,7 +91,7 @@ private fun ReceptionPanel(tags: ReceptionTags, modifier: Modifier = Modifier) {
 private fun drVerdict(quality: DrQuality): String = stringResource(quality.labelRes())
 
 @Composable
-private fun DrRow(dr: DrInfo, amgDr: AmgDrInfo?) {
+private fun DrRow(dr: DrInfo, amgDr: DrInfo?) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -201,23 +188,9 @@ private fun SourceRow(s: SourceTags) {
     }
 }
 
-private fun accoladeNameRes(kind: AccoladeKind): StringResource? = when (kind) {
-    AccoladeKind.AOTY -> Res.string.reception_accolade_aoty
-    AccoladeKind.RECORD_OF_THE_MONTH -> Res.string.reception_accolade_record_of_the_month
-    AccoladeKind.HONORABLE_MENTION -> Res.string.reception_accolade_honorable_mention
-    AccoladeKind.SCORE_REVISED -> Res.string.reception_accolade_score_revised
-    AccoladeKind.REVIEW -> Res.string.reception_accolade_review
-    AccoladeKind.TYMHM -> Res.string.reception_accolade_tymhm
-    AccoladeKind.SITF -> Res.string.reception_accolade_sitf
-    AccoladeKind.YMIO -> Res.string.reception_accolade_ymio
-    AccoladeKind.LIT -> Res.string.reception_accolade_lit
-    AccoladeKind.RFU -> Res.string.reception_accolade_rfu
-    AccoladeKind.UNKNOWN -> null
-}
-
 @Composable
 private fun accoladeText(accolade: ParsedAccolade): String {
-    val res = accoladeNameRes(accolade.kind) ?: return accolade.display
+    val res = accolade.kind.labelRes() ?: return accolade.display
     // Re-attach the parsed date facet to the localized name (mirrors the web's
     // accoladeDisplay) from the structured year/month the model already carries.
     return formatDated(stringResource(res), accolade.year, accolade.month)

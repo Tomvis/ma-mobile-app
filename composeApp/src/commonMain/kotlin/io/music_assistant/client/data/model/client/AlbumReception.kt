@@ -1,8 +1,20 @@
 package io.music_assistant.client.data.model.client
 
+import io.music_assistant.client.utils.formatDecimal
 import kotlin.math.round
 
-enum class DrQuality { EXCELLENT, GOOD, FAIR, POOR }
+/**
+ * DR verdict band. [filterToken] is the server's `dr_buckets` filter token; it is spelled
+ * out literally rather than derived from the entry name so a Kotlin rename cannot silently
+ * change the wire value.
+ */
+enum class DrQuality(val filterToken: String) {
+    EXCELLENT("excellent"),
+    GOOD("good"),
+    FAIR("fair"),
+    POOR("poor"),
+}
+
 enum class DrSource { MEASURED, AMG }
 
 // Normalized accolade categories (TAG_SCHEMA_VERSION 3.2.0+). Dated awards (AOTY /
@@ -11,9 +23,21 @@ enum class DrSource { MEASURED, AMG }
 // we don't model. AOTM is gone — it was always the same concept as RECORD_OF_THE_MONTH.
 // Declaration order IS display priority: sortAccolades and legacyAccolades both derive
 // their ordering from `ordinal`, so keep UNKNOWN last (sorts after everything else).
-enum class AccoladeKind {
-    AOTY, RECORD_OF_THE_MONTH, HONORABLE_MENTION, SCORE_REVISED,
-    LIT, RFU, TYMHM, SITF, YMIO, REVIEW, UNKNOWN,
+// [filterToken] is the server's `*_accolades` filter token, spelled out literally rather
+// than derived from the entry name so a Kotlin rename cannot silently change the wire
+// value. REVIEW and UNKNOWN are never offered as filters, but carry a token for totality.
+enum class AccoladeKind(val filterToken: String) {
+    AOTY("aoty"),
+    RECORD_OF_THE_MONTH("record_of_the_month"),
+    HONORABLE_MENTION("honorable_mention"),
+    SCORE_REVISED("score_revised"),
+    LIT("lit"),
+    RFU("rfu"),
+    TYMHM("tymhm"),
+    SITF("sitf"),
+    YMIO("ymio"),
+    REVIEW("review"),
+    UNKNOWN("unknown"),
 }
 enum class AuthorRole { CANONICAL, SECONDARY, LIST_PICK }
 
@@ -36,7 +60,10 @@ enum class ReviewSourceKind(val serverKey: String, val scale: Int, val alwaysSho
 }
 
 data class DrInfo(val value: Float, val quality: DrQuality, val source: DrSource)
-data class AmgDrInfo(val value: Float, val quality: DrQuality)
+
+private val AWARD_KINDS = setOf(
+    AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
+)
 
 data class ParsedAccolade(
     val raw: String,           // value as stored/received (3.2.0 display string, or legacy token in transit)
@@ -44,25 +71,29 @@ data class ParsedAccolade(
     val display: String,       // human-readable string to render (date inlined); == raw for 3.2.0 data
     val year: Int? = null,
     val month: Int? = null,
-    val isAward: Boolean = false,  // dated editorial honors get the trophy/accolade styling
-)
+) {
+    /** Dated editorial honors get the trophy/accolade styling. */
+    val isAward: Boolean get() = kind in AWARD_KINDS
+}
 
 data class AuthorWithRole(val name: String, val role: AuthorRole)
 
 data class SourceTags(
     val source: String,             // "AMG" | "TPS" | other
     val kind: ReviewSourceKind,     // resolved identity (drives scale + star policy)
-    val scale: Int,                 // 5 (AMG) or 10 (TPS)
     val rating: Float?,
     val favorite: Boolean,
     val accolades: List<ParsedAccolade>,
     val links: List<ReviewLink>,    // labeled post links (3.3.0+); label mirrors an accolade
     val authors: List<AuthorWithRole>,
-)
+) {
+    /** Rating denominator: 5 (AMG) or 10 (TPS). */
+    val scale: Int get() = kind.scale
+}
 
 data class ReceptionTags(
     val dr: DrInfo?,
-    val amgDr: AmgDrInfo?,
+    val amgDr: DrInfo?,
     val amg: SourceTags?,
     val tps: SourceTags?,
 ) {
@@ -83,10 +114,6 @@ fun drQuality(value: Float): DrQuality = when {
 }
 
 private fun isPositiveFinite(n: Float?): Boolean = n != null && n.isFinite() && n > 0f
-
-private val AWARD_KINDS = setOf(
-    AccoladeKind.AOTY, AccoladeKind.RECORD_OF_THE_MONTH, AccoladeKind.HONORABLE_MENTION,
-)
 
 private val MONTH_ABBR = listOf(
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -134,7 +161,7 @@ private fun mkAccolade(
     raw: String,
     year: Int? = null,
     month: Int? = null,
-): ParsedAccolade = ParsedAccolade(raw, kind, display, year, month, isAward = kind in AWARD_KINDS)
+): ParsedAccolade = ParsedAccolade(raw, kind, display, year, month)
 
 /**
  * Parse one accolade string into its kind + display form. Recognizes the 3.2.0
@@ -238,7 +265,7 @@ private fun parseSource(entry: ReviewSource): SourceTags? {
     val hasAny = rating != null || favorite || accolades.isNotEmpty() ||
         links.isNotEmpty() || authors.isNotEmpty()
     if (!hasAny) return null
-    return SourceTags(entry.source, kind, kind.scale, rating, favorite, accolades, links, authors)
+    return SourceTags(entry.source, kind, rating, favorite, accolades, links, authors)
 }
 
 fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): ReceptionTags {
@@ -254,7 +281,7 @@ fun parseAlbumReception(cr: CriticalReception?, albumDynamicRange: Float?): Rece
     val amgDr = if (measured != null && amgRaw != null &&
         round(amgRaw.value) != round(measured.value)
     ) {
-        AmgDrInfo(amgRaw.value, drQuality(amgRaw.value))
+        amgRaw
     } else {
         null
     }
@@ -277,12 +304,7 @@ fun linksForAccolade(source: SourceTags, accolade: ParsedAccolade): List<ReviewL
 fun reviewLink(source: SourceTags): ReviewLink? = source.links.firstOrNull { it.label == "Review" }
 
 /** Formats a rating to exactly one decimal place for display (4f -> "4.0", 8.4f -> "8.4"). */
-fun formatScore(n: Float): String {
-    val rounded = round(n * 10f) / 10f
-    val whole = rounded.toInt()
-    val dec = round((rounded - whole) * 10f).toInt()
-    return "$whole.$dec"
-}
+fun formatScore(n: Float): String = formatDecimal(n.toDouble(), 1)
 
 /** DR value: drop the decimal when whole (12.0 -> "12"), else one decimal. */
 fun formatDr(value: Float): String {

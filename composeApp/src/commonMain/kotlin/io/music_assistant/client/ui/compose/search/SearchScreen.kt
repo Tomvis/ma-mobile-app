@@ -139,7 +139,7 @@ fun SearchScreen(
                     }
                 },
                 onPlayClick = { track, option, radio, _ ->
-                    searchViewModel.onPlayClick(track, option, radio)
+                    actionsViewModel.onPlayClick(track, option, radio)
                 },
                 playlistActions = actionsViewModel,
                 libraryActions = actionsViewModel,

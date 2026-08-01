@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import io.music_assistant.client.data.model.client.LrcLine
 import io.music_assistant.client.data.model.client.Lyrics
 import io.music_assistant.client.ui.inactive
+import io.music_assistant.client.utils.formatDecimal
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import musicassistantclient.composeapp.generated.resources.Res

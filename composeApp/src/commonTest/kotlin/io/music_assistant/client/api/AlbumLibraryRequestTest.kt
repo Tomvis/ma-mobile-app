@@ -1,6 +1,8 @@
 package io.music_assistant.client.api
 
+import io.music_assistant.client.data.model.client.DrQuality
 import io.music_assistant.client.data.model.client.ReceptionFilter
+import io.music_assistant.client.data.model.client.SourceFilter
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
@@ -13,9 +15,8 @@ class AlbumLibraryRequestTest {
         val req = Request.Album.listLibrary(
             orderBy = "dr_desc",
             receptionFilter = ReceptionFilter(
-                drBuckets = setOf("excellent"),
-                amgRatings = setOf(4, 5),
-                amgFavorite = true,
+                drBuckets = setOf(DrQuality.EXCELLENT),
+                amg = SourceFilter(ratings = setOf(4, 5), favorite = true),
                 matchAny = true,
             ),
         )

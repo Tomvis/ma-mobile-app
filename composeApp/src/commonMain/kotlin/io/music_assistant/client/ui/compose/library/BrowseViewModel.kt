@@ -6,9 +6,7 @@ import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
-import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.ui.compose.common.DataState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,29 +42,6 @@ class BrowseViewModel(
                     Logger.e("Error browsing path=$path:", result.exceptionOrNull())
                     _state.update { DataState.Error() }
                 }
-        }
-    }
-
-    // Mirrors ItemListViewModel.onPlayClick — play a browsed item on the selected player.
-    fun onPlayClick(
-        item: AppMediaItem,
-        option: QueueOption,
-        radio: Boolean,
-    ) {
-        viewModelScope.launch {
-            val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
-            item.mediaUri?.let { mediaUri ->
-                Logger.withTag("PlayDispatch")
-                    .i { "BrowseViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
-                apiClient.sendRequest(
-                    Request.Library.play(
-                        media = listOf(mediaUri),
-                        queueOrPlayerId = queueId,
-                        option = option,
-                        radioMode = radio && item !is Genre,
-                    ),
-                )
-            }
         }
     }
 }

@@ -2,12 +2,10 @@ package io.music_assistant.client.ui.compose.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -147,29 +145,6 @@ class SearchViewModel(
         }
 
         searchTrigger.tryEmit(Unit)
-    }
-
-    fun onPlayClick(
-        track: AppMediaItem,
-        option: QueueOption,
-        radio: Boolean,
-    ) {
-        viewModelScope.launch {
-            mainDataSource.selectedPlayer?.queueOrPlayerId?.let { queueId ->
-                track.mediaUri?.let { mediaUri ->
-                    Logger.withTag("PlayDispatch")
-                        .i { "SearchViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
-                    apiClient.sendRequest(
-                        Request.Library.play(
-                            media = listOf(mediaUri),
-                            queueOrPlayerId = queueId,
-                            option = option,
-                            radioMode = radio && track !is Genre,
-                        ),
-                    )
-                }
-            }
-        }
     }
 
     private fun updateSearchResultsIfNeeded(changed: Track) {

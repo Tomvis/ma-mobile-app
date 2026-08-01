@@ -8,7 +8,6 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
@@ -226,10 +225,18 @@ class ItemListViewModel(
     }
 
     fun onReceptionFilterChanged(filter: ReceptionFilter) {
+        // The sheet commits on "Apply" and always hands back its working copy, so an
+        // Apply with nothing touched arrives here unchanged. ReceptionFilter is a data
+        // class, so this structural check drops the no-op before it costs a first-page
+        // refetch (Loading state, list rebuilt, scroll position lost). Guarding here
+        // rather than at the call site keeps that true for every caller.
+        // Only skip when there is a loaded list to preserve: ErrorState offers no retry
+        // affordance, so a re-Apply is the one way back out of a failed first page.
+        if (filter == _state.value.receptionFilter && _state.value.dataState is DataState.Data) return
         _state.update { it.copy(receptionFilter = filter) }
         // Upstream moved the refetch off a _state.map(...).distinctUntilChanged()
-        // observer onto an explicit searchTrigger, so the live re-query the reception
-        // filter relies on has to be emitted here.
+        // observer onto an explicit searchTrigger, so the reception filter's re-query
+        // has to be emitted here — once per Apply that actually changes the filter.
         searchTrigger.tryEmit(Unit)
     }
 
@@ -392,29 +399,6 @@ class ItemListViewModel(
                     Logger.e("Failed to create playlist", it)
                     _toasts.emit(getString(Res.string.toast_error_create_playlist))
                 }
-        }
-    }
-
-    fun onPlayClick(
-        item: AppMediaItem,
-        option: QueueOption,
-        radio: Boolean,
-    ) {
-        viewModelScope.launch {
-            val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
-
-            item.mediaUri?.let { mediaUri ->
-                Logger.withTag("PlayDispatch")
-                    .i { "ItemListViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
-                apiClient.sendRequest(
-                    Request.Library.play(
-                        media = listOf(mediaUri),
-                        queueOrPlayerId = queueId,
-                        option = option,
-                        radioMode = radio && item !is Genre,
-                    ),
-                )
-            }
         }
     }
 

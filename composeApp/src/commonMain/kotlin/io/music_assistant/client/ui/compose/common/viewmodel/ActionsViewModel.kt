@@ -2,6 +2,7 @@ package io.music_assistant.client.ui.compose.common.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
@@ -179,13 +180,15 @@ class ActionsViewModel(
 
     /**
      * Plays an item on the selected player's queue. Shared queue-play dispatch used by the
-     * item lists and the Listen Later screen. Radio mode is suppressed for genres (their URI
-     * already resolves to a radio-style stream).
+     * item lists, browse, search, home and the Listen Later screen. Radio mode is suppressed
+     * for genres (their URI already resolves to a radio-style stream).
      */
     fun onPlayClick(item: AppMediaItem, option: QueueOption, radio: Boolean) {
         viewModelScope.launch {
             val queueId = dataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
             item.mediaUri?.let { mediaUri ->
+                Logger.withTag("PlayDispatch")
+                    .i { "uri=$mediaUri option=$option radio=$radio queue=$queueId" }
                 apiClient.sendRequest(
                     Request.Library.play(
                         media = listOf(mediaUri),

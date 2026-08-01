@@ -158,3 +158,19 @@ English now; `values-nl-rNL` falls back.
 5. Filter `IconButton` entry point (album-only, active badge) in `ItemListScreen` + open
    sheet + wire to the ViewModel.
 6. Gates (testAndroidHostTest → detektAll → assembleDebug) + live device check.
+
+## Superseded (2026-08-01)
+
+This is a dated design record; the sections above describe the shipped v1 and are kept as
+written. Two decisions have since changed:
+
+- **`ReceptionFilterSheet.kt` no longer exists.** The filter now lives in
+  `ui/compose/library/ReceptionFilterAction.kt` — the top-bar icon button *and* its sheet
+  body — built on the shared `FilterAction` / `SettingsSheet` chrome (`ui/compose/common/
+  SettingsSheet.kt`) rather than a hand-rolled `ModalBottomSheet`. It is non-swipeable;
+  scrim tap and system back discard.
+- **Apply replaced live-apply.** Chip edits accumulate in a working copy inside the sheet
+  and commit atomically through `onFilterChanged` only when "Apply" is hit;
+  `ItemListViewModel.onReceptionFilterChanged` ignores a commit that is structurally equal
+  to the current filter, so a no-op Apply refetches nothing. There is no per-toggle
+  re-query.

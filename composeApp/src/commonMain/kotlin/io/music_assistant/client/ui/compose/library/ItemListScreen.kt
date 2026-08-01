@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
@@ -70,7 +69,6 @@ import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
 import io.music_assistant.client.ui.compose.search.SearchInput
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_add_playlist
-import musicassistantclient.composeapp.generated.resources.cd_reception_filter
 import musicassistantclient.composeapp.generated.resources.cd_toggle_view_mode
 import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.library_empty
@@ -148,7 +146,7 @@ fun ItemListScreen(
                 onGlobalSearch = onGlobalSearch,
                 searchQuery = state.searchQuery,
                 onPlayClick = { item, option, radio, _ ->
-                    itemListViewModel.onPlayClick(item, option, radio)
+                    actionsViewModel.onPlayClick(item, option, radio)
                 },
                 onCreatePlaylistClick = { showCreatePlaylistDialog = true },
                 onLoadMore = { itemListViewModel.loadMore() },
@@ -281,11 +279,11 @@ private fun ItemListTopBar(
                     horizontalArrangement = Arrangement.End,
                 ) {
                     // mediaType is fixed for the lifetime of this screen, so the
-                    // album-only reception filter control (and its remembered state)
-                    // is stable. It sits alongside upstream's generic library filter
-                    // action, which lives in the top-bar `actions` slot.
+                    // album-only reception filter action (and the sheet state it
+                    // remembers) is stable. It sits alongside upstream's generic library
+                    // filter action, which lives in the top-bar `actions` slot; the badge
+                    // carries the active-filter count the shared action doesn't show.
                     if (mediaType == MediaType.ALBUM) {
-                        var showFilter by rememberSaveable { mutableStateOf(false) }
                         BadgedBox(
                             badge = {
                                 val count = receptionFilter.activeCount
@@ -294,18 +292,9 @@ private fun ItemListTopBar(
                                 }
                             },
                         ) {
-                            IconButton(onClick = { showFilter = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.FilterList,
-                                    contentDescription = stringResource(Res.string.cd_reception_filter),
-                                )
-                            }
-                        }
-                        if (showFilter) {
-                            ReceptionFilterSheet(
+                            ReceptionFilterAction(
                                 filter = receptionFilter,
-                                onChange = onReceptionFilterChanged,
-                                onDismiss = { showFilter = false },
+                                onFilterChanged = onReceptionFilterChanged,
                             )
                         }
                     }
@@ -434,10 +423,8 @@ private fun ItemList(
 // CreatePlaylistDialog moved upstream to
 // io.music_assistant.client.ui.compose.common.items.CreatePlaylistDialog; the local
 // copy is gone and the import above now supplies it.
-// LoadingState/ErrorState/EmptyState stay `internal` (not upstream's `private`) so the
-// fork's ListenLaterScreen can reuse them.
 @Composable
-internal fun LoadingState() {
+private fun LoadingState() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -447,7 +434,7 @@ internal fun LoadingState() {
 }
 
 @Composable
-internal fun ErrorState() {
+private fun ErrorState() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -461,9 +448,9 @@ internal fun ErrorState() {
 }
 
 @Composable
-internal fun EmptyState(
-    searchQuery: String = "",
-    onGlobalSearch: (query: String) -> Unit = {},
+private fun EmptyState(
+    searchQuery: String,
+    onGlobalSearch: (query: String) -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),

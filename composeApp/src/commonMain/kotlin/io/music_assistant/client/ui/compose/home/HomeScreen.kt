@@ -158,7 +158,7 @@ fun HomeScreen(
                     itemCategory = it,
                     onNavigateClick = onNavigateClick,
                     onPlayClick = { item, option, radio, _ ->
-                        homeScreenViewModel.onPlayClick(item, option, radio)
+                        actionsViewModel.onPlayClick(item, option, radio)
                     },
                     playlistActions = actionsViewModel,
                     libraryActions = actionsViewModel,

@@ -29,14 +29,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import io.music_assistant.client.utils.formatDecimal
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_cancel
 import musicassistantclient.composeapp.generated.resources.common_done
 import musicassistantclient.composeapp.generated.resources.playback_speed_dialog_title
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
-import kotlin.math.absoluteValue
-import kotlin.math.pow
 import kotlin.math.roundToInt
 
 private const val MIN_SPEED = 0.5
@@ -51,22 +50,6 @@ private val PRESETS = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 /** Snaps an arbitrary speed onto the [SPEED_STEP] grid, clamped to the valid range. */
 internal fun snapSpeed(value: Double): Double =
     ((value / SPEED_STEP).roundToInt() * SPEED_STEP).coerceIn(MIN_SPEED, MAX_SPEED)
-
-/**
- * Formats a decimal with given decimals after dot,
- * because `"%.2f"` is JVM-only — unavailable in KMP `commonMain`.
- */
-internal fun formatDecimal(decimal: Double, decimalPlaces: Int): String {
-    val pow = 10.0.pow(decimalPlaces).roundToInt()
-    val multiplied = (decimal * pow).roundToInt().absoluteValue
-    return "${
-        if (decimal < 0) "-" else ""
-    }${
-        multiplied / pow
-    }.${
-        (multiplied % pow).toString().padStart(decimalPlaces, '0')
-    }"
-}
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable

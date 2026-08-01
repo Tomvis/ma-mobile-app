@@ -9,10 +9,8 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerData
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.Shortcut
 import io.music_assistant.client.data.model.client.items.AppMediaItem
-import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.ServerUser
@@ -228,29 +226,6 @@ class HomeScreenViewModel(
                 }
             } else {
                 _state.update { it.copy(recommendations = DataState.Error()) }
-            }
-        }
-    }
-
-    fun onPlayClick(
-        item: AppMediaItem,
-        option: QueueOption,
-        radio: Boolean,
-    ) {
-        dataSource.selectedPlayer?.queueOrPlayerId?.let { queueId ->
-            item.mediaUri?.let { mediaUri ->
-                viewModelScope.launch {
-                    Logger.withTag("PlayDispatch")
-                        .i { "HomeScreenViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
-                    apiClient.sendRequest(
-                        Request.Library.play(
-                            media = listOf(mediaUri),
-                            queueOrPlayerId = queueId,
-                            option = option,
-                            radioMode = radio && item !is Genre,
-                        ),
-                    )
-                }
             }
         }
     }

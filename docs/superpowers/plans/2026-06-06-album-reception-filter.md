@@ -825,3 +825,19 @@ Install and open the album library; tap the filter icon (albums only). Toggle DR
 **Type consistency:** `ReceptionFilter` (fields, `isActive`, `activeCount`, `toRequestArgs`, companion `DR_BUCKETS`/`AMG_RATINGS`/`TPS_BANDS`/`ACCOLADE_LABELS`) defined in Task 1; used identically in Tasks 2 (request), 3 (state/VM), 4 (sheet), 5 (top bar). `Request.Album.listLibrary(..., receptionFilter)` defined Task 2, called Task 3. `onReceptionFilterChanged(ReceptionFilter)` defined Task 3, wired Task 5. `ReceptionFilterSheet(filter, onChange, onDismiss)` defined Task 4, used Task 5.
 
 **Placeholder scan:** every code step shows complete code; the two known-risk fallbacks (FlowRow content lambda, `SegmentedButtonDefaults.itemShape`) and the `Request.args` accessor caveat are concrete checks, not vague instructions.
+
+## Superseded (2026-08-01)
+
+Historical record of the v1 build — the tasks above are kept as executed. Since then:
+
+- **Task 4's `ReceptionFilterSheet.kt` was replaced.** The filter is now
+  `ui/compose/library/ReceptionFilterAction.kt` (icon button + sheet body) on the shared
+  `FilterAction` / `SettingsSheet` chrome, not the hand-rolled `ModalBottomSheet` shown in
+  the Task 4 code block. The `ReceptionFilterSheet(filter, onChange, onDismiss)` signature
+  and its previews are gone; the entry point wiring described in Task 5 now lives inside
+  `ReceptionFilterAction`.
+- **Task 3's live apply became commit-on-Apply.** Edits accumulate in a sheet-local
+  working copy and reach `ItemListViewModel.onReceptionFilterChanged` only on "Apply",
+  which drops a commit equal to the current filter instead of re-querying. The "re-query
+  live on every change" behaviour in the goal, Task 3 and the manual-check steps no longer
+  describes the app.

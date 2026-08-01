@@ -6,53 +6,72 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 
 /**
+ * Per-source (AMG / TPS) half of the reception filter. Both sources take the exact same
+ * four selectors, so they share one type and one [toRequestArgs] parameterised by the
+ * `amg`/`tps` request-arg prefix.
+ */
+data class SourceFilter(
+    val ratings: Set<Int> = emptySet(),               // AMG 1..5, TPS band selectors 1,3,5,7,9
+    val accolades: Set<AccoladeKind> = emptySet(),
+    val favorite: Boolean = false,
+    val untagged: Boolean = false,
+) {
+    val activeCount: Int
+        get() = ratings.size + accolades.size +
+            (if (favorite) 1 else 0) + (if (untagged) 1 else 0)
+
+    fun toRequestArgs(prefix: String): Map<String, JsonElement> = buildMap {
+        if (ratings.isNotEmpty()) put("${prefix}_ratings", ratings.toSortedIntJsonArray())
+        if (accolades.isNotEmpty()) {
+            put("${prefix}_accolades", accolades.map { it.filterToken }.toSortedJsonArray())
+        }
+        if (favorite) put("${prefix}_favorite", JsonPrimitive(true))
+        if (untagged) put("${prefix}_untagged", JsonPrimitive(true))
+    }
+}
+
+/**
  * Album critical-reception filter state, mapped to `music/albums/library_items`
  * request args. All collections serialize sorted for deterministic requests.
  */
 data class ReceptionFilter(
-    val drBuckets: Set<String> = emptySet(),    // excellent/good/fair/poor/untagged
-    val amgRatings: Set<Int> = emptySet(),       // 1..5
-    val amgAccolades: Set<String> = emptySet(),  // aoty/record_of_the_month/honorable_mention
-    val amgFavorite: Boolean = false,
-    val amgUntagged: Boolean = false,
-    val tpsRatings: Set<Int> = emptySet(),       // band selectors 1,3,5,7,9
-    val tpsAccolades: Set<String> = emptySet(),
-    val tpsFavorite: Boolean = false,
-    val tpsUntagged: Boolean = false,
+    val drBuckets: Set<DrQuality> = emptySet(),
+    val drUntagged: Boolean = false,             // "untagged" pseudo-bucket, folded into dr_buckets
+    val amg: SourceFilter = SourceFilter(),
+    val tps: SourceFilter = SourceFilter(),
     val matchAny: Boolean = false,               // false = "all" (AND), true = "any" (OR)
 ) {
     val isActive: Boolean get() = activeCount > 0
 
     val activeCount: Int
-        get() = drBuckets.size + amgRatings.size + amgAccolades.size +
-            tpsRatings.size + tpsAccolades.size +
-            (if (amgFavorite) 1 else 0) + (if (amgUntagged) 1 else 0) +
-            (if (tpsFavorite) 1 else 0) + (if (tpsUntagged) 1 else 0)
+        get() = drBuckets.size + (if (drUntagged) 1 else 0) + amg.activeCount + tps.activeCount
 
     fun toRequestArgs(): Map<String, JsonElement> = buildMap {
-        if (drBuckets.isNotEmpty()) put("dr_buckets", drBuckets.toSortedJsonArray())
-        if (amgRatings.isNotEmpty()) put("amg_ratings", amgRatings.toSortedIntJsonArray())
-        if (amgAccolades.isNotEmpty()) put("amg_accolades", amgAccolades.toSortedJsonArray())
-        if (amgFavorite) put("amg_favorite", JsonPrimitive(true))
-        if (amgUntagged) put("amg_untagged", JsonPrimitive(true))
-        if (tpsRatings.isNotEmpty()) put("tps_ratings", tpsRatings.toSortedIntJsonArray())
-        if (tpsAccolades.isNotEmpty()) put("tps_accolades", tpsAccolades.toSortedJsonArray())
-        if (tpsFavorite) put("tps_favorite", JsonPrimitive(true))
-        if (tpsUntagged) put("tps_untagged", JsonPrimitive(true))
+        // The server takes "untagged" as one more dr_buckets entry, not a separate arg.
+        val drTokens = buildList {
+            drBuckets.forEach { add(it.filterToken) }
+            if (drUntagged) add(UNTAGGED_BUCKET)
+        }
+        if (drTokens.isNotEmpty()) put("dr_buckets", drTokens.toSortedJsonArray())
+        putAll(amg.toRequestArgs("amg"))
+        putAll(tps.toRequestArgs("tps"))
         // Match mode only matters alongside actual reception clauses.
         if (matchAny && isActive) put("critical_reception_match", JsonPrimitive("any"))
     }
 
     companion object {
-        // DR buckets and accolade kinds (with their display labels) live in the filter
-        // sheet, which is the only consumer; these numeric selectors stay here.
+        private const val UNTAGGED_BUCKET = "untagged"
+
+        // Chip labels for the DR buckets and accolade kinds live in
+        // ReceptionFilterAction.kt, their only consumer; the taxonomies themselves are
+        // DrQuality/AccoladeKind. These numeric selectors have no enum, so they stay here.
         val AMG_RATINGS = listOf(1, 2, 3, 4, 5)
         val TPS_BANDS = listOf(1, 3, 5, 7, 9)
     }
 }
 
-private fun Set<String>.toSortedJsonArray(): JsonArray =
+private fun Iterable<String>.toSortedJsonArray(): JsonArray =
     buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }
 
-private fun Set<Int>.toSortedIntJsonArray(): JsonArray =
+private fun Iterable<Int>.toSortedIntJsonArray(): JsonArray =
     buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }

@@ -8,9 +8,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,7 +64,17 @@ fun <T> SettingsSheet(
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(SHEET_HEIGHT_FRACTION)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(SHEET_HEIGHT_FRACTION)
+                // contentWindowInsets is zeroed above so the sheet can draw its
+                // background behind the system bars; that makes the bottom inset ours
+                // to apply. Doing it here — inside the height fraction, so the sheet
+                // doesn't grow — keeps every sheet's last control (a pinned button, the
+                // tail of a scrolling list) clear of the navigation bar.
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)),
+        ) {
             Header(title = title, onApply = { onApply(state) })
             content(state)
         }
@@ -113,7 +127,6 @@ object SettingsSheet {
         }
     }
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     fun <T> SingleChoiceChipsRow(
         label: StringResource,
@@ -123,28 +136,15 @@ object SettingsSheet {
         onSelect: (T) -> Unit,
     ) {
         ChoiceSection(label) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 4.dp,
-                        start = ROW_HORIZONTAL_PADDING,
-                        end = ROW_HORIZONTAL_PADDING,
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                options.forEach { option ->
-                    FilterChip(
-                        selected = option == selected,
-                        onClick = { onSelect(option) },
-                        label = { Text(stringResource(optionLabel(option))) },
-                    )
-                }
-            }
+            ChipsFlowRow(
+                options = options,
+                isSelected = { it == selected },
+                optionLabel = { stringResource(optionLabel(it)) },
+                onClick = onSelect,
+            )
         }
     }
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     fun <T> MultiChoiceChipsRow(
         label: StringResource,
@@ -154,25 +154,66 @@ object SettingsSheet {
         onToggle: (T) -> Unit,
     ) {
         ChoiceSection(label) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 4.dp,
-                        start = ROW_HORIZONTAL_PADDING,
-                        end = ROW_HORIZONTAL_PADDING,
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                options.forEach { option ->
-                    val text = stringResource(optionLabel(option))
+            ChipsFlowRow(
+                options = options,
+                isSelected = { it in selected },
+                optionLabel = { stringResource(optionLabel(it)) },
+                onClick = onToggle,
+            )
+        }
+    }
 
-                    FilterChip(
-                        selected = option in selected,
-                        onClick = { onToggle(option) },
-                        label = { Text(text) },
-                    )
-                }
+    /**
+     * [MultiChoiceChipsRow] for option sets whose chip text isn't a plain string
+     * resource — a rating rendered from a number ("4★"), a band ("7–8"), or a mix of
+     * both and resource-backed labels in one row. The label lambda is composable so
+     * callers can still resolve a [StringResource] for the options that have one.
+     */
+    @Composable
+    fun <T> MultiChoiceChipsRow(
+        label: StringResource,
+        options: List<T>,
+        selected: List<T>,
+        optionText: @Composable (T) -> String,
+        onToggle: (T) -> Unit,
+    ) {
+        ChoiceSection(label) {
+            ChipsFlowRow(
+                options = options,
+                isSelected = { it in selected },
+                optionLabel = optionText,
+                onClick = onToggle,
+            )
+        }
+    }
+
+    /** The chip row itself: shared spacing/padding for every chips section. */
+    @OptIn(ExperimentalLayoutApi::class)
+    @Composable
+    private fun <T> ChipsFlowRow(
+        options: List<T>,
+        isSelected: (T) -> Boolean,
+        optionLabel: @Composable (T) -> String,
+        onClick: (T) -> Unit,
+    ) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = 4.dp,
+                    start = ROW_HORIZONTAL_PADDING,
+                    end = ROW_HORIZONTAL_PADDING,
+                ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { option ->
+                val text = optionLabel(option)
+
+                FilterChip(
+                    selected = isSelected(option),
+                    onClick = { onClick(option) },
+                    label = { Text(text) },
+                )
             }
         }
     }
