@@ -249,7 +249,8 @@ class ItemListViewModel(
         }
 
         viewModelScope.launch {
-            val searchQuery = currentState.searchQuery.takeIf { it.length >= 3 }
+            // Kept in lockstep with loadFirstPage(): see the comment there.
+            val searchQuery = currentState.searchQuery.takeIf { it.isNotEmpty() }
             val orderBy = currentState.sortOption.toServerString()
 
             _state.update {
@@ -404,10 +405,13 @@ class ItemListViewModel(
 
     private fun loadFirstPage() {
         viewModelScope.launch {
-            // >= 3 matches loadMore(): String.length is never < 0, so the old `>= 0`
-            // guard was a no-op that sent search="" (and 1-2 char queries) on every
-            // initial load and filter/sort change.
-            val searchQuery = state.value.searchQuery.takeIf { it.length >= 3 }
+            // Send whatever the user actually typed: the old `length >= 0` guard was a
+            // no-op that also sent search="" on every initial load / filter change, but
+            // a `>= 3` guard swings too far the other way — 1-2 char queries ("U2",
+            // "OK") would silently return the whole unfiltered library. isNotEmpty()
+            // drops only the empty case, and must match loadMore() or page 2+ of a
+            // short query would come back unfiltered.
+            val searchQuery = state.value.searchQuery.takeIf { it.isNotEmpty() }
             val orderBy = state.value.sortOption.toServerString()
             updateState(DataState.Loading())
 
