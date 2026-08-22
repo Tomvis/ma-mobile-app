@@ -744,6 +744,18 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         fun recommendations() = Request(command = APICommands.MUSIC_RECOMMENDATIONS)
 
+        /**
+         * Items of a single recommendation row. Only exists on servers that
+         * return [recommendations] rows without embedded items.
+         */
+        fun recommendationItems(provider: String, itemId: String) = Request(
+            command = APICommands.MUSIC_RECOMMENDATIONS_ITEMS,
+            args = buildJsonObject {
+                put("provider", JsonPrimitive(provider))
+                put("item_id", JsonPrimitive(itemId))
+            },
+        )
+
         fun providersManifests() = Request(command = APICommands.PROVIDERS_MANIFESTS)
 
         /** Loaded provider instances (music/player/…); filter client-side by type. */
@@ -786,11 +798,16 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         fun logout() = Request(command = APICommands.AUTH_LOGOUT)
 
-        fun authorize(token: String, deviceName: String) = Request(
+        fun authorize(
+            token: String,
+            deviceName: String,
+            locale: String? = null,
+        ) = Request(
             command = APICommands.AUTH,
             args = buildJsonObject {
                 put("token", JsonPrimitive(token))
                 put("device_name", JsonPrimitive(deviceName))
+                locale?.let { put("locale", JsonPrimitive(it)) }
             },
         )
     }
@@ -808,6 +825,14 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             args = buildJsonObject {
                 put("player_id", JsonPrimitive(playerId))
                 put("config", myJson.encodeToJsonElement(DspConfig.serializer(), config))
+            },
+        )
+
+        fun applyPreset(playerId: String, presetId: String) = Request(
+            command = APICommands.CONFIG_PLAYERS_DSP_APPLY_PRESET,
+            args = buildJsonObject {
+                put("player_id", JsonPrimitive(playerId))
+                put("preset_id", JsonPrimitive(presetId))
             },
         )
 

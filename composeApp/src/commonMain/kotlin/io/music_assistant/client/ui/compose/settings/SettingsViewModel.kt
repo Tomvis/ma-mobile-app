@@ -88,14 +88,18 @@ class SettingsViewModel(
 
     // Sendspin settings
     val sendspinEnabled = settings.sendspinEnabled
+    val sendspinRequireEncryption = settings.sendspinRequireEncryption
     val sendspinDeviceName = settings.sendspinDeviceName
     val sendspinUseCustomConnection = settings.sendspinUseCustomConnection
     val sendspinPort = settings.sendspinPort
     val sendspinPath = settings.sendspinPath
     val sendspinCodecPreference = settings.sendspinCodecPreference
+    val sendspinBufferCapacityMb = settings.sendspinBufferCapacityMb
     val sendspinHost = settings.sendspinHost
     val sendspinUseTls = settings.sendspinUseTls
 
+    fun setSendspinRequireEncryption(enabled: Boolean) =
+        settings.setSendspinRequireEncryption(enabled)
     fun setSendspinEnabled(enabled: Boolean) = settings.setSendspinEnabled(enabled)
     fun setSendspinDeviceName(name: String) = settings.setSendspinDeviceName(name)
     fun setSendspinUseCustomConnection(enabled: Boolean) =
@@ -104,6 +108,7 @@ class SettingsViewModel(
     fun setSendspinPort(port: Int) = settings.setSendspinPort(port)
     fun setSendspinPath(path: String) = settings.setSendspinPath(path)
     fun setSendspinCodecPreference(codec: Codec) = settings.setSendspinCodecPreference(codec)
+    fun setSendspinBufferCapacityMb(mb: Int) = settings.setSendspinBufferCapacityMb(mb)
     fun setSendspinHost(host: String) = settings.setSendspinHost(host)
     fun setSendspinUseTls(enabled: Boolean) = settings.setSendspinUseTls(enabled)
 

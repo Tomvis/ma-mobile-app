@@ -28,6 +28,8 @@ import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.createPlatformHttpClient
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.myJson
+import io.music_assistant.client.utils.platformLocale
+import io.music_assistant.client.utils.serverLocalizationLocale
 import io.music_assistant.client.utils.update
 import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.coroutines.CancellationException
@@ -332,16 +334,6 @@ class KtorServiceClient(
             }
             return
         }
-
-        // AA hookup is functionally equivalent to phone foreground: cache may be
-        // empty, AA's first sendRequest assumes the gate handles staleness — but
-        // the gate trusts `isReadyForCommands`, which stays true for a half-open
-        // WS. Same probe as `onAppForeground` to catch that case.
-        val elapsed = currentTimeMillis() - backgroundedAt
-        if (elapsed > STALE_CONNECTION_THRESHOLD_MS && state is SessionState.Connected) {
-            logger.i { "External consumer active: probing connection after ${elapsed}ms in background" }
-            transport?.verifyConnection(probeReason = "external_consumer_active")
-        }
     }
 
     /**
@@ -419,15 +411,6 @@ class KtorServiceClient(
         if (backgroundedConnectionInfo != null) {
             reconnectFromCurrent("was Backgrounded")
             return
-        }
-
-        // Cheap probe for half-open TCP. Anything more invasive (re-auth, full
-        // reconnect) is request-driven via `ensureReadyForCommands` — see
-        // `feedback_request_driven_recovery` for the rationale.
-        val elapsed = currentTimeMillis() - backgroundedAt
-        if (elapsed > STALE_CONNECTION_THRESHOLD_MS && state is SessionState.Connected) {
-            logger.i { "App foregrounded: probing connection after ${elapsed}ms in background" }
-            transport?.verifyConnection(probeReason = "app_foreground")
         }
     }
 
@@ -810,7 +793,9 @@ class KtorServiceClient(
                     shouldAttempt = { _sessionState.value is SessionState.Connected },
                     onAttempt = { setAuthState(AuthProcessState.InProgress) },
                     send = {
-                        sendRequestRaw(Request.Auth.login(username, password, settings.deviceName.value))
+                        sendRequestRaw(
+                            Request.Auth.login(username, password, settings.deviceName.value),
+                        )
                     },
                 )
             ) {
@@ -872,7 +857,18 @@ class KtorServiceClient(
                             state.authProcessState != AuthProcessState.LoggedOut
                     },
                     onAttempt = { setAuthState(AuthProcessState.InProgress) },
-                    send = { sendRequestRaw(Request.Auth.authorize(token, settings.deviceName.value)) },
+                    send = {
+                        sendRequestRaw(
+                            Request.Auth.authorize(
+                                token,
+                                settings.deviceName.value,
+                                locale = serverLocalizationLocale(
+                                    (_sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion,
+                                    platformLocale(),
+                                ),
+                            ),
+                        )
+                    },
                 )
             ) {
                 AuthResolution.Aborted -> return
@@ -1143,7 +1139,6 @@ class KtorServiceClient(
     private fun JsonObject.stringArg(name: String): String? = (this[name] as? JsonPrimitive)?.content
 
     companion object {
-        private const val STALE_CONNECTION_THRESHOLD_MS = 30_000L
         private const val ENSURE_READY_TIMEOUT_MS = 10_000L
 
         // Upper bound on a single connect attempt before it's declared stuck. Generous

@@ -37,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -66,6 +67,7 @@ import io.music_assistant.client.api.Defaults
 import io.music_assistant.client.auth.ServerIdMismatchException
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.User
+import io.music_assistant.client.player.sendspin.SendspinConfig
 import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.ConnectionType
@@ -97,6 +99,7 @@ import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.server_id_mismatch_error
 import musicassistantclient.composeapp.generated.resources.settings_about_description
 import musicassistantclient.composeapp.generated.resources.settings_about_learn_more
+import musicassistantclient.composeapp.generated.resources.settings_buffer_size
 import musicassistantclient.composeapp.generated.resources.settings_codec_preference
 import musicassistantclient.composeapp.generated.resources.settings_connect
 import musicassistantclient.composeapp.generated.resources.settings_connect_saved
@@ -132,6 +135,7 @@ import musicassistantclient.composeapp.generated.resources.settings_remote_id_hi
 import musicassistantclient.composeapp.generated.resources.settings_remote_id_invalid
 import musicassistantclient.composeapp.generated.resources.settings_saved_connections
 import musicassistantclient.composeapp.generated.resources.settings_scan_qr
+import musicassistantclient.composeapp.generated.resources.settings_sendspin_require_encryption
 import musicassistantclient.composeapp.generated.resources.settings_server
 import musicassistantclient.composeapp.generated.resources.settings_server_host
 import musicassistantclient.composeapp.generated.resources.settings_share_crash_logs
@@ -147,6 +151,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.publicvalue.multiplatform.qrcode.CameraPosition
 import org.publicvalue.multiplatform.qrcode.CodeType
 import org.publicvalue.multiplatform.qrcode.ScannerWithPermissions
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1057,6 +1062,40 @@ private fun SendspinSection(
             },
         )
 
+        // Buffer size (advertised buffer_capacity in MB). Connect-time config, so locked while
+        // the local player is running — takes effect on the next connect.
+        val sendspinBufferCapacityMb by viewModel.sendspinBufferCapacityMb.collectAsStateWithLifecycle()
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.settings_buffer_size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "$sendspinBufferCapacityMb MB",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (sendspinEnabled) {
+                        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    } else {
+                        MaterialTheme.colorScheme.onBackground
+                    },
+                )
+            }
+            Slider(
+                value = sendspinBufferCapacityMb.toFloat(),
+                onValueChange = { viewModel.setSendspinBufferCapacityMb(it.roundToInt()) },
+                valueRange = SendspinConfig.BUFFER_MB_MIN.toFloat()..SendspinConfig.BUFFER_MB_MAX.toFloat(),
+                steps = (SendspinConfig.BUFFER_MB_MAX - SendspinConfig.BUFFER_MB_MIN) /
+                    SendspinConfig.BUFFER_MB_STEP - 1,
+                enabled = !sendspinEnabled,
+            )
+        }
+
         // Custom connection toggle
         Row(
             modifier = Modifier
@@ -1071,6 +1110,31 @@ private fun SendspinSection(
             )
             Text(
                 text = stringResource(Res.string.settings_custom_sendspin),
+                color = if (sendspinEnabled) {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                } else {
+                    MaterialTheme.colorScheme.onBackground
+                },
+            )
+        }
+
+        // Require-encryption toggle: refuse the legacy cleartext protocol
+        // when the server is too old for encrypted Sendspin.
+        val sendspinRequireEncryption by viewModel.sendspinRequireEncryption
+            .collectAsStateWithLifecycle()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = sendspinRequireEncryption,
+                onCheckedChange = { viewModel.setSendspinRequireEncryption(it) },
+                enabled = !sendspinEnabled,
+            )
+            Text(
+                text = stringResource(Res.string.settings_sendspin_require_encryption),
                 color = if (sendspinEnabled) {
                     MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 } else {

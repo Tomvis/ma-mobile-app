@@ -86,6 +86,10 @@ object APICommands {
     // Search and recommendations
     const val MUSIC_SEARCH = "music/search"
     const val MUSIC_RECOMMENDATIONS = "music/recommendations"
+
+    // Contents of a single recommendation row. Exists on servers (2.10+) whose
+    // MUSIC_RECOMMENDATIONS response returns rows without embedded items
+    const val MUSIC_RECOMMENDATIONS_ITEMS = "music/recommendations/items"
     const val PROVIDERS_MANIFESTS = "providers/manifests"
     const val PROVIDERS = "providers"
 
@@ -103,6 +107,7 @@ object APICommands {
     // DSP commands
     const val CONFIG_PLAYERS_DSP_GET = "config/players/dsp/get"
     const val CONFIG_PLAYERS_DSP_SAVE = "config/players/dsp/save"
+    const val CONFIG_PLAYERS_DSP_APPLY_PRESET = "config/players/dsp/apply_preset"
     const val CONFIG_DSP_PRESETS_GET = "config/dsp_presets/get"
 
     // Media type kinds

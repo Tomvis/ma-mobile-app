@@ -9,6 +9,7 @@ import io.music_assistant.client.webrtc.model.RemoteId
 import io.music_assistant.client.webrtc.model.SignalingMessage
 import io.music_assistant.client.webrtc.model.WebRTCConnectionState
 import io.music_assistant.client.webrtc.model.WebRTCError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -245,6 +247,8 @@ class WebRTCConnectionManager(
                             ),
                         )
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(e) { "Error collecting ICE candidates" }
                 }
@@ -261,6 +265,8 @@ class WebRTCConnectionManager(
                             setupDataChannel(channel, message.sessionId.orEmpty(), remoteId)
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(e) { "Error collecting data channels" }
                 }
@@ -331,6 +337,8 @@ class WebRTCConnectionManager(
                             }
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(e) { "Error collecting connection state" }
                 }
@@ -474,9 +482,13 @@ class WebRTCConnectionManager(
         // Collect incoming messages from the flow
         messageListenerJob = scope.launch {
             try {
-                channel.messages.collect { msg ->
-                    _incomingMessages.emit(msg)
-                }
+                // Sole collector of the ma-api channel's ordered inbound
+                // stream; this channel carries text RPC frames only.
+                channel.inbound
+                    .filterIsInstance<DataChannelInbound.Text>()
+                    .collect { _incomingMessages.emit(it.text) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(e) { "Error receiving messages from data channel" }
             }
@@ -493,6 +505,8 @@ class WebRTCConnectionManager(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(e) { "Error monitoring data channel state" }
             }
@@ -524,6 +538,8 @@ class WebRTCConnectionManager(
                         logger.i { "Sendspin data channel ready for use" }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(e) { "Error monitoring sendspin data channel state" }
             }

@@ -183,12 +183,16 @@ class ActionsViewModel(
      * item lists, browse, search, home and the Listen Later screen. Radio mode is suppressed
      * for genres (their URI already resolves to a radio-style stream).
      */
-    fun onPlayClick(item: AppMediaItem, option: QueueOption, radio: Boolean) {
+    fun onPlayClick(
+        item: AppMediaItem,
+        option: QueueOption,
+        radio: Boolean,
+    ) {
         viewModelScope.launch {
             val queueId = dataSource.selectedPlayer?.queueOrPlayerId ?: return@launch
             item.mediaUri?.let { mediaUri ->
                 Logger.withTag("PlayDispatch")
-                    .i { "uri=$mediaUri option=$option radio=$radio queue=$queueId" }
+                    .i { "ActionsViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
                 apiClient.sendRequest(
                     Request.Library.play(
                         media = listOf(mediaUri),
