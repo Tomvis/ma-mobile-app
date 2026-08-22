@@ -36,13 +36,20 @@ class ReceptionFilterTest {
         )
     }
 
-    @Test fun ratingsSerializeSortedIntArrays() {
+    @Test fun ratingsSerializeSortedNumberArrays() {
+        // AMG selectors are half stars, so the array has to survive the .5 unrounded.
         val args = ReceptionFilter(
-            amg = SourceFilter(ratings = setOf(5, 3)),
-            tps = SourceFilter(ratings = setOf(9, 1)),
+            amg = SourceFilter(ratings = setOf(5.0, 3.5)),
+            tps = SourceFilter(ratings = setOf(9.0, 1.0)),
         ).toRequestArgs()
-        assertEquals(listOf(3, 5), (args["amg_ratings"] as JsonArray).map { it.toString().toInt() })
-        assertEquals(listOf(1, 9), (args["tps_ratings"] as JsonArray).map { it.toString().toInt() })
+        assertEquals(
+            listOf(3.5, 5.0),
+            (args["amg_ratings"] as JsonArray).map { it.toString().toDouble() },
+        )
+        assertEquals(
+            listOf(1.0, 9.0),
+            (args["tps_ratings"] as JsonArray).map { it.toString().toDouble() },
+        )
     }
 
     @Test fun labelsSerializeSortedArrays() {
@@ -87,7 +94,11 @@ class ReceptionFilterTest {
     @Test fun activeCountSumsSelectionsAndFlagsNotMatch() {
         val f = ReceptionFilter(
             drBuckets = setOf(DrQuality.GOOD, DrQuality.FAIR),
-            amg = SourceFilter(ratings = setOf(4), accolades = setOf(AccoladeKind.AOTY), favorite = true),
+            amg = SourceFilter(
+                ratings = setOf(4.5),
+                accolades = setOf(AccoladeKind.AOTY),
+                favorite = true,
+            ),
             tps = SourceFilter(untagged = true),
             matchAny = true,
         )

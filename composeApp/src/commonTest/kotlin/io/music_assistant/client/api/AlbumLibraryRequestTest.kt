@@ -16,14 +16,17 @@ class AlbumLibraryRequestTest {
             orderBy = "dr_desc",
             receptionFilter = ReceptionFilter(
                 drBuckets = setOf(DrQuality.EXCELLENT),
-                amg = SourceFilter(ratings = setOf(4, 5), favorite = true),
+                amg = SourceFilter(ratings = setOf(4.5, 5.0), favorite = true),
                 matchAny = true,
             ),
         )
         val args = req.args!!
         assertEquals(JsonPrimitive("dr_desc"), args["order_by"])
         assertEquals(JsonArray(listOf(JsonPrimitive("excellent"))), args["dr_buckets"])
-        assertEquals(listOf(4, 5), (args["amg_ratings"] as JsonArray).map { it.toString().toInt() })
+        assertEquals(
+            listOf(4.5, 5.0),
+            (args["amg_ratings"] as JsonArray).map { it.toString().toDouble() },
+        )
         assertEquals(JsonPrimitive(true), args["amg_favorite"])
         assertEquals(JsonPrimitive("any"), args["critical_reception_match"])
     }

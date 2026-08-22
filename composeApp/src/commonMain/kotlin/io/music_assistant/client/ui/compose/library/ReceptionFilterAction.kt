@@ -159,7 +159,7 @@ private fun ColumnScope.ReceptionFilters(state: MutableState<ReceptionFilter>) {
             label = Res.string.filter_amg,
             accoladeLabels = AMG_ACCOLADE_LABELS,
             ratings = ReceptionFilter.AMG_RATINGS,
-            ratingLabel = { "$it★" },
+            ratingLabel = ::amgRatingLabel,
             filter = working.amg,
             onChange = { working = working.copy(amg = it) },
         )
@@ -209,7 +209,7 @@ private fun ReceptionFilter.toggleDr(option: DrQuality?): ReceptionFilter =
  * [MultiChoiceChipsRow] overload.
  */
 private sealed interface SourceChip {
-    data class Rating(val value: Int) : SourceChip
+    data class Rating(val value: Double) : SourceChip
     data class Accolade(val kind: AccoladeKind) : SourceChip
     data object Favorite : SourceChip
     data object Untagged : SourceChip
@@ -222,8 +222,8 @@ private sealed interface SourceChip {
 private fun SourceChipsRow(
     label: StringResource,
     accoladeLabels: Map<AccoladeKind, StringResource>,
-    ratings: List<Int>,
-    ratingLabel: (Int) -> String,
+    ratings: List<Double>,
+    ratingLabel: (Double) -> String,
     filter: SourceFilter,
     onChange: (SourceFilter) -> Unit,
 ) {
@@ -258,7 +258,7 @@ private fun SourceFilter.toggle(chip: SourceChip): SourceFilter = when (chip) {
 @Composable
 private fun SourceChip.label(
     accoladeLabels: Map<AccoladeKind, StringResource>,
-    ratingLabel: (Int) -> String,
+    ratingLabel: (Double) -> String,
 ): String = when (this) {
     is SourceChip.Rating -> ratingLabel(value)
     is SourceChip.Accolade -> stringResource(accoladeLabels.getValue(kind))
@@ -266,10 +266,23 @@ private fun SourceChip.label(
     SourceChip.Untagged -> stringResource(Res.string.filter_untagged)
 }
 
+// AMG half-star selectors: each covers one exact step, so 4 and 4.5 are separate chips.
+// Whole stars keep the plain "4★" label and halves take a vulgar fraction ("4½★", "½★"),
+// which keeps a half-step chip as compact as a whole-star one.
+private fun amgRatingLabel(rating: Double): String {
+    val stars = rating.toInt()
+    val whole = if (stars == 0) "" else stars.toString()
+    val half = if (rating - stars >= 0.5) "½" else ""
+    return "$whole$half★"
+}
+
 // TPS bands: selector `lo` covers [lo, lo+2) on the /10 scale; 9 is the open top band.
 // Label with the inclusive integer span [lo, lo+1] so adjacent chips don't share an
 // endpoint (e.g. "7–8", not "7–9" which wrongly implies the 7-band covers 9).
-private fun tpsBandLabel(lo: Int): String = if (lo >= 9) "9+" else "$lo–${lo + 1}"
+private fun tpsBandLabel(lo: Double): String {
+    val band = lo.toInt()
+    return if (band >= 9) "9+" else "$band–${band + 1}"
+}
 
 // The body puts the sections in a Modifier.weight(1f) child, which measures to zero in a
 // wrap-content host — the preview would then show only the "Clear all" row. Give the host
@@ -295,11 +308,11 @@ private fun ReceptionFiltersPopulatedPreview() {
                     ReceptionFilter(
                         drBuckets = setOf(DrQuality.EXCELLENT, DrQuality.GOOD),
                         amg = SourceFilter(
-                            ratings = setOf(4, 5),
+                            ratings = setOf(4.5, 5.0),
                             accolades = setOf(AccoladeKind.AOTY),
                             favorite = true,
                         ),
-                        tps = SourceFilter(ratings = setOf(7)),
+                        tps = SourceFilter(ratings = setOf(7.0)),
                         matchAny = true,
                     ),
                 )

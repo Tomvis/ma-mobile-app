@@ -11,7 +11,9 @@ import kotlinx.serialization.json.buildJsonArray
  * `amg`/`tps` request-arg prefix.
  */
 data class SourceFilter(
-    val ratings: Set<Int> = emptySet(),               // AMG 1..5, TPS band selectors 1,3,5,7,9
+    // AMG: half-star selectors 0.5..5.0, each matching one exact step ([4.5, 5.0) etc).
+    // TPS: band selectors 1,3,5,7,9, each covering two points of the /10 scale.
+    val ratings: Set<Double> = emptySet(),
     val accolades: Set<AccoladeKind> = emptySet(),
     val favorite: Boolean = false,
     val untagged: Boolean = false,
@@ -21,7 +23,7 @@ data class SourceFilter(
             (if (favorite) 1 else 0) + (if (untagged) 1 else 0)
 
     fun toRequestArgs(prefix: String): Map<String, JsonElement> = buildMap {
-        if (ratings.isNotEmpty()) put("${prefix}_ratings", ratings.toSortedIntJsonArray())
+        if (ratings.isNotEmpty()) put("${prefix}_ratings", ratings.toSortedDoubleJsonArray())
         if (accolades.isNotEmpty()) {
             put("${prefix}_accolades", accolades.map { it.filterToken }.toSortedJsonArray())
         }
@@ -65,13 +67,16 @@ data class ReceptionFilter(
         // Chip labels for the DR buckets and accolade kinds live in
         // ReceptionFilterAction.kt, their only consumer; the taxonomies themselves are
         // DrQuality/AccoladeKind. These numeric selectors have no enum, so they stay here.
-        val AMG_RATINGS = listOf(1, 2, 3, 4, 5)
-        val TPS_BANDS = listOf(1, 3, 5, 7, 9)
+        // AMG publishes half stars over its whole 0.5..5.0 scale (Unlistenable .. Iconic)
+        // and the server buckets each selector as one exact step, so a 4-star album and a
+        // 4½-star one are separately selectable.
+        val AMG_RATINGS = listOf(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
+        val TPS_BANDS = listOf(1.0, 3.0, 5.0, 7.0, 9.0)
     }
 }
 
 private fun Iterable<String>.toSortedJsonArray(): JsonArray =
     buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }
 
-private fun Iterable<Int>.toSortedIntJsonArray(): JsonArray =
+private fun Iterable<Double>.toSortedDoubleJsonArray(): JsonArray =
     buildJsonArray { sorted().forEach { add(JsonPrimitive(it)) } }
