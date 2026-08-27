@@ -89,4 +89,8 @@ private class StubLibraryActions : LibraryActions {
     override fun onFavoriteClick(item: AppMediaItem) {
         TODO("Not yet implemented")
     }
+
+    override fun onListenLaterClick(item: AppMediaItem) {
+        TODO("Not yet implemented")
+    }
 }
