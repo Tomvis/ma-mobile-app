@@ -8,6 +8,7 @@ import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.player.sendspin.audio.Codec
 import io.music_assistant.client.settings.ConnectionHistoryEntry
+import io.music_assistant.client.settings.ConnectionType
 import io.music_assistant.client.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,8 +65,15 @@ class SettingsViewModel(
         _hasCrashLog.value = false
     }
 
-    fun attemptConnection(host: String, port: String, isTls: Boolean) =
-        apiClient.connect(connection = ConnectionInfo(host, port.toInt(), isTls))
+    fun attemptConnection(host: String, port: String, isTls: Boolean, basePath: String) =
+        apiClient.connect(
+            connection = ConnectionInfo(
+                host = host,
+                port = port.toInt(),
+                isTls = isTls,
+                basePath = ConnectionInfo.normalizeBasePath(basePath),
+            ),
+        )
 
     fun disconnect() {
         apiClient.disconnectByUser()
@@ -85,6 +93,12 @@ class SettingsViewModel(
             apiClient.logout()
         }
     }
+
+    // Misc settings
+    val allowLandscapeOnAllDevices = settings.allowLandscapeOnAllDevices
+
+    fun setAllowLandscapeOnAllDevices(enabled: Boolean) =
+        settings.setAllowLandscapeOnAllDevices(enabled)
 
     // Sendspin settings
     val sendspinEnabled = settings.sendspinEnabled
@@ -124,14 +138,24 @@ class SettingsViewModel(
 
     val connectionHistory = settings.connectionHistory
 
-    fun hasCredentialsForDirect(host: String, port: Int, isTls: Boolean): Boolean =
-        settings.getTokenForServer(settings.getDirectServerIdentifier(host, port, isTls)) != null
+    fun hasCredentialsForDirect(host: String, port: Int, isTls: Boolean, basePath: String): Boolean =
+        settings.hasCredentialsForAddress(
+            ConnectionHistoryEntry(
+                type = ConnectionType.DIRECT,
+                host = host,
+                port = port,
+                isTls = isTls,
+                basePath = ConnectionInfo.normalizeBasePath(basePath),
+            ).serverIdentifier,
+        )
 
     fun hasCredentialsForWebRTC(remoteId: String): Boolean =
-        settings.getTokenForServer(settings.getWebRTCServerIdentifier(remoteId)) != null
+        settings.hasCredentialsForAddress(
+            ConnectionHistoryEntry(type = ConnectionType.WEBRTC, remoteId = remoteId).serverIdentifier,
+        )
 
     fun removeFromHistory(entry: ConnectionHistoryEntry) {
-        settings.removeHistoryEntry(entry.serverIdentifier)
-        settings.setTokenForServer(entry.serverIdentifier, null)
+        settings.removeHistoryEntry(entry.historyKey)
+        entry.serverId?.let { settings.setTokenForServer(it, null) }
     }
 }

@@ -11,6 +11,9 @@ object APICommands {
     const val PLAYERS_CMD_GROUP_VOLUME = "$PLAYERS_CMD/group_volume"
     const val PLAYERS_CMD_GROUP_VOLUME_MUTE = "$PLAYERS_CMD/group_volume_mute"
     const val PLAYERS_CMD_SET_MEMBERS = "$PLAYERS_CMD/set_members"
+    const val PLAYERS_CMD_UNGROUP = "$PLAYERS_CMD/ungroup"
+    const val PLAYERS_SLEEP_TIMER_SET = "players/sleep_timer/set"
+    const val PLAYERS_SLEEP_TIMER_CLEAR = "players/sleep_timer/clear"
 
     // Player Queue commands
     const val PLAYER_QUEUES_ALL = "player_queues/all"
@@ -24,6 +27,7 @@ object APICommands {
     const val PLAYER_QUEUES_SHUFFLE = "player_queues/shuffle"
     const val PLAYER_QUEUES_PLAY_MEDIA = "player_queues/play_media"
     const val PLAYER_QUEUES_DONT_STOP_THE_MUSIC = "player_queues/dont_stop_the_music"
+    const val PLAYER_QUEUES_CROSSFADE = "player_queues/crossfade"
     const val PLAYER_QUEUES_SET_PLAYBACK_SPEED = "player_queues/set_playback_speed"
 
     // Playlist commands
@@ -102,7 +106,18 @@ object APICommands {
     const val AUTH_LOGIN = "auth/login"
     const val AUTH_LOGOUT = "auth/logout"
     const val AUTH_ME = "auth/me"
+
+    // Scopes granted to each user role, as a role-id -> scope-list map. Used to gate UI
+    // on what the signed-in user may actually do. Available since 2.10.
+    const val AUTH_SCOPES = "auth/scopes"
     const val AUTH = "auth"
+
+    // AI Radio plugin (optional provider, domain "ai_radio"). Only present when the
+    // plugin is installed, so every call site must go through the availability gate.
+    const val AI_RADIO_STATIONS_LIST = "ai_radio/stations/list"
+    const val AI_RADIO_START = "ai_radio/start"
+    const val AI_RADIO_STOP = "ai_radio/stop"
+    const val AI_RADIO_STATUS = "ai_radio/status"
 
     // DSP commands
     const val CONFIG_PLAYERS_DSP_GET = "config/players/dsp/get"

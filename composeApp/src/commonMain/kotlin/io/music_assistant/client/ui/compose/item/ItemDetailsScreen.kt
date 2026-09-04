@@ -583,6 +583,7 @@ private fun TabContent(
     when (tab) {
         ItemDetailsTab.GENRE_ALBUMS -> AlbumsTabContent(
             albumsState = state.albumsState,
+            parentItem = item,
             viewModeProvider = viewModeProvider,
             onNavigateClick = onNavigateClick,
             onPlayChildClick = onPlayChildClick,
@@ -603,6 +604,7 @@ private fun TabContent(
             parentItem = item,
             playableItemsSortOption = state.playableItemsSortOption,
             viewModeProvider = viewModeProvider,
+            onNavigateClick = onNavigateClick,
             onPlayChildClick = onPlayChildClick,
             playlistActions = playlistActions,
             progressActions = progressActions,
@@ -729,6 +731,7 @@ private inline fun <T> LazyGridScope.tabListBody(
 @Composable
 private fun AlbumsTabContent(
     albumsState: DataState<List<Album>>,
+    parentItem: AppMediaItem,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onNavigateClick: (AppMediaItem) -> Unit,
     onPlayChildClick: PlayHandler<AppMediaItem>,
@@ -757,6 +760,8 @@ private fun AlbumsTabContent(
                     item = album,
                     viewMode = viewMode,
                     onNavigateClick = onNavigateClick,
+                    navigateToItem = onNavigateClick,
+                    containerItem = parentItem,
                     onPlayOption = onPlayChildClick,
                     playlistActions = playlistActions,
                     libraryActions = libraryActions,
@@ -811,6 +816,7 @@ private fun PlayablesTabContent(
     parentItem: AppMediaItem,
     playableItemsSortOption: SortOption?,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
+    onNavigateClick: (AppMediaItem) -> Unit,
     onPlayChildClick: PlayHandler<AppMediaItem>,
     playlistActions: PlaylistActions,
     progressActions: ProgressActions?,
@@ -830,6 +836,8 @@ private fun PlayablesTabContent(
                 item = track,
                 viewMode = viewMode,
                 showTrackNumber = parentItem is Album,
+                navigateToItem = onNavigateClick,
+                containerItem = parentItem,
                 onPlayOption = onPlayChildClick,
                 playlistActions = playlistActions,
                 onRemoveFromPlaylist = if (parentItem is Playlist && parentItem.isEditable) {
@@ -985,6 +993,7 @@ private fun <T : AppMediaItem> SectionRow(
 ) {
     CategoryRow(
         data = sectionData,
+        containerItem = artist,
         itemCategoryProvider = { section ->
             ItemCategory(
                 id = id,

@@ -37,12 +37,33 @@ class SettingsRepository(
      * secret that a platform backup restored from a version before the split.
      */
     init {
+        purgeLegacyAddressKeyedSecrets()
         settings.keys
-            .filter { it.startsWith(TOKEN_PREFIX) || it.startsWith(SERVER_ID_PREFIX) }
+            .filter { it.startsWith(TOKEN_PREFIX) }
             .forEach { moveString(it) }
         SECRET_STRING_KEYS.forEach { moveString(it) }
         moveInt("port")
         moveBoolean("isTls")
+    }
+
+    /**
+     * Drop credentials that earlier versions keyed by address.
+     *
+     * A legacy token cannot be re-keyed, because nothing records which server issued it.
+     * So delete it: the user logs in once more. The rule matches only the old key shapes,
+     * so it is idempotent and it never touches a server-id key.
+     */
+    private fun purgeLegacyAddressKeyedSecrets() {
+        val isLegacy = { key: String ->
+            key.startsWith(SERVER_ID_PREFIX) ||
+                key.removePrefix(TOKEN_PREFIX).let { rest ->
+                    rest != key && (rest.startsWith("direct:") || rest.startsWith("webrtc:"))
+                }
+        }
+        (settings.keys + secrets.keys).filter(isLegacy).forEach { key ->
+            settings.remove(key)
+            secrets.remove(key)
+        }
     }
 
     private fun moveString(key: String) {
@@ -81,7 +102,13 @@ class SettingsRepository(
     private val _connectionInfo = MutableStateFlow(
         secrets.getStringOrNull("host")?.takeIf { it.isNotBlank() }?.let { host ->
             secrets.getIntOrNull("port")?.takeIf { it > 0 }?.let { port ->
-                ConnectionInfo(host, port, secrets.getBoolean("isTls", false))
+                ConnectionInfo(
+                    host = host,
+                    port = port,
+                    isTls = secrets.getBoolean("isTls", false),
+                    // Absent for every pre-existing install, which is exactly the root-path case.
+                    basePath = secrets.getString("basePath", ""),
+                )
             }
         },
     )
@@ -92,51 +119,49 @@ class SettingsRepository(
             secrets.putString("host", connectionInfo?.host.orEmpty())
             secrets.putInt("port", connectionInfo?.port ?: 0)
             secrets.putBoolean("isTls", connectionInfo?.isTls == true)
+            secrets.putString("basePath", connectionInfo?.basePath.orEmpty())
             _connectionInfo.update { connectionInfo }
         }
     }
 
     /**
-     * Get authentication token for a specific server.
-     * @param serverIdentifier "direct:ws://host:port" / "direct:wss://host:port" or "webrtc:remoteId"
+     * Get the authentication token of a specific server.
+     *
+     * The key is the server's own `server_id`, not its address. One address can host
+     * different servers over time, so an address key can hand a token to the wrong server.
+     *
+     * @param serverId `ServerInfo.serverId` of the server.
      */
-    fun getTokenForServer(serverIdentifier: String): String? {
-        return secrets.getStringOrNull("$TOKEN_PREFIX$serverIdentifier")?.takeIf { it.isNotBlank() }
+    fun getTokenForServer(serverId: String): String? {
+        return secrets.getStringOrNull("$TOKEN_PREFIX$serverId")?.takeIf { it.isNotBlank() }
     }
 
     /**
-     * Save authentication token for a specific server.
-     * @param serverIdentifier "direct:ws://host:port" / "direct:wss://host:port" or "webrtc:remoteId"
+     * Save the authentication token of a specific server.
+     * @param serverId `ServerInfo.serverId` of the server.
      * @param token Authentication token (null to clear)
      */
-    fun setTokenForServer(serverIdentifier: String, token: String?) {
+    fun setTokenForServer(serverId: String, token: String?) {
         if (token.isNullOrBlank()) {
-            secrets.remove("$TOKEN_PREFIX$serverIdentifier")
+            secrets.remove("$TOKEN_PREFIX$serverId")
         } else {
-            secrets.putString("$TOKEN_PREFIX$serverIdentifier", token)
+            secrets.putString("$TOKEN_PREFIX$serverId", token)
         }
     }
 
-    fun getIdForServer(serverIdentifier: String): String? {
-        return secrets.getStringOrNull("$SERVER_ID_PREFIX$serverIdentifier")
-    }
-
-    fun setIdForServer(serverIdentifier: String, id: String) {
-        secrets.putString("$SERVER_ID_PREFIX$serverIdentifier", id)
-    }
-
     /**
-     * Get server identifier for Direct connection.
+     * Is there a usable token for any server last seen at this address?
+     *
+     * The address alone cannot identify a server, so this asks the history: it is true only
+     * if some entry for this address names a server whose token is still saved.
+     *
+     * @param serverIdentifier `ConnectionHistoryEntry.serverIdentifier` of the address.
      */
-    fun getDirectServerIdentifier(host: String, port: Int, isTls: Boolean): String {
-        return "direct:${if (isTls) "wss" else "ws"}://$host:$port"
-    }
-
-    /**
-     * Get server identifier for WebRTC connection.
-     */
-    fun getWebRTCServerIdentifier(remoteId: String): String {
-        return "webrtc:$remoteId"
+    fun hasCredentialsForAddress(serverIdentifier: String): Boolean {
+        return _connectionHistory.value.any { entry ->
+            entry.serverIdentifier == serverIdentifier &&
+                entry.serverId?.let { getTokenForServer(it) } != null
+        }
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -362,6 +387,18 @@ class SettingsRepository(
     fun setDynamicColors(enabled: Boolean) {
         settings.putBoolean("dynamic_colors", enabled)
         _dynamicColors.update { enabled }
+    }
+
+    // Opt-in escape hatch from the compact-device portrait lock: when set, the
+    // platform layer stops constraining orientation on any device.
+    private val _allowLandscapeOnAllDevices = MutableStateFlow(
+        settings.getBoolean("allow_landscape_all_devices", false),
+    )
+    val allowLandscapeOnAllDevices = _allowLandscapeOnAllDevices.asStateFlow()
+
+    fun setAllowLandscapeOnAllDevices(enabled: Boolean) {
+        settings.putBoolean("allow_landscape_all_devices", enabled)
+        _allowLandscapeOnAllDevices.update { enabled }
     }
 
     // Sendspin settings
@@ -638,15 +675,20 @@ class SettingsRepository(
 
     fun addOrUpdateHistoryEntry(entry: ConnectionHistoryEntry) {
         val updated = _connectionHistory.value
-            .filter { it.serverIdentifier != entry.serverIdentifier }
+            .filter {
+                // Replace the same server at the same address, and absorb any entry that
+                // predates server ids. Keep a different server on the same address.
+                it.historyKey != entry.historyKey &&
+                    !(it.serverIdentifier == entry.serverIdentifier && it.serverId == null)
+            }
             .let { listOf(entry) + it }
             .take(10)
         secrets.putString("connection_history", myJson.encodeToString(updated))
         _connectionHistory.update { updated }
     }
 
-    fun removeHistoryEntry(serverIdentifier: String) {
-        val updated = _connectionHistory.value.filter { it.serverIdentifier != serverIdentifier }
+    fun removeHistoryEntry(historyKey: String) {
+        val updated = _connectionHistory.value.filter { it.historyKey != historyKey }
         secrets.putString("connection_history", myJson.encodeToString(updated))
         _connectionHistory.update { updated }
     }
@@ -727,15 +769,35 @@ class SettingsRepository(
         return LibraryFilters()
     }
 
+    // Per-MediaType library-list sort, persisted like view mode and filters. The
+    // ViewModel is the only writer, so a plain get/set is enough — no flow.
+    fun getSortOption(mediaType: MediaType): SortOption {
+        val stored = settings.getStringOrNull(librarySortKey(mediaType))?.let { parseSortOption(it) }
+        // A field dropped from SortConfig by a later app version must not stick.
+        return stored?.takeIf { it.field in SortConfig.fieldsFor(mediaType) }
+            ?: SortConfig.defaultFor(mediaType)
+    }
+
+    fun setSortOption(mediaType: MediaType, option: SortOption) {
+        settings.putString(librarySortKey(mediaType), serializeSortOption(option))
+    }
+
+    private fun librarySortKey(mediaType: MediaType) = "library_sort_${mediaType.name}"
+
     fun getSortOption(context: SubItemContext): SortOption {
-        val raw = settings.getStringOrNull("sort_sub_${context.name}")
-            ?: return SortConfig.defaultFor(context)
-        return parseSortOption(raw) ?: SortConfig.defaultFor(context)
+        // A fixed-order context has no chip, so a value persisted by an older app version could
+        // never be changed back — including a stale descending flag on ORIGINAL. Ignore it outright.
+        if (!SortConfig.isUserSortable(context)) return SortConfig.defaultFor(context)
+        val stored = settings.getStringOrNull("sort_sub_${context.name}")?.let { parseSortOption(it) }
+        return stored?.takeIf { it.field in SortConfig.fieldsFor(context) }
+            ?: SortConfig.defaultFor(context)
     }
 
     fun setSortOption(context: SubItemContext, option: SortOption) {
-        settings.putString("sort_sub_${context.name}", "${option.field.name}:${option.descending}")
+        settings.putString("sort_sub_${context.name}", serializeSortOption(option))
     }
+
+    private fun serializeSortOption(option: SortOption) = "${option.field.name}:${option.descending}"
 
     private fun parseSortOption(raw: String): SortOption? {
         val parts = raw.split(":")

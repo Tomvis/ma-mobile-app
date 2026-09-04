@@ -123,6 +123,12 @@ class ActionsViewModel(
         }
     }
 
+    /**
+     * [position] must be the 0-based index in the server's playlist order, which callers take from
+     * the displayed list. That only matches while playlist items stay in ORIGINAL ascending order —
+     * see `SortConfig.isUserSortable`. Restoring a sort option for PLAYLIST_ITEMS makes this delete
+     * the wrong track, so resolve the original index first if that ever changes.
+     */
     fun removeFromPlaylist(
         playlistId: String,
         position: Int,
@@ -198,7 +204,7 @@ class ActionsViewModel(
                         media = listOf(mediaUri),
                         queueOrPlayerId = queueId,
                         option = option,
-                        radioMode = radio && item !is Genre,
+                        endlessMixMode = radio && item !is Genre,
                     ),
                 )
             }

@@ -72,4 +72,24 @@ class SortOptionTest {
         // shared defaultDescending path and must stay ascending-first.
         assertFalse(SortField.ORIGINAL.defaultDescending)
     }
+
+    @Test
+    fun `playlist items are not user sortable`() {
+        // ActionsViewModel.removeFromPlaylist derives the server position from the displayed index,
+        // which only holds while playlist items stay in ORIGINAL ascending order. Offering another
+        // field here would make removal delete the wrong track.
+        assertEquals(listOf(SortField.ORIGINAL), SortConfig.fieldsFor(SubItemContext.PLAYLIST_ITEMS))
+        assertFalse(SortConfig.isUserSortable(SubItemContext.PLAYLIST_ITEMS))
+    }
+
+    @Test
+    fun `album tracks are not user sortable`() {
+        assertEquals(listOf(SortField.ORIGINAL), SortConfig.fieldsFor(SubItemContext.ALBUM_TRACKS))
+        assertFalse(SortConfig.isUserSortable(SubItemContext.ALBUM_TRACKS))
+    }
+
+    @Test
+    fun `podcast episodes stay user sortable`() {
+        assertTrue(SortConfig.isUserSortable(SubItemContext.PODCAST_EPISODES))
+    }
 }

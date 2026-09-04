@@ -5,9 +5,11 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.client.RepeatMode
+import io.music_assistant.client.data.model.client.ResolvedChapter
 import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.items.image
 import io.music_assistant.client.data.model.client.items.isLongFormSpokenContent
+import io.music_assistant.client.data.model.client.navigationChapters
 import io.music_assistant.client.utils.monotonicMs
 import kotlin.math.abs
 
@@ -26,6 +28,8 @@ data class NowPlayingTrack(
     val artworkUrl: String?,
     val duration: Double?,
     val isLongFormContent: Boolean,
+    // Pref-gated: remote next/previous will chapter-jump for this content.
+    val hasChapterNavigation: Boolean = false,
 )
 
 /**
@@ -84,13 +88,29 @@ internal object NowPlayingChannelChangeDetection {
     }
 }
 
-/** Maps local-player state to the metadata channel. */
-internal fun buildNowPlayingTrack(playerData: PlayerData?): NowPlayingTrack? {
+/**
+ * [currentChapter] switches duration/album to the chapter presentation.
+ * [NowPlayingTrack.hasChapterNavigation] is only true when
+ * [chapterNavigationEnabled] (the `audiobook_chapter_progress` preference) is set.
+ */
+internal fun buildNowPlayingTrack(
+    playerData: PlayerData?,
+    currentChapter: ResolvedChapter? = null,
+    chapterNavigationEnabled: Boolean = false,
+): NowPlayingTrack? {
     val currentItem = playerData?.queueInfo?.currentItem ?: return null
-    return withRadioStreamMetadata(
+    val base = withRadioStreamMetadata(
         base = currentItem.track.toNowPlayingTrack(),
         playerData = playerData,
         currentItem = currentItem,
+    ).copy(
+        hasChapterNavigation = chapterNavigationEnabled &&
+            currentItem.track.navigationChapters() != null,
+    )
+    if (currentChapter == null) return base
+    return base.copy(
+        album = currentChapter.displayName ?: base.album,
+        duration = currentChapter.duration,
     )
 }
 
@@ -121,21 +141,23 @@ private fun withRadioStreamMetadata(
 }
 
 /**
- * Maps local-player state to an anchor, or null when there is no current item.
- * Tracker interpolation and the published rate use the same queue speed.
+ * Maps local state to a transport anchor; [currentChapter] makes elapsed time
+ * chapter-relative while tracker and seek coordinates remain absolute.
  */
 internal fun buildNowPlayingTransport(
     playerData: PlayerData?,
     positionTracker: PlayerPositionTracker,
     anchorMs: Long = monotonicMs(),
+    currentChapter: ResolvedChapter? = null,
 ): NowPlayingTransport? {
     val queueInfo = playerData?.queueInfo ?: return null
     val track = queueInfo.currentItem?.track ?: return null
     val isPlaying = playerData.player.isPlaying
+    val absoluteElapsedSec = positionTracker.effectiveSec(queueInfo.id) ?: queueInfo.elapsedTime
     return NowPlayingTransport(
         mediaItemId = track.itemId,
         isPlaying = isPlaying,
-        elapsedSec = positionTracker.effectiveSec(queueInfo.id) ?: queueInfo.elapsedTime,
+        elapsedSec = absoluteElapsedSec?.let { currentChapter?.relativeSec(it) ?: it },
         anchorMs = anchorMs,
         rate = if (isPlaying && !positionTracker.isFrozenUntilConfirmed(queueInfo.id)) {
             queueInfo.playbackSpeed ?: 1.0

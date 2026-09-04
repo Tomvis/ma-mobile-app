@@ -13,6 +13,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.utils.MediaConstants
 import io.music_assistant.client.R
+import io.music_assistant.client.auto.AndroidAutoArtwork
 import io.music_assistant.client.auto.AutoLibrary
 import io.music_assistant.client.auto.MediaIds
 import io.music_assistant.client.auto.androidAutoLog
@@ -51,6 +52,9 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
     // Until then this service is a passive browse/lifetime holder of the shared session.
     private var promotedToHost = false
 
+    // Hosts holding a prefix grant on the artwork provider, revoked when this service goes away.
+    private val artworkClients = mutableSetOf<String>()
+
     override fun onCreate() {
         super.onCreate()
         androidAutoLog.i { "onCreate — acquiring shared session" }
@@ -58,6 +62,7 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
         defaultIconUri = R.drawable.baseline_library_music_24.toUri(this)
         observeCarTabsConfig()
         observeLocalPlayerEnabled()
+        observeAiRadioAvailability()
         ensureNotificationService()
     }
 
@@ -87,6 +92,22 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
         }
     }
 
+    // The AI Radio tab exists only while the plugin is loaded and the user holds its scope,
+    // both of which change on connect, disconnect and role change. Swap the tab in and out
+    // live rather than leaving a stale tab whose every tap fails.
+    private fun observeAiRadioAvailability() {
+        scope.launch {
+            dataSource.aiRadioAvailable
+                .drop(1)
+                .distinctUntilChanged()
+                .collect {
+                    library.invalidateCache()
+                    notifyChildrenChanged(MediaIds.ROOT)
+                    notifyChildrenChanged(MediaIds.TAB_AI_RADIO)
+                }
+        }
+    }
+
     private fun notifyBrowseTreeChanged() {
         notifyChildrenChanged(MediaIds.ROOT)
         notifyChildrenChanged(MediaIds.TAB_ARTISTS)
@@ -95,6 +116,7 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
         notifyChildrenChanged(MediaIds.TAB_PODCASTS)
         notifyChildrenChanged(MediaIds.TAB_RADIO)
         notifyChildrenChanged(MediaIds.TAB_AUDIOBOOKS)
+        notifyChildrenChanged(MediaIds.TAB_AI_RADIO)
     }
 
     /**
@@ -103,12 +125,19 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
      * probing/reconnecting the transport) is what zombified the notification on remote
      * players (issue #519). Promote to a real AA host — register the browse/voice play
      * handler and signal an external consumer — only for non-SystemUI binders.
+     *
+     * Session isolation is a narrower question than promotion, so it is decided separately:
+     * only a projection host may isolate the session to the local player. See
+     * [PROJECTION_HOST_PACKAGES].
      */
     private fun promoteIfRealHost(packageName: String) {
         if (promotedToHost || packageName == SYSTEMUI_PACKAGE) return
         promotedToHost = true
-        androidAutoLog.i { "Real media host '$packageName' — promoting to AA owner" }
-        sharedSession.bindAutoHost(autoPlayHandler)
+        val isProjectionHost = packageName in PROJECTION_HOST_PACKAGES
+        androidAutoLog.i {
+            "Real media host '$packageName' — promoting to AA owner (projection=$isProjectionHost)"
+        }
+        sharedSession.bindAutoHost(autoPlayHandler, isProjectionHost = isProjectionHost)
         dataSource.apiClient.onExternalConsumerActive()
         observeSessionState()
     }
@@ -159,6 +188,14 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
     // SharedMediaSessionManager deactivates the session so no card is offered to the car.
     override fun onGetRoot(packageName: String, uID: Int, hints: Bundle?): BrowserRoot {
         androidAutoLog.i { "onGetRoot from package=$packageName uid=$uID" }
+        // Browse rows carry content:// artwork URIs, so the host needs a read grant. A refusal is
+        // never fatal: the host just falls back to the default icon, and onGetRoot must still
+        // return a root or the app hangs on a loading screen forever.
+        if (AndroidAutoArtwork.grantReadAccess(this, packageName, uID)) {
+            artworkClients += packageName
+        } else {
+            androidAutoLog.w { "Rejected artwork URI grant for package=$packageName uid=$uID" }
+        }
         promoteIfRealHost(packageName)
         val extras = Bundle().apply {
             putBoolean(MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED, true)
@@ -270,6 +307,8 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
             sharedSession.unbindAutoHost()
         }
         sharedSession.release()
+        artworkClients.forEach { AndroidAutoArtwork.revokeReadAccess(this, it) }
+        artworkClients.clear()
         scope.cancel()
         super.onDestroy()
     }
@@ -278,6 +317,18 @@ class AndroidAutoPlaybackService : MediaBrowserServiceCompat() {
         // SystemUI renders the media-control notification by binding this browser service;
         // it must not be mistaken for a real Android Auto / media host.
         const val SYSTEMUI_PACKAGE = "com.android.systemui"
+
+        // Only a real projection host may isolate the session to the local player, because that
+        // isolation deactivates the session when no local player exists. Our own package is
+        // deliberately absent: VoicePlayDispatchActivity binds this service from inside the app,
+        // so promoting it to a projection host blanked the phone notification for a remote
+        // player on every voice attempt. Assistant, Gemini and Wear are absent for the same
+        // reason. CarConnectionMonitor still covers a real head unit that is missing here, so
+        // this set is a fast path, not the only signal. Do not re-broaden it.
+        val PROJECTION_HOST_PACKAGES = setOf(
+            "com.google.android.projection.gearhead", // Android Auto phone host + DHU
+            "com.google.android.gms.car", // legacy Android Auto host
+        )
 
         // Cold-start window: voice intent may arrive before auth + local player
         // bootstrap finish. After this many ms we give up and log a warning.

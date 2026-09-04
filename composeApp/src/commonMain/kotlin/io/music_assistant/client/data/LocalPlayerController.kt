@@ -15,6 +15,8 @@ import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.image
+import io.music_assistant.client.data.model.client.presentationChapter
+import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
 import io.music_assistant.client.player.MediaPlayerController
 import io.music_assistant.client.player.sendspin.EncryptionRequiredUnavailable
 import io.music_assistant.client.player.sendspin.SendspinClient
@@ -26,7 +28,7 @@ import io.music_assistant.client.player.sendspin.model.GoodbyeReason
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
-import io.music_assistant.client.utils.SessionState
+import io.music_assistant.client.utils.authenticatedToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -84,6 +86,7 @@ class LocalPlayerController(
     private val sendspinClientFactory: SendspinClientFactory,
     private val playerRequestFactory: PlayerRequestFactory,
     private val positionTracker: PlayerPositionTracker,
+    private val userPreferences: UserPreferences,
     private val errorBus: ErrorMessageBus,
 ) : CoroutineScope {
     private val log = Logger.withTag("LocalPlayerCtrl")
@@ -267,6 +270,10 @@ class LocalPlayerController(
                 updateOptimisticQueueInfo { it.copy(autoPlayEnabled = !action.current) }
             }
 
+            is PlayerAction.ToggleCrossfade -> {
+                updateOptimisticQueueInfo { it.copy(crossfadeEnabled = !action.current) }
+            }
+
             is PlayerAction.SeekTo -> {
                 // Freeze until Sendspin confirms audio, not merely until the server echoes the seek.
                 updateOptimisticQueueInfo { it.copy(elapsedTime = action.position.toDouble()) }
@@ -405,7 +412,9 @@ class LocalPlayerController(
                         name = settings.sendspinDeviceName.value,
                         provider = "builtin",
                         type = PlayerType.PLAYER,
-                        shouldBeShown = true,
+                        isListed = true,
+                        isAvailable = true,
+                        needsSetup = false,
                         canSetVolume = false,
                         volumeLevel = null,
                         volumeControl = null,
@@ -441,22 +450,11 @@ class LocalPlayerController(
      * Safe for background: this controller is a singleton held by the foreground service.
      */
     suspend fun start() = sendspinMutex.withLock {
-        // Get prerequisites
-        val authToken = when (val state = apiClient.sessionState.value) {
-            is SessionState.Connected.Direct ->
-                settings.getTokenForServer(
-                    settings.getDirectServerIdentifier(
-                        state.connectionInfo.host,
-                        state.connectionInfo.port,
-                        state.connectionInfo.isTls,
-                    ),
-                )
-
-            is SessionState.Connected.WebRTC ->
-                settings.getTokenForServer(settings.getWebRTCServerIdentifier(state.remoteId.rawId))
-
-            else -> null
-        }
+        // Get prerequisites. The token comes from the live session state, not from settings:
+        // the settings copy is written by AuthenticationManager's own sessionState collector on
+        // the main dispatcher, so reading it here (IO, same emission) can observe it empty and
+        // dead-end the whole start — no client, no state, no dot.
+        val authToken = apiClient.sessionState.value.authenticatedToken()
 
         // Stop existing client if any (but preserve if it's actively connected, connecting, or reconnecting)
         sendspinClient?.let { existing ->
@@ -543,7 +541,9 @@ class LocalPlayerController(
             localPlayerData.value?.let { playerData ->
                 log.i { "Remote command: $command" }
                 remoteCommandToPlayerAction(command, playerData.queueInfo)
-                    ?.let { action -> handleLocalCommand(playerData, action) }
+                    ?.let { action ->
+                        handleLocalCommand(playerData, remapChapterRelativeSeek(playerData, action))
+                    }
                     ?: log.w { "Unknown remote command: $command" }
             } ?: log.w { "No local player available for remote command: $command" }
         }
@@ -833,6 +833,11 @@ class LocalPlayerController(
                     if (idx >= 0) commandQueue.removeAt(idx) else commandQueue.add(entry)
                 }
 
+                is PlayerAction.ToggleCrossfade -> {
+                    val idx = commandQueue.indexOfFirst { it.action is PlayerAction.ToggleCrossfade }
+                    if (idx >= 0) commandQueue.removeAt(idx) else commandQueue.add(entry)
+                }
+
                 is PlayerAction.SeekTo -> {
                     Logger.e("SeekTo: ${action.position}")
                     commandQueue.removeAll { it.action is PlayerAction.SeekTo }
@@ -842,6 +847,20 @@ class LocalPlayerController(
                 else -> commandQueue.add(entry)
             }
         }
+    }
+
+    /**
+     * Remaps chapter-relative system-scrubber SeekTo payloads to absolute seconds.
+     * SeekBy and chapter navigation are resolved by [PlayerRequestFactory].
+     */
+    private fun remapChapterRelativeSeek(
+        data: PlayerData,
+        action: PlayerAction,
+    ): PlayerAction {
+        if (action !is PlayerAction.SeekTo || !userPreferences.isChapterProgressEnabled) return action
+        val elapsedSec = data.queueInfo?.id?.let(positionTracker::effectiveSec)
+        val chapter = data.presentationChapter(elapsedSec) ?: return action
+        return PlayerAction.SeekTo(chapter.toAbsoluteSeekSeconds(action.position.toDouble()))
     }
 
     private companion object {

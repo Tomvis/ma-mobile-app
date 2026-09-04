@@ -75,8 +75,12 @@
   <string name="cd_add_to_group">Zu Gruppe hinzufügen</string>
   <string name="cd_album_item">Album "%1$s" von %2$s</string>
   <string name="cd_applied">Angewandt</string>
+  <string name="cd_autoplay_off">Automatische Wiedergabe aus</string>
+  <string name="cd_autoplay_on">Automatische Wiedergabe an</string>
   <string name="cd_close">Schließen</string>
   <string name="cd_connection_history">Verbindungsprotokoll</string>
+  <string name="cd_crossfade_off">Überblendung aus</string>
+  <string name="cd_crossfade_on">Überblendung an</string>
   <string name="cd_current_player">Aktueller Player: %1$s</string>
   <string name="cd_customize_tabs">Kategorien anpassen</string>
   <string name="cd_delete_crash_logs">Absturzberichte löschen</string>
@@ -85,6 +89,7 @@
   <string name="cd_fully_played">Vollständig abgespielt</string>
   <string name="cd_genre_filter">Genre Filter</string>
   <string name="cd_in_progress">Teilweise abgespielt</string>
+  <string name="cd_leave_group">Gruppe verlassen</string>
   <string name="cd_library_filters">Filter</string>
   <string name="cd_lyrics">Songtext</string>
   <string name="cd_lyrics_close">Songtext schließen</string>
@@ -98,6 +103,8 @@
   <string name="cd_remove_from_group">Aus Gruppe entfernen</string>
   <string name="cd_scan_qr_code">QR-Code scannen</string>
   <string name="cd_select_codec">Codec auswählen</string>
+  <string name="cd_sleep_timer">Timer aktiv</string>
+  <string name="cd_sleep_timer_off">Timer aus</string>
   <string name="cd_sort_direction">Sortierreihenfolge</string>
   <string name="cd_toggle_queue">Warteschlange umschalten</string>
   <string name="cd_toggle_view_mode">Ansicht umschalten</string>
@@ -210,6 +217,7 @@
   <string name="player_power_on">Einschalten</string>
   <string name="player_powered_off">Ausgeschaltet</string>
   <string name="player_show_buffer_indicator">Pufferstatus anzeigen</string>
+  <string name="player_sleep_timer">Timer</string>
   <string name="players_dsp_settings">DSP-Einstellungen</string>
   <string name="players_group_settings">Gruppeneinstellungen</string>
   <string name="players_group_volume">%1$s Lautstärke der Gruppe</string>
@@ -232,6 +240,8 @@
   <string name="queue_browse_library">BIBLIOTHEK DURCHSUCHEN</string>
   <string name="queue_cannot_play">Element kann nicht abgespielt werden</string>
   <string name="queue_clear">Warteschlange leeren</string>
+  <string name="queue_crossfade_disable">Überblendung deaktivieren</string>
+  <string name="queue_crossfade_enable">Überblendung aktivieren</string>
   <string name="queue_dsm_disable">Don't Stop The Music ausschalten</string>
   <string name="queue_dsm_enable">Don't Stop The Music einschalten</string>
   <string name="queue_empty">Warteschlange ist leer</string>
@@ -256,9 +266,12 @@
   <string name="search_query_label">Suche...</string>
   <string name="search_start">Suche starten</string>
   <string name="search_title">Globale Suche</string>
+  <string name="sendspin_encryption_required_unavailable">Eine verschlüsselte Verbindung ist erforderlich, wird von diesem Server jedoch nicht unterstützt. Aktualisiere Music Assistant oder deaktiviere die entsprechende Einstellung.</string>
   <string name="server_id_mismatch_error">Server ID hat sich geändert. Reauthentifizierung nötig.</string>
   <string name="settings_about_description">Music Assistant ist ein kostenloser und selbst gehosteter open-source Musik Server. Verbinde Dich mit Deinem Server, um Deine Bibliothek zu durchsuchen und die Wiedergabe aller Player im Haus zu steuern.</string>
   <string name="settings_about_learn_more">Mehr Informationen auf music-assistant.io →</string>
+  <string name="settings_allow_landscape">Querformat auf allen Geräten erlauben</string>
+  <string name="settings_allow_landscape_hint">Experimentell: Im Querformat können Darstellungsfehler auftreten. Nutzung auf eigene Gefahr.</string>
   <string name="settings_buffer_size">Puffergröße</string>
   <string name="settings_car">Android Auto / Apple CarPlay</string>
   <string name="settings_car_bulk_for">Aktionen für %1$s</string>
@@ -277,7 +290,7 @@
   <string name="settings_connect_saved">Mit gespeicherten Anmeldedaten verbinden</string>
   <string name="settings_connect_webrtc">Via WebRTC verbinden</string>
   <string name="settings_connected">Verbunden</string>
-  <string name="settings_connected_to">Verbunden mit %1$s:%2$d</string>
+  <string name="settings_connected_to">Verbunden mit %1$s:%2$d%3$s</string>
   <string name="settings_connected_webrtc">Verbunden via WebRTC</string>
   <string name="settings_connecting">Verbinden...</string>
   <string name="settings_connecting_remote">Verbinde mit Remote Server</string>
@@ -307,7 +320,10 @@
   <string name="settings_remote_id_invalid">Ungültiges Format der Remote ID</string>
   <string name="settings_saved_connections">Gespeicherte Verbindungen</string>
   <string name="settings_scan_qr">QR-Code scannen</string>
+  <string name="settings_sendspin_require_encryption">Verschlüsselte Verbindung benötigt</string>
   <string name="settings_server">Server</string>
+  <string name="settings_server_base_path">Basispfad (optional)</string>
+  <string name="settings_server_base_path_hint">Falls der Webdienst unter einem Unterpfad betrieben wird.</string>
   <string name="settings_server_host">Server Host</string>
   <string name="settings_share_crash_logs">Absturzberichte teilen</string>
   <string name="settings_share_logs">Logs teilen</string>
@@ -317,6 +333,11 @@
   <string name="settings_webrtc_description">Von überall verbinden (ohne Port-Forwarding)</string>
   <string name="settings_webrtc_disclaimer">WebRTC Verbindungen können langsamer und weniger zuverlässig als direkte oder proxybasierte Verbindungen sein.</string>
   <string name="settings_webrtc_info">WebRTC verwendet cloud signalling und Ende-zu-Ende Verschlüsselung. Funktioniert mit den meisten Firewalls und NATs.</string>
+  <string name="sleep_timer_clear">Timer zurücksetzen</string>
+  <string name="sleep_timer_hour">1 Stunde</string>
+  <string name="sleep_timer_hours">%1$d Stunden</string>
+  <string name="sleep_timer_minutes">%1$d Minuten</string>
+  <string name="sleep_timer_stops_in">Endet in %1$s</string>
   <string name="sort_artist">Künstler</string>
   <string name="sort_date_added">Datum hinzugefügt</string>
   <string name="sort_date_modified">Datum geändert</string>

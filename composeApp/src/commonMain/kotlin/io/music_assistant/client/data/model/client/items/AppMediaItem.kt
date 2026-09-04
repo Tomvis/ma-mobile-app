@@ -26,7 +26,7 @@ interface PlayableItem {
     val favorite: Boolean?
     val longId: Long
         get() = itemId.hashCode().toLong()
-    val canStartRadio: Boolean
+    val canStartEndlessMix: Boolean
 
     val isPlayable: Boolean
 
@@ -70,7 +70,7 @@ sealed class AppMediaItem {
     abstract val sortName: String?
     abstract val uri: String?
     abstract val images: Map<ImageType, ImageInfo>
-    open val canStartRadio: Boolean get() = false
+    open val canStartEndlessMix: Boolean get() = false
 
     open val isPlayable: Boolean get() = true
 
