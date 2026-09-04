@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.settings.ViewMode
@@ -53,6 +56,9 @@ import musicassistantclient.composeapp.generated.resources.media_type_podcasts
 import musicassistantclient.composeapp.generated.resources.media_type_radio
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
 import org.jetbrains.compose.resources.stringResource
+
+// Cap the reception-filter active-count badge so it stays within Material's badge width.
+private const val MAX_BADGE_COUNT = 9
 
 @Composable
 fun LibraryListScreen(
@@ -99,6 +105,8 @@ fun LibraryListScreen(
                 providerOptions = providerOptions,
                 genreOptions = genreOptions,
                 onLoadFilterOptions = libraryListViewModel::loadFilterOptions,
+                receptionFilter = state.receptionFilter,
+                onReceptionFilterChanged = libraryListViewModel::onReceptionFilterChanged,
             )
         },
     ) {
@@ -153,6 +161,8 @@ private fun LibraryListTopBar(
     providerOptions: DataState<List<SelectOption<String>>>,
     genreOptions: DataState<List<SelectOption<Int>>>,
     onLoadFilterOptions: () -> Unit,
+    receptionFilter: ReceptionFilter,
+    onReceptionFilterChanged: (ReceptionFilter) -> Unit,
 ) {
     var showSearch by remember { mutableStateOf(searchQuery.isNotEmpty()) }
 
@@ -239,6 +249,29 @@ private fun LibraryListTopBar(
                 }
             },
             secondRow = {
+                // mediaType is fixed for the lifetime of this screen, so the album-only
+                // reception filter action (and the sheet state it remembers) is stable. It
+                // sits here rather than in the top-bar `actions` slot, which already holds
+                // upstream's generic library filter; the badge carries the active-filter
+                // count that shared action does not show.
+                if (mediaType == MediaType.ALBUM) {
+                    BadgedBox(
+                        badge = {
+                            val count = receptionFilter.activeCount
+                            if (count > 0) {
+                                Badge {
+                                    Text(if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else "$count")
+                                }
+                            }
+                        },
+                    ) {
+                        ReceptionFilterAction(
+                            filter = receptionFilter,
+                            onFilterChanged = onReceptionFilterChanged,
+                        )
+                    }
+                }
+
                 ItemSortChip(
                     sortOption = sortOption,
                     mediaType = mediaType,

@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.music_assistant.client.data.model.client.AccoladeKind
@@ -103,6 +104,11 @@ private val DR_BUCKET_OPTIONS: List<DrQuality?> = buildList {
 // ReceptionFilter.matchAny.
 private val MATCH_MODES: List<Boolean> = listOf(false, true)
 
+/** Test handle on the sheet's scrolling section list — DR, AMG and TPS do not all fit one screen. */
+object ReceptionFilterSemantics {
+    const val CONTENT_TAG = "ReceptionFilterContent"
+}
+
 /**
  * The album reception filter: the top-bar icon button and the sheet it opens, on the
  * shared [FilterAction] / SettingsSheet chrome. Non-swipeable; the scrim tap and system
@@ -134,7 +140,8 @@ private fun ColumnScope.ReceptionFilters(state: MutableState<ReceptionFilter>) {
         modifier = Modifier
             .fillMaxWidth()
             .weight(1f)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .testTag(ReceptionFilterSemantics.CONTENT_TAG),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         SingleChoiceChipsRow(
