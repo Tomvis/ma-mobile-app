@@ -80,6 +80,9 @@ private val SESSION_TRANSPORT_ACTIONS: Long =
         PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
         PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
 
+// Give Sendspin time to start without briefly blocking and rebuilding the car session.
+internal const val SESSION_BLOCK_DEBOUNCE_MS = 1500L
+
 /**
  * Single source of truth for the app's MediaSession **and** its sole writer.
  *
@@ -97,15 +100,11 @@ class SharedMediaSessionManager(
     private val applicationContext: Context,
     private val dataSource: MainDataSource,
     private val carConnection: CarConnectionMonitor,
+    private val managerScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private var mediaSession: MediaSessionCompat? = null
     private var writerScope: CoroutineScope? = null
     private var refCount = 0
-
-    // Outlives the ref-counted [writerScope]: the AA-connected and blocked signals must be
-    // readable before the first [acquire] and after the last [release]. This manager is a
-    // Koin singleton, so the scope is never cancelled.
-    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Localized labels, resolved once before the writer collectors start (see
     // [startWriter]). The synchronous writers read these; null only in the brief
@@ -683,10 +682,4 @@ class SharedMediaSessionManager(
         } else {
             R.drawable.baseline_arrow_right_alt_24
         }
-
-    private companion object {
-        // Sendspin needs a moment to come up after the car connects. Without this window the
-        // block state flashes on every connect, tearing down and rebuilding the session.
-        const val SESSION_BLOCK_DEBOUNCE_MS = 1500L
-    }
 }

@@ -7,6 +7,7 @@ import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.Track
+import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.utils.UniqueIdGenerator
 
 object AppMediaItemFixtures {
@@ -22,9 +23,11 @@ object AppMediaItemFixtures {
     ): Album {
         return Album(
             itemId = itemId,
-            provider = "blah",
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = metadata,
             favorite = null,
             uri = null,
@@ -103,9 +106,11 @@ object AppMediaItemFixtures {
     ): Artist {
         return Artist(
             itemId = itemId,
-            provider = "blah",
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = null,
             favorite = null,
             uri = null,
@@ -121,15 +126,17 @@ object AppMediaItemFixtures {
     ): Track {
         return Track(
             itemId = itemId,
-            provider = "blah",
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = null,
             favorite = null,
             uri = null,
             images = emptyMap(),
             duration = 210.0,
-            isPlayable =  true,
+            isPlayable = true,
             artists = artists,
             album = album,
             discNumber = null,
@@ -150,12 +157,17 @@ object AppMediaItemFixtures {
         }
     }
 
-    fun playlist(name: String = "Playlist ${uniqueIdGenerator.nextInt()}"): Playlist {
+    fun playlist(
+        itemId: String = uniqueIdGenerator.nextInt().toString(),
+        name: String = "Playlist $itemId",
+    ): Playlist {
         return Playlist(
-            itemId = "blah",
-            provider = "blah",
+            itemId = itemId,
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = null,
             favorite = null,
             uri = null,
@@ -165,12 +177,17 @@ object AppMediaItemFixtures {
         )
     }
 
-    fun podcast(name: String = "Podcast ${uniqueIdGenerator.nextInt()}"): Podcast {
+    fun podcast(
+        itemId: String = uniqueIdGenerator.nextInt().toString(),
+        name: String = "Podcast $itemId",
+    ): Podcast {
         return Podcast(
             itemId = "blah",
-            provider = "blah",
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = null,
             favorite = null,
             uri = null,
@@ -183,11 +200,14 @@ object AppMediaItemFixtures {
         podcast: Podcast = podcast(),
     ): List<PodcastEpisode> {
         return episodes.map {
+            val itemId = uniqueIdGenerator.nextInt().toString()
             PodcastEpisode(
-                itemId = "blah",
-                provider = "blah",
+                itemId = itemId,
+                provider = DEFAULT_PROVIDER_DOMAIN,
                 name = it,
-                providerMappings = emptyList(),
+                providerMappings = listOf(
+                    ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+                ),
                 metadata = null,
                 favorite = null,
                 uri = null,
@@ -203,14 +223,17 @@ object AppMediaItemFixtures {
     }
 
     fun audiobook(
+        itemId: String = uniqueIdGenerator.nextInt().toString(),
         name: String = "Audiobook ${uniqueIdGenerator.nextInt()}",
         chapters: List<String> = emptyList(),
     ): Audiobook {
         return Audiobook(
-            itemId = "blah",
-            provider = "blah",
+            itemId = itemId,
+            provider = DEFAULT_PROVIDER_DOMAIN,
             name = name,
-            providerMappings = emptyList(),
+            providerMappings = listOf(
+                ProviderMapping(itemId, DEFAULT_PROVIDER_DOMAIN, DEFAULT_PROVIDER_INSTANCE),
+            ),
             metadata = null,
             favorite = null,
             uri = null,
@@ -236,4 +259,7 @@ object AppMediaItemFixtures {
             )
         }
     }
+
+    private const val DEFAULT_PROVIDER_DOMAIN = "test-domain"
+    private const val DEFAULT_PROVIDER_INSTANCE = "test-instance"
 }

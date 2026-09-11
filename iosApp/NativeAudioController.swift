@@ -238,8 +238,18 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
         do {
             let pcmData = try decoder.decode(swiftData)
+            let bytesPerSample = currentCodec == "flac" || currentBitDepth == 24
+                ? 4
+                : Int(currentBitDepth / 8)
+            let bytesPerFrame = max(1, Int(currentChannels) * bytesPerSample)
+
+            let pcmChunks = PCMChunker.split(
+                pcmData,
+                frameSize: bytesPerFrame,
+                capacity: Int(kBufferSize)
+            )
             bufferLock.lock()
-            pcmBuffer.append(pcmData)
+            pcmBuffer.append(contentsOf: pcmChunks)
             bufferLock.unlock()
         } catch {
             logDebug("Decode error: \(error)")
