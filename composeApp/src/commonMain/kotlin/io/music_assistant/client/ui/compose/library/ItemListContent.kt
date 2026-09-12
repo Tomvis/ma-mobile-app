@@ -52,7 +52,7 @@ import org.jetbrains.compose.resources.stringResource
  * search with [onGlobalSearch].
  */
 @Composable
-fun ItemList(
+fun ItemListContent(
     modifier: Modifier = Modifier,
     data: DataState<List<AppMediaItem>>,
     onNavigateClick: (AppMediaItem) -> Unit,

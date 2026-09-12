@@ -4,6 +4,8 @@ package io.music_assistant.client.player
 
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.player.sendspin.model.AudioCodec
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 
 /**
  * MediaPlayerController - iOS implementation for Sendspin
@@ -15,8 +17,13 @@ import io.music_assistant.client.player.sendspin.model.AudioCodec
 actual class MediaPlayerController actual constructor(platformContext: PlatformContext) {
     private val log = Logger.withTag("MediaPlayerController")
 
+    private val remoteCommandLock = SynchronizedObject()
+    private var remoteCommandHandler: ((String) -> Unit)? = null
+
     // Callback for remote commands from Control Center
-    actual var onRemoteCommand: ((String) -> Unit)? = null
+    actual var onRemoteCommand: ((String) -> Unit)?
+        get() = synchronized(remoteCommandLock) { remoteCommandHandler }
+        set(value) { synchronized(remoteCommandLock) { remoteCommandHandler = value } }
 
     // Sendspin streaming methods
     actual fun prepareStream(

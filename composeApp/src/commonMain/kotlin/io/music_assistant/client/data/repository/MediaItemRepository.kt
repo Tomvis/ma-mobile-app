@@ -11,6 +11,7 @@ import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
+import io.music_assistant.client.ui.compose.common.getOrEmptyList
 import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -193,6 +194,24 @@ suspend fun MediaItemRepository.fetchRecommendationFolders(): Result<List<Recomm
         },
     )
 }
+
+/**
+ * Fetch items for multiple requests and combine them into one list. Returns a failure Result
+ * if any of the requests fail (and fails fast).
+ */
+ suspend fun MediaItemRepository.fetchMediaItems(requests: List<Request>): Result<List<AppMediaItem>> {
+     val items = mutableListOf<AppMediaItem>()
+     for (request in requests) {
+         val result = this.fetchMediaItems(request)
+         if (result.isSuccess) {
+             items += result.getOrEmptyList()
+         } else {
+             return result
+         }
+     }
+
+     return Result.success(items)
+ }
 
 /** Server schema version that split `music/recommendations` into rows + per-row items. */
 private const val RECOMMENDATION_ITEMS_SCHEMA = 39

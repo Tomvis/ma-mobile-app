@@ -14,7 +14,7 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.ui.compose.common.items.ItemSortChip
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
-import io.music_assistant.client.ui.compose.library.ItemList
+import io.music_assistant.client.ui.compose.library.ItemListContent
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
 import musicassistantclient.composeapp.generated.resources.Res
@@ -63,7 +63,7 @@ fun ItemListScreen(
             )
         },
     ) {
-        ItemList(
+        ItemListContent(
             data = state.items,
             onNavigateClick = onNavigateClick,
             onPlayClick = { item, option, radio, _ ->

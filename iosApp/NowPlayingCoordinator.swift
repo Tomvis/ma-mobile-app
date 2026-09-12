@@ -54,7 +54,7 @@ final class NowPlayingCoordinator {
         return "Info center assign: \(info.count) keys title=\(title) rate=\(rate) elapsed=\(elapsed)"
     }
 
-    private var commandHandler: CommandHandler?
+    private let commandHandler = RemoteCommandHandlerStore<CommandHandler?>(nil)
 
     // MARK: - Channel subscriptions
 
@@ -398,7 +398,7 @@ final class NowPlayingCoordinator {
     /// Sets the handler for remote commands
     /// We now support dynamic handler updates without re-registering commands
     func setCommandHandler(_ handler: @escaping CommandHandler) {
-        self.commandHandler = handler
+        commandHandler.replace(handler)
         logDebug("Command handler updated")
     }
 
@@ -408,6 +408,8 @@ final class NowPlayingCoordinator {
     func dispatchCarCommand(_ command: String) {
         dispatchPrecondition(condition: .onQueue(.main))
         let resolvedCommand = resolveRemoteCommand(command)
+        var commandHandler: CommandHandler?
+        self.commandHandler.withSnapshot { commandHandler = $0 }
         guard let commandHandler else {
             // Narrow window (the handler is wired during player init, before
             // any CarPlay button can become enabled), but a silently vanishing
@@ -433,7 +435,7 @@ final class NowPlayingCoordinator {
                 guard let self = self else { return .commandFailed }
                 let resolvedCommand = self.resolveRemoteCommand(cmd)
                 self.logDebug("Remote command received: \(resolvedCommand)")
-                self.commandHandler?(resolvedCommand)
+                self.commandHandler.withSnapshot { $0?(resolvedCommand) }
                 return .success
             }
         }
@@ -461,7 +463,7 @@ final class NowPlayingCoordinator {
             // lock-screen thumb can correct backward when the KMP anchor lands.
             let seekPosition = positionEvent.positionTime.rounded(.down)
             self?.logInfo("Remote seek command received: \(seekPosition)")
-            self?.commandHandler?("seek:\(seekPosition)")
+            self?.commandHandler.withSnapshot { $0?("seek:\(seekPosition)") }
             return .success
         }
     }

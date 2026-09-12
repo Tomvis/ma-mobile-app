@@ -1,7 +1,7 @@
 package io.music_assistant.client.ui.compose.search
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_clear
 import musicassistantclient.composeapp.generated.resources.search_query_label
@@ -51,7 +50,7 @@ fun SearchInput(
     TextField(
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .heightIn(min = SearchBarDefaults.InputFieldHeight)
             .focusRequester(focusRequester),
         shape = SearchBarDefaults.inputFieldShape,
         value = query,

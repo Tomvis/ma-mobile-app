@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -556,6 +559,7 @@ private fun ExperimentalPill() {
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.primary)
+            .wrapContentWidth(unbounded = true)
             .padding(horizontal = 6.dp, vertical = 1.dp),
     ) {
         Text(
@@ -563,10 +567,13 @@ private fun ExperimentalPill() {
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConnectionMethodTabs(
     viewModel: SettingsViewModel,
@@ -620,9 +627,13 @@ private fun ConnectionMethodTabs(
                 selected = selectedTab == 1,
                 onClick = { viewModel.setPreferredConnectionMethod("webrtc") },
                 text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        itemVerticalAlignment = Alignment.CenterVertically,
+                        maxItemsInEachRow = 1,
+                    ) {
                         Text(stringResource(Res.string.settings_connection_webrtc))
-                        Spacer(modifier = Modifier.size(6.dp))
                         ExperimentalPill()
                     }
                 },
