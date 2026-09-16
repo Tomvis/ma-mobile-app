@@ -316,10 +316,14 @@
   <string name="settings_disable_local_player">Desactivar reproductor local</string>
   <string name="settings_disconnect">Desconectar</string>
   <string name="settings_enable_local_player">Activar reproductor local</string>
+  <string name="settings_error_local_network_ios">No se ha podido conectar con el servidor. iOS necesita permiso para acceder a tu red local; pulsa «Permitir» si aparece el aviso o actívalo más tarde en Ajustes &gt; Privacidad y seguridad &gt; Red local. Comprueba también que tu dispositivo esté conectado a la misma red que el servidor y vuelve a intentarlo.</string>
+  <string name="settings_error_offline_ios">No se ha podido conectar con el servidor. Comprueba que la dirección sea correcta y que tu dispositivo esté conectado y en la misma red que el servidor; después, inténtalo de nuevo.</string>
   <string name="settings_exit_app">SALIR DE LA APLICACIÓN</string>
   <string name="settings_history_direct">Directa</string>
   <string name="settings_history_webrtc">WebRTC (acceso remoto)</string>
   <string name="settings_host">Host</string>
+  <string name="settings_local_network_onboarding_body_ios">Cuando te conectes a tu servidor por primera vez, iOS te pedirá permiso para acceder a tu red local. Pulsa «Permitir»; sin este permiso, la aplicación no podrá encontrar ni conectarse a tu servidor.</string>
+  <string name="settings_local_network_onboarding_title_ios">Acceso a la red local</string>
   <string name="settings_local_player_disabled">Reproductor local (protocolo Sendspin)</string>
   <string name="settings_local_player_enabled">Reproductor local activado</string>
   <string name="settings_misc">Varios</string>
