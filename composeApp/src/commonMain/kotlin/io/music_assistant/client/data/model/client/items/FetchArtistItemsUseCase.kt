@@ -25,7 +25,7 @@ class FetchArtistItemsUseCase(private val mediaItemRepository: MediaItemReposito
             }
         }
 
-        return ArtistItems(emptyList(), itemLists.first(), itemLists)
+        return null
     }
 
     data class ArtistItems(

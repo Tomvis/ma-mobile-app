@@ -46,18 +46,14 @@ class ArtistDetailsViewModel(
     private val allProviderFilter = MutableStateFlow<Section.ProviderFilter?>(null)
     val all = allItems.asFlow()
         .combine(allProviderFilter) { items, providerFilter ->
-            if (providerFilter != null) {
-                items.map {
-                    Section(
-                        items = it
-                            .filterIsInstance<Album>()
-                            .take(ARTIST_SECTION_LIMIT),
-                        itemList = providerFilter.current,
-                        providerFilter = providerFilter,
-                    )
-                }
-            } else {
-                DataState.Loading<Section<Album>>()
+            items.map {
+                Section(
+                    items = it
+                        .filterIsInstance<Album>()
+                        .take(ARTIST_SECTION_LIMIT),
+                    itemList = providerFilter?.current,
+                    providerFilter = providerFilter,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, DataState.Loading())
@@ -66,18 +62,14 @@ class ArtistDetailsViewModel(
     private val topTracksFilter = MutableStateFlow<Section.ProviderFilter?>(null)
     val topTracks = topTrackItems.asFlow()
         .combine(topTracksFilter) { items, providerFilter ->
-            if (providerFilter != null) {
-                items.map {
-                    Section(
-                        items = it
-                            .filterIsInstance<Track>()
-                            .take(ARTIST_SECTION_LIMIT),
-                        itemList = providerFilter.current,
-                        providerFilter = providerFilter,
-                    )
-                }
-            } else {
-                DataState.Loading<Section<Track>>()
+            items.map {
+                Section(
+                    items = it
+                        .filterIsInstance<Track>()
+                        .take(ARTIST_SECTION_LIMIT),
+                    itemList = providerFilter?.current,
+                    providerFilter = providerFilter,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, DataState.Loading())
@@ -100,10 +92,10 @@ class ArtistDetailsViewModel(
 
             if (artistItems != null) {
                 val (items, itemList, options) = artistItems
-                allItems.set(items, itemList.toRequests())
                 allProviderFilter.value = Section.ProviderFilter(itemList, options)
+                allItems.set(items, itemList.toRequests())
             } else {
-                allItems.setError()
+                allItems.setEmpty()
             }
         }
 
@@ -112,10 +104,10 @@ class ArtistDetailsViewModel(
 
             if (result != null) {
                 val (items, itemList, options) = result
-                topTrackItems.set(items, itemList.toRequests())
                 topTracksFilter.value = Section.ProviderFilter(itemList, options)
+                topTrackItems.set(items, itemList.toRequests())
             } else {
-                topTrackItems.setError()
+                topTrackItems.setEmpty()
             }
         }
     }
@@ -140,7 +132,7 @@ class ArtistDetailsViewModel(
 
     data class Section<T : AppMediaItem>(
         val items: List<T>,
-        val itemList: ItemList,
+        val itemList: ItemList?,
         val providerFilter: ProviderFilter? = null,
     ) {
         data class ProviderFilter(

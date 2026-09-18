@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.TestResult
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class FetchArtistItemsUseCaseTest {
     private val mediaItemRepository = StubMediaItemRepository()
@@ -80,7 +81,7 @@ class FetchArtistItemsUseCaseTest {
     }
 
     @Test
-    fun `returns with first provider if all providers are empty`() = runTest {
+    fun `returns null if all providers are empty`() = runTest {
         val provider1 = ProviderMapping("1", "niflheim", "niflheim-1")
         val provider2 = ProviderMapping("1", "muspelheim", "muspelheim-1")
         val artist = AppMediaItemFixtures.artist(providerMappings = listOf(provider1, provider2))
@@ -97,17 +98,7 @@ class FetchArtistItemsUseCaseTest {
 
         val useCase = FetchArtistItemsUseCase(mediaItemRepository)
         val artistItems = useCase.run(artist) { ItemList.ArtistAlbums(it) }
-        assertEquals(
-            ArtistItems(
-                items = emptyList(),
-                itemList = ItemList.ArtistAlbums(provider1),
-                options = listOf(
-                    ItemList.ArtistAlbums(provider1),
-                    ItemList.ArtistAlbums(provider2),
-                ),
-            ),
-            artistItems,
-        )
+        assertNull(artistItems)
     }
 
     @Test

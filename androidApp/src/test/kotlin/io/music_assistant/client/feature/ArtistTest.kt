@@ -157,4 +157,37 @@ class ArtistTest {
             .assertMediaNotDisplayed(track1, provider = provider1.domain)
             .assertMediaDisplayed(track2, provider = provider2.domain)
     }
+
+    @Test
+    fun `does not show in library section when there's nothing in library`() {
+        val artist = ServerMediaItemFixtures.artist()
+        serviceClient.addItems(artist)
+        serviceClient.addToLibrary(artist)
+
+        launchLoggedInApp(composeTestRule, serviceClient)
+            .clickOnMedia(artist, withinTag = HomeScreenSemantics.rowTag("recently_added_artists"))
+            .assertRowShown(Res.string.artist_section_in_library.get(), false)
+    }
+
+    @Test
+    fun `does not show albums where there is none`() {
+        val artist = ServerMediaItemFixtures.artist()
+        serviceClient.addItems(artist)
+        serviceClient.addToLibrary(artist)
+
+        launchLoggedInApp(composeTestRule, serviceClient)
+            .clickOnMedia(artist, withinTag = HomeScreenSemantics.rowTag("recently_added_artists"))
+            .assertRowShown(Res.string.artist_section_all.get(), false)
+    }
+
+    @Test
+    fun `does not show top tracks where there is none`() {
+        val artist = ServerMediaItemFixtures.artist()
+        serviceClient.addItems(artist)
+        serviceClient.addToLibrary(artist)
+
+        launchLoggedInApp(composeTestRule, serviceClient)
+            .clickOnMedia(artist, withinTag = HomeScreenSemantics.rowTag("recently_added_artists"))
+            .assertRowShown(Res.string.artist_section_top.get(), false)
+    }
 }
