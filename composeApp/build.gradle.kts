@@ -50,7 +50,9 @@ kotlin {
             // Trades a touch of release-link optimization for ~28% faster
             // linkReleaseFrameworkIosArm64 and a smaller binary. Experimental
             // Kotlin/Native flag — revisit if release-build correctness regresses.
-            binaryOption("smallBinary", "true")
+            if (buildType.name == "RELEASE") {
+                binaryOption("smallBinary", "true")
+            }
         }
 
         val webRtcSlice = if (iosTarget.name == "iosSimulatorArm64") {
