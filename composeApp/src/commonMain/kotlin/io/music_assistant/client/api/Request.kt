@@ -1,5 +1,6 @@
 package io.music_assistant.client.api
 
+import io.music_assistant.client.api.Request.Library.recommendations
 import io.music_assistant.client.data.factory.toLyricsRequestArg
 import io.music_assistant.client.data.factory.toMarkMediaItem
 import io.music_assistant.client.data.model.client.MediaType
@@ -422,6 +423,21 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         )
     }
 
+    data object Provider {
+        fun all() = Request(command = APICommands.PROVIDERS)
+
+        fun icon(providerDomain: String, variant: String? = null) = Request(
+            command = APICommands.PROVIDERS_ICON,
+            args = buildJsonObject {
+                put("provider", JsonPrimitive(providerDomain))
+
+                if (variant != null) {
+                    put("variant", JsonPrimitive(variant))
+                }
+            },
+        )
+    }
+
     data object RadioStation {
         fun get(
             itemId: String,
@@ -623,7 +639,12 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 put("offset", JsonPrimitive(offset))
                 orderBy?.let { put("order_by", JsonPrimitive(it)) }
                 albumTypes?.takeIf { it.isNotEmpty() }
-                    ?.let { types -> put("album_types", JsonArray(types.map { JsonPrimitive(it) })) }
+                    ?.let { types ->
+                        put(
+                            "album_types",
+                            JsonArray(types.map { JsonPrimitive(it) }),
+                        )
+                    }
                 putListFilters(providers, genres)
                 receptionFilter.toRequestArgs().forEach { (k, v) -> put(k, v) }
                 listenLater?.let { put("listen_later", JsonPrimitive(it)) }
@@ -809,11 +830,6 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 put("item_id", JsonPrimitive(itemId))
             },
         )
-
-        fun providersManifests() = Request(command = APICommands.PROVIDERS_MANIFESTS)
-
-        /** Loaded provider instances (music/player/…); filter client-side by type. */
-        fun providers() = Request(command = APICommands.PROVIDERS)
 
         internal fun subItems(
             command: String,

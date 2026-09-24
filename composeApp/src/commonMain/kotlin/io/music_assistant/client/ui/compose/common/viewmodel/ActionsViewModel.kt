@@ -182,8 +182,6 @@ class ActionsViewModel(
         }
     }
 
-    fun getProviderIcon(provider: String) = dataSource.providerIcon(provider)
-
     /**
      * Plays an item on the selected player's queue. Shared queue-play dispatch used by the
      * item lists, browse, search, home and the Listen Later screen. Radio mode is suppressed

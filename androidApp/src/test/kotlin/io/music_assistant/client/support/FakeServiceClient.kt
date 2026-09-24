@@ -11,12 +11,12 @@ import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.DSPSettings
 import io.music_assistant.client.data.model.server.EventType
 import io.music_assistant.client.data.model.server.PlayerState
-import io.music_assistant.client.data.model.server.ProviderManifest
 import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerPlayerMedia
+import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerQueue
 import io.music_assistant.client.data.model.server.ServerQueueItem
 import io.music_assistant.client.data.model.server.ServerUser
@@ -61,6 +61,7 @@ class FakeServiceClient : ServiceClient {
     private val queueItems = mutableMapOf<String, List<ServerQueueItem>>()
     private val mediaItemStore = FakeMediaItemStore()
     private val shortcuts = mutableListOf<String>()
+    private val providers = mutableListOf<ServerProviderInstance>()
 
     val username = "user"
     val password = "password"
@@ -81,11 +82,11 @@ class FakeServiceClient : ServiceClient {
         }
 
         return when (request.command) {
-            APICommands.PROVIDERS_MANIFESTS -> {
+            APICommands.PROVIDERS -> {
                 Result.success(
                     answer(
                         request = request,
-                        result = emptyList<ProviderManifest>(),
+                        result = providers,
                     ),
                 )
             }
@@ -744,6 +745,10 @@ class FakeServiceClient : ServiceClient {
 
     fun addShortcut(item: ServerMediaItem) {
         shortcuts.add(item.uri!!)
+    }
+
+    fun addProvider(provider: ServerProviderInstance) {
+        providers.add(provider)
     }
 
     fun getState(playerId: String): PlayerState? {

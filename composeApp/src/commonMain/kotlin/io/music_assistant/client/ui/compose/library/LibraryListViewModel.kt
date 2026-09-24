@@ -158,7 +158,7 @@ class LibraryListViewModel(
         val feature = providerFeatureFor(mediaType) ?: return
         viewModelScope.launch {
             _providerOptions.update { DataState.Loading() }
-            val providers = apiClient.sendRequest(Request.Library.providers())
+            val providers = apiClient.sendRequest(Request.Provider.all())
                 .resultAs<List<ServerProviderInstance>>()
             _providerOptions.update {
                 providers

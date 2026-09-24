@@ -3,7 +3,6 @@
 
 package io.music_assistant.client.data
 
-import androidx.compose.ui.graphics.Color
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.Request
@@ -26,7 +25,6 @@ import io.music_assistant.client.data.model.server.AI_RADIO_DOMAIN
 import io.music_assistant.client.data.model.server.AI_RADIO_REQUIRED_SCOPE
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.DspConfigPreset
-import io.music_assistant.client.data.model.server.ProviderManifest
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerQueue
@@ -51,8 +49,6 @@ import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.StaleReason
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
-import io.music_assistant.client.ui.compose.common.icons.BookshelfIcon
-import io.music_assistant.client.ui.compose.common.providers.ProviderIconModel
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.HasConnectionData
@@ -138,7 +134,6 @@ class MainDataSource(
 
     private val _serverPlayers = MutableStateFlow<DataState<List<Player>>>(DataState.Loading())
     private val _queueInfos = MutableStateFlow<List<QueueInfo>>(emptyList())
-    private val _providersIcons = MutableStateFlow<Map<String, ProviderIconModel>>(emptyMap())
 
     /**
      * Whether the AI Radio UI may be offered: the optional `ai_radio` plugin is loaded AND
@@ -349,9 +344,6 @@ class MainDataSource(
         return true
     }
 
-    fun providerIcon(provider: String): ProviderIconModel? =
-        _providersIcons.value[provider.substringBefore("--")]
-
     private var watchJob: Job? = null
     private var updateJob: Job? = null
 
@@ -471,7 +463,6 @@ class MainDataSource(
                                             _serverPlayers.update {
                                                 DataState.Data(currentState.data)
                                             }
-                                            updateProvidersManifests()
                                             updateUserPreferences()
                                             updateAiRadioAvailability()
                                             updatePlayersAndQueues()
@@ -482,7 +473,6 @@ class MainDataSource(
                                 is DataState.Data -> {
                                     // Already have data (shouldn't happen, but handle gracefully)
                                     log.w { "Connected while already in Data state - refreshing anyway" }
-                                    updateProvidersManifests()
                                     updateUserPreferences()
                                     updateAiRadioAvailability()
                                     updatePlayersAndQueues()
@@ -495,7 +485,6 @@ class MainDataSource(
                                 is DataState.Loading, is DataState.NoData, is DataState.Error -> {
                                     // Fresh connection or error recovery - show loading
                                     _serverPlayers.update { DataState.Loading() }
-                                    updateProvidersManifests()
                                     updateUserPreferences()
                                     updateAiRadioAvailability()
                                     updatePlayersAndQueues()
@@ -1599,7 +1588,7 @@ class MainDataSource(
      */
     private fun updateAiRadioAvailability() {
         launch {
-            val pluginLoaded = apiClient.sendRequest(Request.Library.providers())
+            val pluginLoaded = apiClient.sendRequest(Request.Provider.all())
                 .resultAs<List<ServerProviderInstance>>()
                 ?.any { it.domain == AI_RADIO_DOMAIN && it.available } == true
             if (!pluginLoaded) {
@@ -1611,27 +1600,6 @@ class MainDataSource(
                 .orEmpty()
             val role = (apiClient.sessionState.value as? HasConnectionData)?.user?.role
             _aiRadioAvailable.value = grantsScope(roleScopes, role, AI_RADIO_REQUIRED_SCOPE)
-        }
-    }
-
-    private fun updateProvidersManifests() {
-        launch {
-            apiClient.sendRequest(Request.Library.providersManifests())
-                .resultAs<List<ProviderManifest>>()?.filter { it.type == "music" }
-                ?.let { manifests ->
-                    val map = buildMap {
-                        put(
-                            "library",
-                            ProviderIconModel.Mdi(BookshelfIcon, Color.White),
-                        )
-                        manifests.forEach { manifest ->
-                            ProviderIconModel.from(manifest.icon, manifest.iconSvgDark)?.let {
-                                put(manifest.domain, it)
-                            }
-                        }
-                    }
-                    _providersIcons.update { map }
-                }
         }
     }
 

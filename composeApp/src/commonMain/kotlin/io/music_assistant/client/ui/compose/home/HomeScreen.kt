@@ -5,7 +5,6 @@ package io.music_assistant.client.ui.compose.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -65,6 +64,7 @@ import io.music_assistant.client.ui.compose.common.items.ItemCategory
 import io.music_assistant.client.ui.compose.common.items.ProvideClickActions
 import io.music_assistant.client.ui.compose.common.items.lazyListKey
 import io.music_assistant.client.ui.compose.common.moveToEnabledBoundary
+import io.music_assistant.client.ui.compose.common.providers.ProviderIconFetcher
 import io.music_assistant.client.ui.compose.common.toDisplayString
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.nav.BackHandler
@@ -88,7 +88,7 @@ fun HomeScreen(
     homeScreenViewModel: HomeScreenViewModel,
     contentPadding: PaddingValues,
     onNavigateClick: (AppMediaItem) -> Unit,
-    providerIconFetcher: (@Composable (Modifier, String) -> Unit),
+    providerIconFetcher: ProviderIconFetcher,
     actionsViewModel: ActionsViewModel,
     state: HomeScreenState,
 ) {
@@ -174,7 +174,6 @@ fun HomeScreen(
                     modifier = Modifier.testTag(HomeScreenSemantics.LIST_TAG),
                     state = state.lazyListState,
                     contentPadding = contentPadding,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(
                         items = displayedData,
