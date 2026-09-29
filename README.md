@@ -27,7 +27,7 @@ The (official) Music Assistant Mobile app is a cross-platform client application
 
 ### Server compatibility
 
-Releases of the Music Assistant Mobile App are intended to support the latest (at the time of release) and  one previous  [Music Assistant Server](https://github.com/music-assistant/server) stable versions.
+Releases of the Music Assistant Mobile App are intended to support the latest [Music Assistant Server](https://github.com/music-assistant/server) stable versions.
 
 ### Design goals
 

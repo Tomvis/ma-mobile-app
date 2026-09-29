@@ -28,10 +28,6 @@ class StubMediaItemRepository : MediaItemRepository {
         TODO("Not yet implemented")
     }
 
-    override fun supportsRecommendationRowItems(): Boolean {
-        TODO("Not yet implemented")
-    }
-
     override fun publishLocalChange(change: MediaItemChange) {
         TODO("Not yet implemented")
     }

@@ -12,7 +12,6 @@ import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.ui.compose.common.getOrEmptyList
-import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +33,6 @@ interface MediaItemRepository {
     val itemChanges: SharedFlow<MediaItemChange>
     suspend fun search(request: Request): Result<SearchResultData>
     suspend fun fetchMediaItem(request: Request): Result<AppMediaItem?>
-    fun supportsRecommendationRowItems(): Boolean
     fun publishLocalChange(change: MediaItemChange)
 }
 
@@ -66,16 +64,6 @@ class ServiceClientMediaItemRepository(
                 ?.let(factory::createList)
                 ?: error("Missing or undecodable media list payload")
         }
-
-    /**
-     * Whether the connected server strips the items from `music/recommendations`
-     * rows and serves each row's contents via `music/recommendations/items`
-     * instead. This can be simplified once v2.10 is our minimum supported server
-     * version.
-     */
-    override fun supportsRecommendationRowItems(): Boolean =
-        (apiClient.sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion
-            ?.let { it >= RECOMMENDATION_ITEMS_SCHEMA } == true
 
     /**
      * Issue [request] and decode its payload as a single client media item.
@@ -148,8 +136,7 @@ class ServiceClientMediaItemRepository(
 }
 
 /**
- * The home-page recommendation rows as the server returned them, with or
- * without embedded items (see [supportsRecommendationRowItems]).
+ * The home-page recommendation rows as the server returned them
  */
 suspend fun MediaItemRepository.fetchRecommendationRows(): Result<List<RecommendationFolder>> =
     withContext(Dispatchers.IO) {
@@ -182,7 +169,6 @@ suspend fun MediaItemRepository.fetchRecommendationFolders(): Result<List<Recomm
         if (error is CancellationException) throw error
         return Result.failure(error)
     }
-    if (!supportsRecommendationRowItems()) return Result.success(folders)
 
     return Result.success(
         coroutineScope {
@@ -212,6 +198,3 @@ suspend fun MediaItemRepository.fetchRecommendationFolders(): Result<List<Recomm
 
      return Result.success(items)
  }
-
-/** Server schema version that split `music/recommendations` into rows + per-row items. */
-private const val RECOMMENDATION_ITEMS_SCHEMA = 39

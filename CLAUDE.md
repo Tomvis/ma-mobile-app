@@ -1,4 +1,4 @@
-@import .claude/project.md
+@.claude/project.md
 
 ## Part of the Music Assistant workspace
 
