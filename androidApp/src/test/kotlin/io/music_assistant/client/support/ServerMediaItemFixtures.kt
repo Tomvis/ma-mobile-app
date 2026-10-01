@@ -191,9 +191,9 @@ object ServerMediaItemFixtures {
     }
 
     fun provider(
-        domain: String = DEFAULT_PROVIDER_DOMAIN,
-        instance: String = DEFAULT_PROVIDER_INSTANCE,
-        name: String = domain,
+        domain: String = "domain-${uniqueIdGenerator.nextInt()}",
+        instance: String = uniqueIdGenerator.nextInt().toString(),
+        name: String = "Provider $instance",
     ): ServerProviderInstance {
         return ServerProviderInstance(
             domain = domain,

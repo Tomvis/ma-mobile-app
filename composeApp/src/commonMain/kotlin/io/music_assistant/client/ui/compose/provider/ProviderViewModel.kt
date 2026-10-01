@@ -18,7 +18,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class ProviderViewModel(private val serviceClient: ServiceClient) : ViewModel() {
-    private val providerDetails = mutableMapOf<String, ProviderDetails>()
+    private val providerDetailsByDomain = mutableMapOf<String, ProviderDetails>()
+    private val providerDetailsByInstanceId = mutableMapOf<String, ProviderDetails>()
     private val providerIconsCache = LruCache<String, ProviderIconModel>(10)
 
     init {
@@ -27,14 +28,17 @@ class ProviderViewModel(private val serviceClient: ServiceClient) : ViewModel() 
                 .resultAs<List<ServerProviderInstance>>()?.filter { it.type == "music" }
                 ?.let { manifests ->
                     manifests.forEach {
-                        providerDetails[it.domain] = ProviderDetails(it.name)
+                        val providerDetails = ProviderDetails(it.name)
+                        providerDetailsByDomain[it.domain] = providerDetails
+                        providerDetailsByInstanceId[it.instanceId] = providerDetails
                     }
                 }
         }
     }
 
-    fun getProviderDetails(domain: String): ProviderDetails? {
-        return providerDetails[domain]
+    fun getProviderDetails(domainOrInstanceId: String): ProviderDetails? {
+        return providerDetailsByDomain[domainOrInstanceId]
+            ?: providerDetailsByInstanceId[domainOrInstanceId]
     }
 
     fun getProviderIcon(domain: String, variant: String): StateFlow<ProviderIconModel?> {

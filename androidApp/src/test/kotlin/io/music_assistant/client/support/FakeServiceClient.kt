@@ -6,7 +6,10 @@ import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.server.AudioFidelity
 import io.music_assistant.client.data.model.server.AudioFormat
+import io.music_assistant.client.data.model.server.AudioOutputDetails
+import io.music_assistant.client.data.model.server.AudioProcessingChain
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.EventType
 import io.music_assistant.client.data.model.server.PlayerState
@@ -56,6 +59,7 @@ class FakeServiceClient : ServiceClient {
 
     private val players = mutableListOf<ServerPlayer>()
     private val playerAudioFormats = mutableMapOf<String, AudioFormat>()
+    private val playerAudioFidelities = mutableMapOf<String, AudioFidelity>()
     private val queues = mutableListOf<ServerQueue>()
     private val queueItems = mutableMapOf<String, List<ServerQueueItem>>()
     private val mediaItemStore = FakeMediaItemStore()
@@ -519,12 +523,24 @@ class FakeServiceClient : ServiceClient {
         items: List<ServerQueueItem>,
     ) {
         val queueIndex = queues.indexOfFirst { it.queueId == queueId }
+        val player = findPlayer { it.activeSource == queueId }.second
+        val audioProcessingChain = AudioProcessingChain(
+            inputFidelity = AudioFidelity(quality = AudioFidelity.QUALITY_HI_RES),
+            outputs = listOf(
+                AudioOutputDetails(
+                    fidelity = playerAudioFidelities[player.playerId],
+                    format = playerAudioFormats[player.playerId],
+                ),
+            ),
+        )
 
         val firstItem = items.firstOrNull()
         val currentItem = firstItem?.copy(
-            streamDetails = firstItem.streamDetails.let { streamDetails ->
-                streamDetails ?: StreamDetails(audioFormat = AudioFormat())
-            },
+            streamDetails = (firstItem.streamDetails ?: StreamDetails(audioFormat = AudioFormat()))
+                .copy(
+                    audioProcessingChain = audioProcessingChain,
+                    provider = firstItem.mediaItem?.providerMappings?.firstOrNull()?.providerInstance,
+                ),
         ) ?: firstItem
 
         queues[queueIndex] =
@@ -874,6 +890,10 @@ class FakeServiceClient : ServiceClient {
 
     fun setPlayerAudioFormat(player: ServerPlayer, audioFormat: AudioFormat) {
         playerAudioFormats[player.playerId] = audioFormat
+    }
+
+    fun setPlayerQuality(player: ServerPlayer, quality: String) {
+        playerAudioFidelities[player.playerId] = AudioFidelity(quality = quality)
     }
 
     private fun ServerMediaItem.enrichLibraryItem(): ServerMediaItem {

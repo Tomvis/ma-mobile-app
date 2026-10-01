@@ -3,6 +3,7 @@ package io.music_assistant.client.feature
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.data.model.server.AudioFidelity
 import io.music_assistant.client.data.model.server.AudioFormat
 import io.music_assistant.client.support.FakeServiceClient
 import io.music_assistant.client.support.Qualifiers
@@ -29,9 +30,12 @@ class AudioChainTest {
     private val serviceClient: FakeServiceClient by inject(ServiceClient::class.java)
 
     @Test
-    fun `does not crash`() {
-        val album = ServerMediaItemFixtures.album()
-        val track = ServerMediaItemFixtures.track(album = album)
+    fun `can view chain details for current queue item`() {
+        val provider = ServerMediaItemFixtures.provider()
+        serviceClient.addProvider(provider)
+
+        val album = ServerMediaItemFixtures.album(provider = provider)
+        val track = ServerMediaItemFixtures.track(album = album, provider = provider)
         serviceClient.addItems(track)
 
         val audioFormat = AudioFormat(
@@ -43,10 +47,14 @@ class AudioChainTest {
         val player = ServerPlayerFixtures.player()
         serviceClient.addPlayers(player)
         serviceClient.setPlayerAudioFormat(player, audioFormat)
+        serviceClient.setPlayerQuality(player, AudioFidelity.QUALITY_LOSSLESS)
 
         launchLoggedInApp(composeTestRule, serviceClient)
             .clickOnMedia(album)
             .clickPlay()
             .expandPlayer(player.displayName, playing = true, item = track.name)
+            .clickQualityTier("HQ")
+            .assertInputProvider(provider.name)
+            .assertFormatDisplayed(audioFormat)
     }
 }

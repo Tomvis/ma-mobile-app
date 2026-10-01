@@ -54,8 +54,8 @@ class QueueFactory(
                     track = appMediaItem,
                     isPlayable = appMediaItem.isPlayable,
                     format = streamDetails?.audioFormat,
-                    dsp = streamDetails?.dsp,
                     provider = streamDetails?.provider,
+                    audioProcessingChain = streamDetails?.audioProcessingChain,
                 )
             } else {
                 Logger.w(
@@ -93,7 +93,6 @@ class QueueFactory(
                     track = appMediaItem,
                     isPlayable = false,
                     format = null,
-                    dsp = null,
                     provider = null,
                 )
             }

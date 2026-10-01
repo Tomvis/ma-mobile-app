@@ -217,6 +217,7 @@ class StreamFavoriteActionsTest {
                     contentPadding = PaddingValues(),
                     toastState = toastState,
                     navigateToItem = {},
+                    providerViewModel = getKoin().get(),
                 )
                 ToastHost(toastState)
             }
@@ -238,7 +239,9 @@ class StreamFavoriteActionsTest {
         }
 
         override suspend fun sendRequest(request: Request): Result<Answer> {
-            check(request.command == APICommands.PLAYERS_ADD_CURRENTLY_PLAYING_TO_FAVORITES)
+            check(
+                request.command == APICommands.PLAYERS_ADD_CURRENTLY_PLAYING_TO_FAVORITES || request.command == APICommands.PROVIDERS,
+            )
             requests += request
             return result
         }

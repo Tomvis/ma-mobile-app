@@ -109,6 +109,7 @@ import io.music_assistant.client.ui.compose.home.CollapsibleQueue
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.HorizontalPagerIndicator
 import io.music_assistant.client.ui.compose.home.Queue
+import io.music_assistant.client.ui.compose.provider.ProviderViewModel
 import io.music_assistant.client.ui.inactive
 import io.music_assistant.client.utils.WindowClass
 import io.music_assistant.client.utils.conditional
@@ -146,6 +147,7 @@ fun PlayersPager(
     homeScreenViewModel: HomeScreenViewModel,
     actionsViewModel: ActionsViewModel,
     dspSettingsViewModel: DspSettingsViewModel,
+    providerViewModel: ProviderViewModel,
     expanded: Boolean,
     onClose: () -> Unit,
     contentPadding: PaddingValues,
@@ -199,6 +201,7 @@ fun PlayersPager(
             allPlayers = state.allPlayerData,
             homeScreenViewModel = homeScreenViewModel,
             dspSettingsViewModel = dspSettingsViewModel,
+            providerViewModel = providerViewModel,
             playlistActions = actionsViewModel,
             canLeaveGroup = leaderLeaveSupported,
             onMoveToPlayer = moveToPlayer,

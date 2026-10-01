@@ -58,14 +58,14 @@ import coil3.compose.AsyncImage
 import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
+import io.music_assistant.client.data.model.client.QualityTier
 import io.music_assistant.client.data.model.client.ResolvedChapter
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
-import io.music_assistant.client.data.model.client.items.QualityTier
 import io.music_assistant.client.data.model.client.items.canBeFavorited
-import io.music_assistant.client.data.model.client.items.qualityTier
 import io.music_assistant.client.data.model.client.presentationChapter
+import io.music_assistant.client.data.model.client.qualityTier
 import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
 import io.music_assistant.client.imageloader.rememberArtworkRequest
 import io.music_assistant.client.ui.alphaOn

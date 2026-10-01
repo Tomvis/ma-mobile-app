@@ -11,6 +11,7 @@ import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.items.AddToPlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
+import io.music_assistant.client.ui.compose.provider.ProviderViewModel
 
 /**
  * Renders the one open player dialog, outside the pager.
@@ -32,6 +33,7 @@ fun PlayerDialogHost(
     allPlayers: List<PlayerData>,
     homeScreenViewModel: HomeScreenViewModel,
     dspSettingsViewModel: DspSettingsViewModel,
+    providerViewModel: ProviderViewModel,
     playlistActions: PlaylistActions?,
     canLeaveGroup: Boolean,
     onMoveToPlayer: (String) -> Unit,
@@ -92,6 +94,7 @@ fun PlayerDialogHost(
             AudioChainDialog(
                 queueTrack = queueTrack,
                 player = player,
+                providerDetails = providerViewModel::getProviderDetails,
                 onDismissRequest = onDismiss,
             )
         }
