@@ -1,18 +1,24 @@
 package io.music_assistant.client.ui.theme
 
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import musicassistantclient.composeapp.generated.resources.Res
+import musicassistantclient.composeapp.generated.resources.home_logo_dark
+import musicassistantclient.composeapp.generated.resources.mass
 import musicassistantclient.composeapp.generated.resources.rubik_vf
 import org.jetbrains.compose.resources.Font
+import org.jetbrains.compose.resources.painterResource
 
 // Home theme (HW-48), fork-only. Tokens: Tomvis/homelab-stacks theme/dist/tokens.resolved.json.
 // Slate = structure, mist = surface; cyan ("lit") is reserved for "on right now", so no role uses it.
@@ -133,4 +139,14 @@ internal fun homeTypography(): Typography {
             labelSmall = base.labelSmall.home(),
         )
     }
+}
+
+/**
+ * Tom's full home logo for the current theme: `mass` is the light variant, `home_logo_dark` the
+ * dark-surface one (faint cloud). Follows the app's own light/dark choice, not just the system's.
+ */
+@Composable
+internal fun homeLogoPainter(): Painter {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return painterResource(if (dark) Res.drawable.home_logo_dark else Res.drawable.mass)
 }

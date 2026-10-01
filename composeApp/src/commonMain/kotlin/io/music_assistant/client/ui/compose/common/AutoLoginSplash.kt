@@ -17,11 +17,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
+import io.music_assistant.client.ui.theme.homeLogoPainter
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_cancel
-import musicassistantclient.composeapp.generated.resources.mass
 import musicassistantclient.composeapp.generated.resources.settings_connecting
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -52,7 +51,7 @@ fun AutoLoginSplash(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             Image(
-                painter = painterResource(Res.drawable.mass),
+                painter = homeLogoPainter(),
                 contentDescription = null,
                 modifier = Modifier.size(128.dp),
             )
