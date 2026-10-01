@@ -93,7 +93,8 @@ fun AppTheme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = colorScheme.withHomeColors(darkTheme),
+        typography = homeTypography(),
         content = content,
     )
 }
