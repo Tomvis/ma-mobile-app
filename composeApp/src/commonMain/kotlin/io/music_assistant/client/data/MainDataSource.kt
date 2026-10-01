@@ -5,6 +5,7 @@ package io.music_assistant.client.data
 
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.APICommands
+import io.music_assistant.client.api.Answer
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.api.fetchAllPages
@@ -245,7 +246,7 @@ class MainDataSource(
             _userSelectedPlayerId,
         ) { playersDataState, user ->
             val visibleIds = (playersDataState as? DataState.Data)
-                ?.data?.map { it.playerId }
+                ?.data?.filter { it.player.isSelectable }?.map { it.playerId }
                 .orEmpty()
             resolveSelectedPlayerId(
                 visiblePlayerIds = visibleIds,
@@ -848,6 +849,38 @@ class MainDataSource(
                 )
             }
             result.onFailure { setFavoriteOverride(item, item.favorite) }
+        }
+    }
+
+    /**
+     * True when [playerData] has a real on-air stream song the connected server can
+     * resolve to a favouritable item. Gates the stream-favourite heart on both the
+     * media session and the in-app player, and guards [favoriteCurrentlyPlaying].
+     */
+    fun canFavoriteCurrentlyPlaying(playerData: PlayerData): Boolean =
+        playerData.canFavoriteCurrentlyPlaying(
+            (apiClient.sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion,
+        )
+
+    /**
+     * Favourites the song currently on air on [playerData]'s radio stream. Unlike
+     * [toggleFavorite], this always adds: the queue payload's `favorite` flag belongs
+     * to the station, not the on-air song, so there is no truthful "already
+     * favourited" state to toggle from. No optimistic override — the server resolves
+     * the favourited item from the stream title, not from the queue item, so there is
+     * nothing local to flip ahead of the round trip. An unsupported server or an
+     * unresolvable title is an expected refusal; callers report the result to the user.
+     */
+    suspend fun favoriteCurrentlyPlaying(playerData: PlayerData): Result<Answer> {
+        if (!canFavoriteCurrentlyPlaying(playerData)) {
+            return Result.failure(IllegalStateException("No supported on-air song to favorite"))
+        }
+        return apiClient.sendRequest(
+            Request.Player.addCurrentlyPlayingToFavorites(playerData.player.id),
+        ).mapCatching { answer ->
+            // A received RPC error is still a successful transport response.
+            check(!answer.json.containsKey("error_code")) { "The server rejected the stream favorite" }
+            answer
         }
     }
 

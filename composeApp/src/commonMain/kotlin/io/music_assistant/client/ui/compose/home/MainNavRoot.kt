@@ -125,6 +125,7 @@ fun MainNavigationRoot(
 ) {
     val uriHandler = LocalUriHandler.current
     val toastState = rememberToastState()
+    val playerActionsViewModel: ActionsViewModel = koinViewModel(key = "player-actions")
     val errorBus: ErrorMessageBus = koinInject()
     val deepLinkBus: DeepLinkBus = koinInject()
     val volumeButtonService: VolumeButtonService = koinInject()
@@ -301,11 +302,12 @@ fun MainNavigationRoot(
                                     playerPagerState = playerPagerState,
                                     state = playersState,
                                     homeScreenViewModel = homeScreenViewModel,
-                                    actionsViewModel = actionsViewModel,
+                                    actionsViewModel = playerActionsViewModel,
                                     dspSettingsViewModel = dspSettingsViewModel,
                                     expanded = expanded,
                                     onClose = { playerExpanded = false },
                                     contentPadding = contentPadding,
+                                    toastState = toastState,
                                 ) { item ->
                                     multiBackStack.add(
                                         MainNav.ItemDetails(
@@ -535,6 +537,7 @@ private fun mainNavEntryProvider(
             ItemListScreen(
                 title = it.title,
                 mediaType = it.itemList.mediaType,
+                sortContext = it.itemList.sortContext,
                 itemListViewModel = itemListViewModel,
                 viewModeViewModel = viewModeViewModel,
                 actionsViewModel = actionsViewModel,

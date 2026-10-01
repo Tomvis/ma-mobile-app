@@ -52,6 +52,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +74,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import io.music_assistant.client.data.hasFavoritableStreamTrack
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
@@ -91,6 +93,7 @@ import io.music_assistant.client.ui.compose.common.OverflowMenuDivider
 import io.music_assistant.client.ui.compose.common.OverflowMenuEntry
 import io.music_assistant.client.ui.compose.common.OverflowMenuOption
 import io.music_assistant.client.ui.compose.common.PlayerColors
+import io.music_assistant.client.ui.compose.common.ToastState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
 import io.music_assistant.client.ui.compose.common.bufferIndicatorMenuOption
@@ -146,8 +149,12 @@ fun PlayersPager(
     expanded: Boolean,
     onClose: () -> Unit,
     contentPadding: PaddingValues,
+    toastState: ToastState,
     navigateToItem: (AppMediaItem) -> Unit,
 ) {
+    LaunchedEffect(actionsViewModel, toastState) {
+        actionsViewModel.toasts.collect { toastState.showToast(it) }
+    }
     if (state is HomeScreenViewModel.PlayersState.Data && state.playerData.isNotEmpty()) {
         val moveToPlayer: (String) -> Unit = { id: String ->
             state.playerData.find { it.player.id == id }
@@ -159,6 +166,8 @@ fun PlayersPager(
         // Server-synced audiobook_chapter_progress preference; gates the
         // chapter-relative timeline in FullPlayerItem.
         val chapterProgressEnabled by homeScreenViewModel.chapterProgressEnabled
+            .collectAsStateWithLifecycle()
+        val streamFavoriteSupported by actionsViewModel.streamFavoriteSupported
             .collectAsStateWithLifecycle()
         // Sleep timers are a server-side feature from schema 35 on; below that the
         // menu entry and the badge stay hidden entirely.
@@ -187,6 +196,7 @@ fun PlayersPager(
         PlayerDialogHost(
             request = dialogRequest,
             players = playerDataList,
+            allPlayers = state.allPlayerData,
             homeScreenViewModel = homeScreenViewModel,
             dspSettingsViewModel = dspSettingsViewModel,
             playlistActions = actionsViewModel,
@@ -339,6 +349,10 @@ fun PlayersPager(
                                 onFavoriteClick = {
                                     actionsViewModel.onFavoriteClick(it)
                                 },
+                                onFavoriteStreamClick = {
+                                    actionsViewModel.onFavoriteStreamClick(it)
+                                },
+                                canFavoriteStream = streamFavoriteSupported && player.hasFavoritableStreamTrack(),
                                 onClose = onClose,
                                 queueAction = { homeScreenViewModel.queueAction(it) },
                                 allPlayers = playerDataList,
@@ -430,6 +444,8 @@ private fun ExpandedPlayerPage(
     playerAction: (PlayerData, PlayerAction) -> Unit,
     onAddToPlaylist: ((AppMediaItem) -> Unit)? = null,
     onFavoriteClick: (AppMediaItem) -> Unit,
+    onFavoriteStreamClick: (PlayerData) -> Unit = {},
+    canFavoriteStream: Boolean = false,
     onClose: () -> Unit,
     queueAction: (QueueAction) -> Unit,
     allPlayers: List<PlayerData>,
@@ -618,6 +634,8 @@ private fun ExpandedPlayerPage(
                             colors = colors,
                             playerAction = playerAction,
                             onFavoriteClick = onFavoriteClick,
+                            onFavoriteStreamClick = onFavoriteStreamClick,
+                            canFavoriteStream = canFavoriteStream,
                             lyricsAvailable = lyricsAvailable,
                             onLyricsClick = onLyricsClick,
                             onAudioChainClick = onAudioChainClick,

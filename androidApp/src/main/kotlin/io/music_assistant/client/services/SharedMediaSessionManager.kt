@@ -378,6 +378,7 @@ class SharedMediaSessionManager(
                     multiplePlayers = multiplePlayers,
                     effectiveElapsedSec = elapsedSec,
                     currentChapter = chapter,
+                    isFavoritableStream = dataSource.canFavoriteCurrentlyPlaying(player),
                 )
             }
             .distinctUntilChanged { old, new -> MediaNotificationData.areTooSimilarToUpdate(old, new) }
@@ -448,10 +449,18 @@ class SharedMediaSessionManager(
                         }
                     }
 
-                    "ACTION_TOGGLE_FAVORITE" ->
-                        (currentPlayer()?.queueInfo?.currentItem?.track as? AppMediaItem)
+                    "ACTION_TOGGLE_FAVORITE" -> {
+                        val pd = currentPlayer()
+                        (pd?.queueInfo?.currentItem?.track as? AppMediaItem)
                             ?.takeIf { it.mediaType == MediaType.TRACK && it.canBeFavorited }
                             ?.let { dataSource.toggleFavorite(it) }
+                            // Radio: no track to toggle, just the stream's on-air song to add
+                            // (favoriteCurrentlyPlaying guards support and metadata itself).
+                            ?: pd
+                                ?.let { player ->
+                                    managerScope.launch { dataSource.favoriteCurrentlyPlaying(player) }
+                                }
+                    }
                 }
             }
         }

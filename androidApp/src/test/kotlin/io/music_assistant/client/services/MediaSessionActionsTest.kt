@@ -150,6 +150,37 @@ class MediaSessionActionsTest {
         }
     }
 
+    @Test
+    fun `stream favorite wins the same slot as track favorite`() {
+        assertEquals(
+            listOf(SessionAction.SWITCH_PLAYER, SessionAction.FAVORITE, SessionAction.SHUFFLE, SessionAction.REPEAT),
+            sessionActions(
+                data(
+                    multiplePlayers = true,
+                    isFavoritableTrack = false,
+                    isFavoritableStream = true,
+                ),
+            ),
+        )
+        assertEquals(
+            listOf(SessionAction.SHUFFLE, SessionAction.FAVORITE, SessionAction.REPEAT),
+            sessionActions(data(isFavoritableTrack = false, isFavoritableStream = true)),
+        )
+    }
+
+    @Test
+    fun `no favorite slot when neither track nor stream is favoritable`() {
+        assertEquals(
+            listOf(SessionAction.SWITCH_PLAYER, SessionAction.SHUFFLE, SessionAction.REPEAT),
+            sessionActions(
+                data(
+                    multiplePlayers = true,
+                    isFavoritableTrack = false,
+                    isFavoritableStream = false,
+                ),
+            ),
+        )
+    }
     private data class Quad(
         val multiplePlayers: Boolean,
         val isDynamic: Boolean,
@@ -166,6 +197,7 @@ class MediaSessionActionsTest {
         isDynamic: Boolean = false,
         isFavoritableTrack: Boolean = true,
         isLongFormContent: Boolean = false,
+        isFavoritableStream: Boolean = false,
     ) = MediaNotificationData(
         multiplePlayers = multiplePlayers,
         longItemId = null,
@@ -176,6 +208,7 @@ class MediaSessionActionsTest {
         shuffleEnabled = false.takeIf { !isDynamic },
         isLongFormContent = isLongFormContent,
         isFavoritableTrack = isFavoritableTrack,
+        isFavoritableStream = isFavoritableStream,
         isFavorite = false,
         isPlaying = true,
         imageUrl = null,

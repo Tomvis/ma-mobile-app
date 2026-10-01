@@ -49,7 +49,7 @@ internal fun sessionActions(data: MediaNotificationData): List<SessionAction> = 
 }
 
 internal fun MediaNotificationData.supports(action: SessionAction) = when (action) {
-    SessionAction.FAVORITE -> isFavoritableTrack
+    SessionAction.FAVORITE -> isFavoritableTrack || isFavoritableStream
     SessionAction.SHUFFLE -> shuffleEnabled != null
     SessionAction.REPEAT -> repeatMode != null
     SessionAction.SWITCH_PLAYER -> multiplePlayers

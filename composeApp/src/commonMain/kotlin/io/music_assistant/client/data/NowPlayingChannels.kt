@@ -125,19 +125,13 @@ private fun withRadioStreamMetadata(
     playerData: PlayerData,
     currentItem: QueueTrack,
 ): NowPlayingTrack {
-    if (currentItem.track.mediaType != MediaType.RADIO) return base
-    val media = playerData.player.currentMedia ?: return base
-    // The server always stamps queue_item_id when an MA queue item is current;
-    // media stamped otherwise is not this station's stream.
-    if (media.queueItemId != currentItem.id) return base
-    // A title equal to the station name carries no information (idle streams and
-    // the synthesized pre-play fallback both produce it).
-    val streamTitle = media.title?.takeIf { it.isNotBlank() && it != base.title } ?: return base
+    val streamTitle = radioStreamTitle(playerData, currentItem) ?: return base
+    val media = playerData.player.currentMedia
     return base.copy(
         title = streamTitle,
-        artist = media.artist?.takeIf { it.isNotBlank() },
+        artist = media?.artist?.takeIf { it.isNotBlank() },
         album = base.title,
-        artworkUrl = media.imageUrl ?: base.artworkUrl,
+        artworkUrl = media?.imageUrl ?: base.artworkUrl,
     )
 }
 
