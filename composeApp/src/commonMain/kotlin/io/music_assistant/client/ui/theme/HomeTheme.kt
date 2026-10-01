@@ -16,6 +16,7 @@ import org.jetbrains.compose.resources.Font
 
 // Home theme (HW-48), fork-only. Tokens: Tomvis/homelab-stacks theme/dist/tokens.resolved.json.
 // Slate = structure, mist = surface; cyan ("lit") is reserved for "on right now", so no role uses it.
+// tertiary = primary: upstream's favoriteTint reads it, and a favourite is a lasting choice, not an alarm.
 // Hooked into AppTheme with two lines so upstream's Color.kt/Theme.kt merge cleanly.
 
 private val homeLightScheme = lightColorScheme(
@@ -27,7 +28,7 @@ private val homeLightScheme = lightColorScheme(
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFDCE6E8),
     onSecondaryContainer = Color(0xFF16222A),
-    tertiary = Color(0xFFB0233D),
+    tertiary = Color(0xFF466A77),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFDCE6E8),
     onTertiaryContainer = Color(0xFF16222A),
@@ -66,7 +67,7 @@ private val homeDarkScheme = darkColorScheme(
     onSecondary = Color(0xFF16222A),
     secondaryContainer = Color(0xFF283B45),
     onSecondaryContainer = Color(0xFFEAF0F0),
-    tertiary = Color(0xFFFF8AA0),
+    tertiary = Color(0xFF8DB0BD),
     onTertiary = Color(0xFF16222A),
     tertiaryContainer = Color(0xFF283B45),
     onTertiaryContainer = Color(0xFFEAF0F0),
