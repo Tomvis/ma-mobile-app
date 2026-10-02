@@ -295,6 +295,7 @@
   <string name="settings_about_learn_more">Learn more at music-assistant.io →</string>
   <string name="settings_allow_landscape">Allow landscape on all devices</string>
   <string name="settings_allow_landscape_hint">Experimental: some screens can look wrong in landscape. Use at your own risk.</string>
+  <string name="settings_app_documentation">App documentation →</string>
   <string name="settings_app_version_info">Version %1$s, Build %2$s</string>
   <string name="settings_buffer_size">Buffer size</string>
   <string name="settings_car">Car (Android Auto / CarPlay)</string>
@@ -357,6 +358,14 @@
   <string name="settings_share_logs">Share logs</string>
   <string name="settings_use_tls">Use TLS (wss://)</string>
   <string name="settings_use_tls_wss">Use secure connection (WSS/TLS)</string>
+  <string name="settings_client_certificate">Client certificate (mTLS)</string>
+  <string name="settings_client_certificate_none">None</string>
+  <string name="settings_client_certificate_choose">Choose</string>
+  <string name="settings_client_certificate_clear">Clear</string>
+  <string name="settings_client_certificate_password_title">Certificate password</string>
+  <string name="settings_client_certificate_password">Password</string>
+  <string name="settings_client_certificate_wrong_password">Wrong password</string>
+  <string name="settings_client_certificate_import_failed">Cannot import this certificate</string>
   <string name="settings_version_info">Version %1$s, Schema %2$s</string>
   <string name="settings_webrtc_description">Connect from anywhere without port forwarding</string>
   <string name="settings_webrtc_disclaimer">WebRTC connection can be slower and less reliable than direct or proxied connection to your server.</string>

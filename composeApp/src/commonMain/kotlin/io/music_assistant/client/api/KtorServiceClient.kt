@@ -22,9 +22,9 @@ import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.ConnectionData
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.HasConnectionData
+import io.music_assistant.client.utils.HttpClientFactory
 import io.music_assistant.client.utils.NetworkMonitor
 import io.music_assistant.client.utils.SessionState
-import io.music_assistant.client.utils.createPlatformHttpClient
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.myJson
 import io.music_assistant.client.utils.platformLocale
@@ -85,8 +85,11 @@ class KtorServiceClient(
 
     private val clientMutex = Mutex()
 
+    // Declared before currentClient, whose initializer reads it.
+    private val httpClientFactory: HttpClientFactory by inject()
+
     @kotlin.concurrent.Volatile
-    private var currentClient: HttpClient = createPlatformHttpClient {
+    private var currentClient: HttpClient = httpClientFactory.create {
         install(WebSockets) {
             contentConverter = KotlinxWebsocketSerializationConverter(myJson)
             pingInterval = 10.seconds
@@ -101,7 +104,7 @@ class KtorServiceClient(
     private suspend fun rotateHttpClient() {
         clientMutex.withLock {
             val oldClient = currentClient
-            currentClient = createPlatformHttpClient {
+            currentClient = httpClientFactory.create {
                 install(WebSockets) {
                     contentConverter = KotlinxWebsocketSerializationConverter(myJson)
                     pingInterval = 10.seconds
@@ -121,6 +124,22 @@ class KtorServiceClient(
                 .collect { available ->
                     if (available && _sessionState.value !is SessionState.Connected) {
                         logger.i { "Network became available while not fully connected — rotating HttpClient" }
+                        rotateHttpClient()
+                    }
+                }
+        }
+    }
+
+    // A connection kept from an attempt without the new client certificate would be
+    // reused and rejected again. The Darwin engine owns its session pool, so the only
+    // way to drop such a connection is a fresh client.
+    private fun startClientCertificateObserver() {
+        launch {
+            settings.clientCertificateAlias
+                .drop(1)
+                .collect {
+                    if (_sessionState.value !is SessionState.Connected) {
+                        logger.i { "Client certificate changed while not connected — rotating HttpClient" }
                         rotateHttpClient()
                     }
                 }
@@ -481,6 +500,7 @@ class KtorServiceClient(
 
     init {
         startNetworkObserver()
+        startClientCertificateObserver()
         launch {
             isReadyForCommands.collect { ready ->
                 logger.i { "isReadyForCommands=$ready" }

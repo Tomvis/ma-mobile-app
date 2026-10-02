@@ -108,6 +108,7 @@ import musicassistantclient.composeapp.generated.resources.settings_about_descri
 import musicassistantclient.composeapp.generated.resources.settings_about_learn_more
 import musicassistantclient.composeapp.generated.resources.settings_allow_landscape
 import musicassistantclient.composeapp.generated.resources.settings_allow_landscape_hint
+import musicassistantclient.composeapp.generated.resources.settings_app_documentation
 import musicassistantclient.composeapp.generated.resources.settings_app_version_info
 import musicassistantclient.composeapp.generated.resources.settings_buffer_size
 import musicassistantclient.composeapp.generated.resources.settings_codec_preference
@@ -523,11 +524,19 @@ internal fun SectionTitle(text: String) {
 
 @Composable
 private fun AppVersionSection(appVersion: AppVersion) {
+    val uriHandler = LocalUriHandler.current
     SectionCard {
         Text(
             text = stringResource(Res.string.settings_app_version_info, appVersion.name, appVersion.code),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+        )
+        Spacer(modifier = Modifier.size(4.dp))
+        Text(
+            text = stringResource(Res.string.settings_app_documentation),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable { uriHandler.openUri("https://music-assistant.github.io/mobile-app/") },
         )
     }
 }
@@ -615,6 +624,7 @@ private fun ConnectionMethodTabs(
     val selectedTab = if (preferredMethod == "webrtc") 1 else 0
     val webrtcRemoteId by viewModel.webrtcRemoteId.collectAsStateWithLifecycle()
     var showHistoryDialog by remember { mutableStateOf(false) }
+    val clientCertificateAlias by viewModel.clientCertificateAlias.collectAsStateWithLifecycle()
 
     val directHasToken = port.toIntOrNull()
         ?.let {
@@ -678,6 +688,8 @@ private fun ConnectionMethodTabs(
                     onConnect = onDirectConnect,
                     enabled = directConnectEnabled,
                     onShowHistory = { showHistoryDialog = true },
+                    clientCertificateAlias = clientCertificateAlias,
+                    onClientCertificateAliasChange = viewModel::setClientCertificateAlias,
                 )
             }
 
@@ -752,6 +764,8 @@ private fun DirectConnectionContent(
     onConnect: () -> Unit,
     enabled: Boolean,
     onShowHistory: () -> Unit,
+    clientCertificateAlias: String?,
+    onClientCertificateAliasChange: (String?) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -830,6 +844,15 @@ private fun DirectConnectionContent(
             onCheckedChange = onTlsChange,
         )
         Text(stringResource(Res.string.settings_use_tls))
+    }
+
+    if (isTls) {
+        ClientCertificateSetting(
+            host = ipAddress.ifBlank { Defaults.URI },
+            port = port.toIntOrNull() ?: -1,
+            alias = clientCertificateAlias,
+            onAliasChange = onClientCertificateAliasChange,
+        )
     }
 
     // Live preview of the address the app will actually contact.
