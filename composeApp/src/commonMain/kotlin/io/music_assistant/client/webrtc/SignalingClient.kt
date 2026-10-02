@@ -255,7 +255,8 @@ class SignalingClient(
                     _connectionState.value = SignalingState.Error(e)
                 }
             } finally {
-                diagnostics.event("signaling receive terminated active=$isActive closeMetadataReady=${currentSession.closeReason.isCompleted}")
+                val closeMetadataReady = currentSession.closeReason.isCompleted
+                diagnostics.event("signaling receive terminated active=$isActive closeMetadataReady=$closeMetadataReady")
                 session = null
                 if (_connectionState.value is SignalingState.Connected) {
                     _connectionState.value = SignalingState.Disconnected

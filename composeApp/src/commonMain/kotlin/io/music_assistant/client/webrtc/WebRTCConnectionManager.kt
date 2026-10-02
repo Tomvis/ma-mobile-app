@@ -224,7 +224,7 @@ class WebRTCConnectionManager(
             is SignalingMessage.Answer -> handleAnswer(message)
             is SignalingMessage.IceCandidate -> handleIceCandidate(message)
             is SignalingMessage.Error -> handleSignalingError(message)
-            is SignalingMessage.PeerDisconnected -> handlePeerDisconnected(message)
+            is SignalingMessage.PeerDisconnected -> handlePeerDisconnected()
             is SignalingMessage.Unknown -> logger.w { "Received unknown message type: ${message.type}" }
             else -> logger.d { "Ignoring message type: ${message.type}" }
         }
@@ -491,7 +491,7 @@ class WebRTCConnectionManager(
     /**
      * Handle peer disconnected notification.
      */
-    private fun handlePeerDisconnected(message: SignalingMessage.PeerDisconnected) {
+    private fun handlePeerDisconnected() {
         diagnostics.event("remote peer disconnected notification")
         _connectionState.value = WebRTCConnectionState.Error(
             WebRTCError.ConnectionError("Remote peer disconnected"),

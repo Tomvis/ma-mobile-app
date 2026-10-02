@@ -252,7 +252,9 @@ class WebRTCTransport(
                 }
 
                 is WebRTCConnectionState.Error -> {
-                    mgr.diagnostics.event("transport attempt failed reconnect=$isReconnect error=${result.error::class.simpleName}")
+                    mgr.diagnostics.event(
+                        "transport attempt failed reconnect=$isReconnect error=${result.error::class.simpleName}",
+                    )
                     if (!isReconnect) {
                         _state.value = TransportState.Failed(
                             Exception("WebRTC connection failed: ${result.error}"),

@@ -15,7 +15,10 @@ class WebRTCDiagnosticsTest {
 
     @Test
     fun closeReasonKeepsCodeAndKnownCategory() {
-        assertEquals("code=1000 reason=client_disconnect", safeCloseSummary(CloseReason(CloseReason.Codes.NORMAL, "Client disconnect")))
+        assertEquals(
+            "code=1000 reason=client_disconnect",
+            safeCloseSummary(CloseReason(CloseReason.Codes.NORMAL, "Client disconnect")),
+        )
         assertEquals("code=1000 reason=empty", safeCloseSummary(CloseReason(CloseReason.Codes.NORMAL, "")))
         assertEquals("code=unavailable reason=unavailable", safeCloseSummary(null))
     }
