@@ -373,6 +373,7 @@ private fun ItemContent(
                     colors = colors,
                     providerIconFetcher = providerIconFetcher,
                     onPlayClick = onPlayItemClick,
+                    navigateToItem = onNavigateClick,
                 )
                 (item as? Album)?.let {
                     AlbumReceptionPanel(it, modifier = Modifier.fillMaxWidth())
