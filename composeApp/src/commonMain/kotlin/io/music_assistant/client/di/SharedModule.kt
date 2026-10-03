@@ -57,6 +57,7 @@ import io.music_assistant.client.ui.compose.settings.CarActionsViewModel
 import io.music_assistant.client.ui.compose.settings.CarDspViewModel
 import io.music_assistant.client.ui.compose.settings.DefaultClickActionsViewModel
 import io.music_assistant.client.ui.compose.settings.SettingsViewModel
+import io.music_assistant.client.ui.theme.HomeThemeRepository
 import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.LocalNetworkPermissionGate
 import io.music_assistant.client.utils.NetworkMonitor
@@ -143,6 +144,9 @@ fun sharedModule(
         singleOf(::PlayerFactory)           // Stateless DTO → domain mapper
         singleOf(::QueueFactory)            // Stateless DTO → domain mapper (depends on MediaItemFactory)
         singleOf(::AiRadioRepository)       // Optional ai_radio plugin: list and run stations
+        single(createdAtStart = true) {     // Fork (HW-65): per-person home theme, read at sign-in
+            HomeThemeRepository(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        }
         singleOf(::ServiceClientMediaItemRepository) { bind<MediaItemRepository>() }
         singleOf(::MainDataSource)          // Singleton - held by foreground service
         single(createdAtStart = true) {     // Eager - must observe car edges from launch

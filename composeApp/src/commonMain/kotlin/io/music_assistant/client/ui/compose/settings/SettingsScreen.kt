@@ -384,6 +384,8 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
                                     viewModel = viewModel,
                                 )
 
+                                HomeThemeSection() // Fork (HW-65)
+
                                 // Car options route to the local player — only meaningful when
                                 // it's reachable (authenticated) and enabled.
                                 if (sendspinEnabled) {

@@ -3,92 +3,106 @@ package io.music_assistant.client.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
+import home.theme.HomeScheme
+import home.theme.HomeThemes
+import kotlinx.coroutines.flow.MutableStateFlow
 
-// Home theme (HW-48), fork-only. Tokens: Tomvis/homelab-stacks theme/dist/tokens.resolved.json.
-// Slate = structure, mist = surface; cyan ("lit") is reserved for "on right now", so no role uses it.
-// tertiary = primary: upstream's favoriteTint reads it, and a favourite is a lasting choice, not an alarm.
+// Home theme (HW-48, per person since HW-65), fork-only. Colors: home/theme/HomeThemes.kt, vendored from
+// Tomvis/homelab-stacks theme/dist/android (M3 roles per theme x mode; cyan "lit" is in no role, and
+// tertiary = primary so upstream's favoriteTint shows a lasting choice, not an alarm).
 // Hooked into AppTheme with one line so upstream's Color.kt/Theme.kt merge cleanly.
 
-private val homeLightScheme = lightColorScheme(
-    primary = Color(0xFF466A77),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFBAD2DE),
-    onPrimaryContainer = Color(0xFF16222A),
-    secondary = Color(0xFF34505A),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFDCE6E8),
-    onSecondaryContainer = Color(0xFF16222A),
-    tertiary = Color(0xFF466A77),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFDCE6E8),
-    onTertiaryContainer = Color(0xFF16222A),
-    error = Color(0xFFB0233D),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFDCE6E8),
-    onErrorContainer = Color(0xFFB0233D),
-    background = Color(0xFFEAF0F0),
-    onBackground = Color(0xFF16222A),
-    surface = Color(0xFFEAF0F0),
-    onSurface = Color(0xFF16222A),
-    surfaceVariant = Color(0xFFDCE6E8),
-    onSurfaceVariant = Color(0xFF34505A),
-    surfaceTint = Color(0xFF466A77),
-    outline = Color(0xFF587E8D),
-    outlineVariant = Color(0xFFBAD2DE),
-    scrim = Color(0xFF000000),
-    inverseSurface = Color(0xFF16222A),
-    inverseOnSurface = Color(0xFFEAF0F0),
-    inversePrimary = Color(0xFF8DB0BD),
-    surfaceDim = Color(0xFFDCE6E8),
-    surfaceBright = Color(0xFFFFFFFF),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF7FAFA),
-    surfaceContainer = Color(0xFFF1F5F5),
-    surfaceContainerHigh = Color(0xFFE6EDEE),
-    surfaceContainerHighest = Color(0xFFDCE6E8),
-)
+/** The theme id to paint; [HomeThemeRepository] sets it. Global so previews and AppTheme need no DI. */
+internal val homeThemeId = MutableStateFlow(HomeThemes.DEFAULT)
 
-private val homeDarkScheme = darkColorScheme(
-    primary = Color(0xFF8DB0BD),
-    onPrimary = Color(0xFF16222A),
-    primaryContainer = Color(0xFF3A525D),
-    onPrimaryContainer = Color(0xFFEAF0F0),
-    secondary = Color(0xFFBAD2DE),
-    onSecondary = Color(0xFF16222A),
-    secondaryContainer = Color(0xFF283B45),
-    onSecondaryContainer = Color(0xFFEAF0F0),
-    tertiary = Color(0xFF8DB0BD),
-    onTertiary = Color(0xFF16222A),
-    tertiaryContainer = Color(0xFF283B45),
-    onTertiaryContainer = Color(0xFFEAF0F0),
-    error = Color(0xFFFF8AA0),
-    onError = Color(0xFF16222A),
-    errorContainer = Color(0xFF283B45),
-    onErrorContainer = Color(0xFFFF8AA0),
-    background = Color(0xFF16222A),
-    onBackground = Color(0xFFEAF0F0),
-    surface = Color(0xFF16222A),
-    onSurface = Color(0xFFEAF0F0),
-    surfaceVariant = Color(0xFF283B45),
-    onSurfaceVariant = Color(0xFFBAD2DE),
-    surfaceTint = Color(0xFF8DB0BD),
-    outline = Color(0xFF6E8F9B),
-    outlineVariant = Color(0xFF3A525D),
-    scrim = Color(0xFF000000),
-    inverseSurface = Color(0xFFEAF0F0),
-    inverseOnSurface = Color(0xFF16222A),
-    inversePrimary = Color(0xFF466A77),
-    surfaceDim = Color(0xFF16222A),
-    surfaceBright = Color(0xFF283B45),
-    surfaceContainerLowest = Color(0xFF111B21),
-    surfaceContainerLow = Color(0xFF1A2830),
-    surfaceContainer = Color(0xFF1F2F38),
-    surfaceContainerHigh = Color(0xFF24353F),
-    surfaceContainerHighest = Color(0xFF283B45),
-)
+internal fun HomeScheme.toColorScheme(dark: Boolean): ColorScheme =
+    if (dark) {
+        darkColorScheme(
+            primary = Color(primary),
+            onPrimary = Color(onPrimary),
+            primaryContainer = Color(primaryContainer),
+            onPrimaryContainer = Color(onPrimaryContainer),
+            inversePrimary = Color(inversePrimary),
+            secondary = Color(secondary),
+            onSecondary = Color(onSecondary),
+            secondaryContainer = Color(secondaryContainer),
+            onSecondaryContainer = Color(onSecondaryContainer),
+            tertiary = Color(tertiary),
+            onTertiary = Color(onTertiary),
+            tertiaryContainer = Color(tertiaryContainer),
+            onTertiaryContainer = Color(onTertiaryContainer),
+            background = Color(background),
+            onBackground = Color(onBackground),
+            surface = Color(surface),
+            onSurface = Color(onSurface),
+            surfaceVariant = Color(surfaceVariant),
+            onSurfaceVariant = Color(onSurfaceVariant),
+            surfaceTint = Color(surfaceTint),
+            inverseSurface = Color(inverseSurface),
+            inverseOnSurface = Color(inverseOnSurface),
+            error = Color(error),
+            onError = Color(onError),
+            errorContainer = Color(errorContainer),
+            onErrorContainer = Color(onErrorContainer),
+            outline = Color(outline),
+            outlineVariant = Color(outlineVariant),
+            scrim = Color(scrim),
+            surfaceBright = Color(surfaceBright),
+            surfaceContainer = Color(surfaceContainer),
+            surfaceContainerHigh = Color(surfaceContainerHigh),
+            surfaceContainerHighest = Color(surfaceContainerHighest),
+            surfaceContainerLow = Color(surfaceContainerLow),
+            surfaceContainerLowest = Color(surfaceContainerLowest),
+            surfaceDim = Color(surfaceDim),
+        )
+    } else {
+        lightColorScheme(
+            primary = Color(primary),
+            onPrimary = Color(onPrimary),
+            primaryContainer = Color(primaryContainer),
+            onPrimaryContainer = Color(onPrimaryContainer),
+            inversePrimary = Color(inversePrimary),
+            secondary = Color(secondary),
+            onSecondary = Color(onSecondary),
+            secondaryContainer = Color(secondaryContainer),
+            onSecondaryContainer = Color(onSecondaryContainer),
+            tertiary = Color(tertiary),
+            onTertiary = Color(onTertiary),
+            tertiaryContainer = Color(tertiaryContainer),
+            onTertiaryContainer = Color(onTertiaryContainer),
+            background = Color(background),
+            onBackground = Color(onBackground),
+            surface = Color(surface),
+            onSurface = Color(onSurface),
+            surfaceVariant = Color(surfaceVariant),
+            onSurfaceVariant = Color(onSurfaceVariant),
+            surfaceTint = Color(surfaceTint),
+            inverseSurface = Color(inverseSurface),
+            inverseOnSurface = Color(inverseOnSurface),
+            error = Color(error),
+            onError = Color(onError),
+            errorContainer = Color(errorContainer),
+            onErrorContainer = Color(onErrorContainer),
+            outline = Color(outline),
+            outlineVariant = Color(outlineVariant),
+            scrim = Color(scrim),
+            surfaceBright = Color(surfaceBright),
+            surfaceContainer = Color(surfaceContainer),
+            surfaceContainerHigh = Color(surfaceContainerHigh),
+            surfaceContainerHighest = Color(surfaceContainerHighest),
+            surfaceContainerLow = Color(surfaceContainerLow),
+            surfaceContainerLowest = Color(surfaceContainerLowest),
+            surfaceDim = Color(surfaceDim),
+        )
+    }
 
-/** The home palette in place of upstream's scheme (receiver kept so the call site stays a one-liner). */
+/** The person's home palette in place of upstream's scheme (receiver kept so the call site stays a one-liner). */
 @Suppress("UnusedReceiverParameter")
-internal fun ColorScheme.withHomeColors(darkTheme: Boolean): ColorScheme =
-    if (darkTheme) homeDarkScheme else homeLightScheme
+@Composable
+internal fun ColorScheme.withHomeColors(darkTheme: Boolean): ColorScheme {
+    val theme = HomeThemes.byId(homeThemeId.collectAsState().value)
+    return (if (darkTheme) theme.dark else theme.light).toColorScheme(darkTheme)
+}
