@@ -1,23 +1,14 @@
 package io.music_assistant.client.ui.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.rubik_vf
-import org.jetbrains.compose.resources.Font
 
 // Home theme (HW-48), fork-only. Tokens: Tomvis/homelab-stacks theme/dist/tokens.resolved.json.
 // Slate = structure, mist = surface; cyan ("lit") is reserved for "on right now", so no role uses it.
 // tertiary = primary: upstream's favoriteTint reads it, and a favourite is a lasting choice, not an alarm.
-// Hooked into AppTheme with two lines so upstream's Color.kt/Theme.kt merge cleanly.
+// Hooked into AppTheme with one line so upstream's Color.kt/Theme.kt merge cleanly.
 
 private val homeLightScheme = lightColorScheme(
     primary = Color(0xFF466A77),
@@ -101,36 +92,3 @@ private val homeDarkScheme = darkColorScheme(
 @Suppress("UnusedReceiverParameter")
 internal fun ColorScheme.withHomeColors(darkTheme: Boolean): ColorScheme =
     if (darkTheme) homeDarkScheme else homeLightScheme
-
-/** Material 3 type scale in Rubik (bundled variable font) with tabular figures. */
-@Composable
-internal fun homeTypography(): Typography {
-    val rubik = FontFamily(
-        Font(Res.font.rubik_vf, FontWeight.Light),
-        Font(Res.font.rubik_vf, FontWeight.Normal),
-        Font(Res.font.rubik_vf, FontWeight.Medium),
-        Font(Res.font.rubik_vf, FontWeight.SemiBold),
-        Font(Res.font.rubik_vf, FontWeight.Bold),
-    )
-    return remember(rubik) {
-        val base = Typography()
-        fun TextStyle.home() = copy(fontFamily = rubik, fontFeatureSettings = "tnum")
-        base.copy(
-            displayLarge = base.displayLarge.home(),
-            displayMedium = base.displayMedium.home(),
-            displaySmall = base.displaySmall.home(),
-            headlineLarge = base.headlineLarge.home(),
-            headlineMedium = base.headlineMedium.home(),
-            headlineSmall = base.headlineSmall.home(),
-            titleLarge = base.titleLarge.home(),
-            titleMedium = base.titleMedium.home(),
-            titleSmall = base.titleSmall.home(),
-            bodyLarge = base.bodyLarge.home(),
-            bodyMedium = base.bodyMedium.home(),
-            bodySmall = base.bodySmall.home(),
-            labelLarge = base.labelLarge.home(),
-            labelMedium = base.labelMedium.home(),
-            labelSmall = base.labelSmall.home(),
-        )
-    }
-}
