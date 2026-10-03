@@ -64,6 +64,9 @@ object AppMediaItemFixtures {
                         ReviewLink("Album of the Year (2024)", "https://amg.example/top-2024/"),
                     ),
                     authors = listOf("J. Smith"),
+                    review = "A record that earns its length. The riffs keep turning over long after the " +
+                        "first listen, and the production leaves every instrument room to breathe.\n\n" +
+                        "Not every song lands, but the ones that do are among the year's best.",
                 ),
                 ReviewSource(
                     "TPS",

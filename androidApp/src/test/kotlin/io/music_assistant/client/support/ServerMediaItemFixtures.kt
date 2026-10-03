@@ -3,6 +3,7 @@ package io.music_assistant.client.support
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.data.model.server.ServerMediaItem
+import io.music_assistant.client.data.model.server.ServerMetadata
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.utils.UniqueIdGenerator
 
@@ -18,12 +19,14 @@ object ServerMediaItemFixtures {
             DEFAULT_PROVIDER_DOMAIN,
             DEFAULT_PROVIDER_INSTANCE,
         ),
+        metadata: ServerMetadata? = null,
     ): ServerMediaItem {
         return ServerMediaItem(
             itemId = itemId,
             provider = provider.domain,
             name = name,
             mediaType = MediaType.ALBUM.serverValue,
+            metadata = metadata,
             artists = listOf(artist),
             uri = "http://example.com/album/$itemId",
             isPlayable = true,

@@ -17,4 +17,7 @@ data class Metadata(
     val lrcLyrics: String?,
     val dynamicRange: Float? = null,
     val criticalReception: CriticalReception? = null,
+    // What the metadata providers found: the album page's text after our own AMG/TPS reviews.
+    val review: String? = null,
+    val description: String? = null,
 )

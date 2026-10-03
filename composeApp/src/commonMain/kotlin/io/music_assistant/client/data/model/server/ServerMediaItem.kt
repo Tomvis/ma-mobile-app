@@ -116,6 +116,8 @@ data class ServerReviewSourceEntry(
     // labeled post links (3.3.0+), one per post.
     @SerialName("links") val links: List<ServerReviewLink>? = null,
     @SerialName("authors") val authors: List<String>? = null,
+    // the review's full text, plain with blank-line paragraph breaks (3.6.0+).
+    @SerialName("review") val review: String? = null,
     // DEPRECATED, inbound-only during the transition: the split review-kind / award
     // lists (<= 3.1.1) and the single review URL (<= 3.2.x). Folded into accolades /
     // links at the client-mapping boundary.

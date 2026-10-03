@@ -22,6 +22,8 @@ data class ReviewSource(
     // labeled post links (3.3.0+), one per post; `label` mirrors an `accolades` value.
     val links: List<ReviewLink>,
     val authors: List<String>,
+    // the review's full text, plain with blank-line paragraph breaks (3.6.0+).
+    val review: String? = null,
 )
 
 /** One labeled post link for a review source (3.3.0+). Several links can share a label. */

@@ -240,6 +240,8 @@ class MediaItemFactory(
             lrcLyrics = it.lrcLyrics,
             dynamicRange = it.dynamicRange?.toFloat(),
             criticalReception = createCriticalReception(it.criticalReception),
+            review = it.review,
+            description = it.description,
         )
     }
 
@@ -272,6 +274,7 @@ class MediaItemFactory(
                     accolades = accolades,
                     links = links,
                     authors = entry.authors.orEmpty(),
+                    review = entry.review?.takeIf { it.isNotBlank() },
                 )
             }
             .orEmpty()

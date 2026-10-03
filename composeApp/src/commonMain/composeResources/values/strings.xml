@@ -418,6 +418,10 @@
   <string name="reception_accolade_ymio">You Missed It On…</string>
   <string name="reception_accolade_lit">Lost in Time</string>
   <string name="reception_accolade_rfu">Records From the Underground</string>
+  <string name="review_title">Review</string>
+  <string name="review_about_title">About this album</string>
+  <string name="review_show_more">Show more</string>
+  <string name="review_show_less">Show less</string>
   <string name="filter_title">Reception filters</string>
   <string name="filter_match">Match</string>
   <string name="filter_match_all">All</string>

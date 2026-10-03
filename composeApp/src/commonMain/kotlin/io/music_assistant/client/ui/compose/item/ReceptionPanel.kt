@@ -20,11 +20,13 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -33,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import io.music_assistant.client.data.model.client.AlbumReview
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.DrInfo
 import io.music_assistant.client.data.model.client.DrQuality
@@ -40,6 +43,7 @@ import io.music_assistant.client.data.model.client.DrSource
 import io.music_assistant.client.data.model.client.ParsedAccolade
 import io.music_assistant.client.data.model.client.ReceptionTags
 import io.music_assistant.client.data.model.client.SourceTags
+import io.music_assistant.client.data.model.client.albumReview
 import io.music_assistant.client.data.model.client.formatDated
 import io.music_assistant.client.data.model.client.formatDr
 import io.music_assistant.client.data.model.client.formatScore
@@ -57,15 +61,17 @@ import musicassistantclient.composeapp.generated.resources.reception_score_with_
 import musicassistantclient.composeapp.generated.resources.reception_title
 import org.jetbrains.compose.resources.stringResource
 
+/** The album's critic data, then its review text; renders nothing when it has neither. */
 @Composable
 fun AlbumReceptionPanel(album: Album, modifier: Modifier = Modifier) {
     val tags = rememberAlbumReceptionTags(album)
-    if (!tags.hasAny) return
-    ReceptionPanel(tags, modifier)
+    val review = remember(album.metadata) { albumReview(album.metadata) }
+    if (!tags.hasAny && review == null) return
+    ReceptionPanel(tags, review, modifier)
 }
 
 @Composable
-private fun ReceptionPanel(tags: ReceptionTags, modifier: Modifier = Modifier) {
+private fun ReceptionPanel(tags: ReceptionTags, review: AlbumReview?, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
@@ -76,13 +82,19 @@ private fun ReceptionPanel(tags: ReceptionTags, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = stringResource(Res.string.reception_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            tags.dr?.let { DrRow(it, tags.amgDr) }
-            tags.amg?.let { SourceRow(it) }
-            tags.tps?.let { SourceRow(it) }
+            if (tags.hasAny) {
+                Text(
+                    text = stringResource(Res.string.reception_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                tags.dr?.let { DrRow(it, tags.amgDr) }
+                tags.amg?.let { SourceRow(it) }
+                tags.tps?.let { SourceRow(it) }
+            }
+            review?.let {
+                if (tags.hasAny) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                AlbumReviewSection(it)
+            }
         }
     }
 }
@@ -247,4 +259,17 @@ private fun ReceptionPanelEmptyPreview() {
 @Composable
 private fun ReceptionPanelFallbackPreview() {
     AlbumReceptionPanel(AppMediaItemFixtures.album(metadata = AppMediaItemFixtures.receptionMetadataFallback()))
+}
+
+@Preview
+@Composable
+private fun ReceptionPanelDescriptionPreview() {
+    AlbumReceptionPanel(
+        AppMediaItemFixtures.album(
+            metadata = AppMediaItemFixtures.receptionMetadataFallback().copy(
+                criticalReception = null,
+                description = "The sixth and final studio album by the band, released in 2011.",
+            ),
+        ),
+    )
 }

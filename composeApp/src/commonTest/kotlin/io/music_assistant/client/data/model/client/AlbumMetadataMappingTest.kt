@@ -44,6 +44,24 @@ class AlbumMetadataMappingTest {
     }
 
     @Test
+    fun mapsReviewTextAndProviderDescription() {
+        val album = factory.create(
+            myJson.decodeFromString<ServerMediaItem>(
+                """
+                {"item_id":"a3","provider":"library","name":"A","media_type":"${MediaType.ALBUM.serverValue}",
+                 "metadata":{"review":"provider","description":"blurb","critical_reception":{"sources":[
+                   {"source":"AMG","review":"One.\n\nTwo."},{"source":"TPS","review":" "}]}}}
+                """.trimIndent(),
+            ),
+        ) as Album
+
+        assertEquals("provider", album.metadata?.review)
+        assertEquals("blurb", album.metadata?.description)
+        assertEquals("One.\n\nTwo.", album.metadata?.criticalReception?.sources?.get(0)?.review)
+        assertNull(album.metadata?.criticalReception?.sources?.get(1)?.review)
+    }
+
+    @Test
     fun nullMetadataMapsNull() {
         val album = factory.create(
             myJson.decodeFromString<ServerMediaItem>(
