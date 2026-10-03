@@ -214,6 +214,7 @@ class WebRTCTransport(
     }
 
     private fun onNetworkLost() {
+        manager?.diagnostics?.event("reconnect trigger=network_lost")
         // Pre-empt the slow path: cancel state monitor, tear down manager, and start the
         // reconnection loop. The loop gates on networkAvailable, so it waits until a
         // network is back before attempting. connectionJob is also cancelled so an
@@ -234,6 +235,7 @@ class WebRTCTransport(
             cleanupManager()
             val mgr = createManager()
             manager = mgr
+            mgr.diagnostics.event("transport attempt started reconnect=$isReconnect")
             mgr.connect(remoteId)
 
             // Wait for terminal WebRTC connection state (Connected or Error)
@@ -243,12 +245,16 @@ class WebRTCTransport(
 
             when (result) {
                 is WebRTCConnectionState.Connected -> {
+                    mgr.diagnostics.event("transport attempt succeeded reconnect=$isReconnect")
                     _state.value = TransportState.Connected
                     startMessageListener(mgr)
                     startStateMonitor(mgr)
                 }
 
                 is WebRTCConnectionState.Error -> {
+                    mgr.diagnostics.event(
+                        "transport attempt failed reconnect=$isReconnect error=${result.error::class.simpleName}",
+                    )
                     if (!isReconnect) {
                         _state.value = TransportState.Failed(
                             Exception("WebRTC connection failed: ${result.error}"),
@@ -259,6 +265,7 @@ class WebRTCTransport(
                 else -> {} // unreachable
             }
         } catch (e: Exception) {
+            manager?.diagnostics?.failure("transport attempt ended reconnect=$isReconnect", e)
             if (e is kotlinx.coroutines.CancellationException) throw e
             if (!isReconnect) {
                 _state.value = TransportState.Failed(e)
@@ -361,7 +368,7 @@ class WebRTCTransport(
         stateMonitorJob = scope.launch {
             // Wait for error state — first() completes when predicate matches
             val errorState = mgr.connectionState.first { it is WebRTCConnectionState.Error }
-            logger.w { "WebRTC error detected: $errorState. Starting reconnection..." }
+            mgr.diagnostics.event("reconnect trigger=manager_error state=${errorState::class.simpleName}")
             messageListenerJob?.cancel()
             // Launch reconnection in a separate job so:
             // 1. cleanupManager() can cancel stateMonitorJob without killing reconnection
@@ -382,12 +389,14 @@ class WebRTCTransport(
                 _state.value == TransportState.Connected
             },
         )
+        manager?.diagnostics?.event("reconnect loop completed success=$reconnected")
         if (!reconnected) {
             _state.value = TransportState.Failed(Exception("Max WebRTC reconnect attempts reached"))
         }
     }
 
     fun forceReconnect() {
+        manager?.diagnostics?.event("reconnect trigger=forced")
         connectionJob?.cancel()
         reconnectionJob?.cancel()
         connectionJob = scope.launch {
