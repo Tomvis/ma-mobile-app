@@ -186,11 +186,16 @@ class DataChannelWrapper internal constructor(
         // The state event collector won't deliver the resulting Closed event
         // since the scope is gone, so push it manually.
         outgoing.close()
-        withTimeoutOrNull(CLOSE_FLUSH_TIMEOUT_MILLIS) { drainJob.join() }
-        scope.cancel()
-        dataChannel?.close()
-        _state.update { DataChannelState.Closed }
-        diagnostics.event("channel=$logChannel local close completed")
+        try {
+            withTimeoutOrNull(CLOSE_FLUSH_TIMEOUT_MILLIS) { drainJob.join() }
+        } finally {
+            // A cancelled caller aborts the flush; without this the channel stays
+            // Open with a live inbound while send() already drops everything.
+            scope.cancel()
+            dataChannel?.close()
+            _state.update { DataChannelState.Closed }
+            diagnostics.event("channel=$logChannel local close completed")
+        }
     }
 }
 
