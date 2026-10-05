@@ -6,6 +6,8 @@ import home.theme.HomeThemes
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +18,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The signed-in person's home theme (HW-65), fork-only. Same model as the web UI (HW-64):
@@ -39,6 +44,8 @@ class HomeThemeRepository(
     /** What to paint; before the server answered, this device's last theme; null = upstream's own setting. */
     val effective: StateFlow<HomeEffective?> = _effective.asStateFlow()
 
+    private var retry: Job? = null
+
     init {
         _effective.value?.let { homeThemeId.value = it.theme }
         scope.launch {
@@ -47,12 +54,32 @@ class HomeThemeRepository(
         }
     }
 
+    /**
+     * Right after an MA restart the API is up ~1 s before the home_theme provider, so the reconnect's
+     * read gets "Invalid command" (HW-76): retry that case a few times; the next refresh cancels it.
+     */
     suspend fun refresh() {
-        if (!apiClient.isReadyForCommands.value) return
+        retry?.cancel()
+        if (fetch()) return
+        retry = scope.launch {
+            for (wait in RETRY_DELAYS) {
+                delay(wait)
+                if (fetch()) return@launch
+            }
+            logger.i { "home_theme/get still unknown to the server, keeping the last theme" }
+        }
+    }
+
+    /** False only when the server doesn't know home_theme/get (yet). */
+    private suspend fun fetch(): Boolean {
+        if (!apiClient.isReadyForCommands.value) return true
         apiClient.sendRequest(Request(command = GET))
-            .map { it.resultAs<HomeThemeState>() }
-            .onSuccess { update(it) }
+            .onSuccess { answer ->
+                if (answer.json["error_code"]?.jsonPrimitive?.intOrNull == INVALID_COMMAND) return false
+                update(answer.resultAs<HomeThemeState>())
+            }
             .onFailure { logger.i { "home_theme/get failed, keeping the last theme: ${it.message}" } }
+        return true
     }
 
     /** An in-app choice; a null [theme] is "Follow home theme". */
@@ -97,6 +124,8 @@ class HomeThemeRepository(
         const val GET = "home_theme/get"
         const val CHOOSE = "home_theme/choose"
         const val LAST_KEY = "home_theme.last"
+        const val INVALID_COMMAND = 12 // music_assistant_models.errors.InvalidCommand
+        val RETRY_DELAYS = listOf(2.seconds, 5.seconds, 10.seconds)
         val logger = Logger.withTag("HomeTheme")
     }
 }

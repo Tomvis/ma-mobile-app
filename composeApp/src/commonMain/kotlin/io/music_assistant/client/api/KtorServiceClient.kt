@@ -498,7 +498,9 @@ class KtorServiceClient(
                 ) ?: it
             }
         },
-        onError = errorBus::emit,
+        // Fork (HW-76): HomeThemeRepository retries home_theme/* while the server's provider is
+        // still loading; that "Invalid command" is expected and not worth a toast.
+        onError = { if (!it.startsWith("Invalid command: home_theme/")) errorBus.emit(it) },
     )
 
     init {
