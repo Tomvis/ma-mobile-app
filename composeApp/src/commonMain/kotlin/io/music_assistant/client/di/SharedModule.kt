@@ -14,6 +14,7 @@ import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerPositionTracker
 import io.music_assistant.client.data.PlayerRequestFactory
 import io.music_assistant.client.data.UserPreferences
+import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
 import io.music_assistant.client.data.factory.QueueFactory
@@ -146,6 +147,15 @@ fun sharedModule(
         singleOf(::AiRadioRepository)       // Optional ai_radio plugin: list and run stations
         single(createdAtStart = true) {     // Fork (HW-65): per-person home theme, read at sign-in
             HomeThemeRepository(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        }
+        single {                            // Typed and spoken announcements; outlives the dialog
+            AnnouncementRepository(
+                apiClient = get(),
+                httpClient = get(named("webrtcHttpClient")),
+                microphone = get(),
+                errorBus = get(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
         }
         singleOf(::ServiceClientMediaItemRepository) { bind<MediaItemRepository>() }
         singleOf(::MainDataSource)          // Singleton - held by foreground service
