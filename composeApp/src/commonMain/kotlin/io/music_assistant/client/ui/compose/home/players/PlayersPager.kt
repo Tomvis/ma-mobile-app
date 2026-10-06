@@ -37,6 +37,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.hasFavoritableStreamTrack
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.PlayerData
@@ -118,6 +120,7 @@ import io.music_assistant.sendspin.api.PlayerState
 import kotlinx.coroutines.flow.Flow
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_add_to_playlist
+import musicassistantclient.composeapp.generated.resources.announcement_title
 import musicassistantclient.composeapp.generated.resources.bound_player_joined_to
 import musicassistantclient.composeapp.generated.resources.bound_player_part_of_group
 import musicassistantclient.composeapp.generated.resources.bound_player_playing_with
@@ -134,6 +137,7 @@ import musicassistantclient.composeapp.generated.resources.queue_clear
 import musicassistantclient.composeapp.generated.resources.queue_no_other_players
 import musicassistantclient.composeapp.generated.resources.queue_transfer
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 
 // Width split between the player pane and the side queue pane when both are shown.
@@ -179,6 +183,8 @@ fun PlayersPager(
         // Older servers dissolve the group and stop playback when the leader leaves,
         // so the leave gesture stays hidden below the handoff floor.
         val leaderLeaveSupported by homeScreenViewModel.leaderLeaveSupported
+            .collectAsStateWithLifecycle()
+        val announcementAvailability by koinInject<AnnouncementRepository>().availability
             .collectAsStateWithLifecycle()
 
         val playerAction1 =
@@ -273,6 +279,11 @@ fun PlayersPager(
                         dialogRequest = PlayerDialogRequest.SleepTimer(playerId)
                     }
                 }
+                val onAnnounceButton: () -> Unit = remember(playerId) {
+                    {
+                        dialogRequest = PlayerDialogRequest.Announcement(playerId)
+                    }
+                }
                 val onLyricsClick: () -> Unit = remember(playerId, trackId) {
                     {
                         trackId?.let { dialogRequest = PlayerDialogRequest.Lyrics(playerId, it) }
@@ -357,6 +368,10 @@ fun PlayersPager(
                                 onGroupButton = onGroupButton,
                                 onDspButton = onDspButton.takeIf { !player.player.isGroup },
                                 onSleepTimerButton = onSleepTimerButton.takeIf { sleepTimerSupported },
+                                // Voice is never offered for the phone's own player, so it alone can't show the entry.
+                                onAnnounceButton = onAnnounceButton.takeIf {
+                                    announcementAvailability.text || (announcementAvailability.voice && !player.isLocal)
+                                },
                                 playerAction = playerAction1,
                                 onAddToPlaylist = onAddToPlaylist,
                                 onFavoriteClick = {
@@ -455,6 +470,7 @@ private fun ExpandedPlayerPage(
     onGroupButton: () -> Unit,
     onDspButton: (() -> Unit)?,
     onSleepTimerButton: (() -> Unit)?,
+    onAnnounceButton: (() -> Unit)?,
     playerAction: (PlayerData, PlayerAction) -> Unit,
     onAddToPlaylist: ((AppMediaItem) -> Unit)? = null,
     onFavoriteClick: (AppMediaItem) -> Unit,
@@ -538,6 +554,7 @@ private fun ExpandedPlayerPage(
                     navigateToItem = navigateAndClose,
                     onPlayerSelected = { moveToPlayer(it) },
                     onOpenDsp = onDspButton,
+                    onAnnounce = onAnnounceButton,
                     onAddToPlaylist = onAddToPlaylist,
                 )
             },
@@ -848,6 +865,7 @@ private fun PlayerOverflowMenu(
     navigateToItem: (AppMediaItem) -> Unit,
     onPlayerSelected: (String) -> Unit,
     onOpenDsp: (() -> Unit)?,
+    onAnnounce: (() -> Unit)?,
     onAddToPlaylist: ((AppMediaItem) -> Unit)? = null,
 ) {
     var transferMenuExpanded by remember { mutableStateOf(false) }
@@ -935,9 +953,18 @@ private fun PlayerOverflowMenu(
         emptyList()
     }
 
-    // Player actions (top group): power, queue ops, DSP, then the display toggles — dynamic
-    // colors and buffer indicator sit right after DSP, consistently for every player.
+    // Player actions (top group): power, queue ops, announcement, DSP, then the display toggles —
+    // dynamic colors and buffer indicator sit right after DSP, consistently for every player.
     val displayOptions = buildList {
+        onAnnounce?.let {
+            add(
+                OverflowMenuOption(
+                    title = stringResource(Res.string.announcement_title),
+                    icon = Icons.Default.Campaign,
+                    onClick = it,
+                ),
+            )
+        }
         if (onOpenDsp != null) {
             add(
                 OverflowMenuOption(
@@ -1055,6 +1082,7 @@ fun ExpandedPlayerPagePreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
@@ -1092,6 +1120,7 @@ fun ExpandedPlayerPageMediumScreenPreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
@@ -1129,6 +1158,7 @@ fun ExpandedPlayerPageExpandedScreenPreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
@@ -1170,6 +1200,7 @@ fun ExpandedPlayerPageExpandedScreenPlusPreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
@@ -1208,6 +1239,7 @@ fun ExpandedPlayerPagePhoneLandscapePreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
@@ -1245,6 +1277,7 @@ fun ExpandedPlayerPageLargeScreenPreview() {
             onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
+            onAnnounceButton = null,
             playerAction = { _, _ -> },
             onFavoriteClick = {},
             onClose = {},
