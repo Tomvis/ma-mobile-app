@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package io.music_assistant.client.ui.compose.item
 
 import androidx.compose.foundation.clickable
@@ -21,8 +19,12 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
@@ -102,6 +104,8 @@ import io.music_assistant.client.ui.compose.item.artist.ArtistDetailsViewModel
 import io.music_assistant.client.ui.compose.item.artist.ArtistDetailsViewModel.Section
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
+import io.music_assistant.client.ui.compose.search.SearchInput
+import io.music_assistant.client.ui.compose.search.SearchInputMode
 import io.music_assistant.client.ui.fullBleed
 import io.music_assistant.client.ui.theme.AppTheme
 import musicassistantclient.composeapp.generated.resources.Res
@@ -109,6 +113,8 @@ import musicassistantclient.composeapp.generated.resources.album_disc_header
 import musicassistantclient.composeapp.generated.resources.artist_section_all
 import musicassistantclient.composeapp.generated.resources.artist_section_in_library
 import musicassistantclient.composeapp.generated.resources.artist_section_top
+import musicassistantclient.composeapp.generated.resources.cd_close
+import musicassistantclient.composeapp.generated.resources.cd_find_in_list
 import musicassistantclient.composeapp.generated.resources.cd_provider_filter
 import musicassistantclient.composeapp.generated.resources.item_error
 import musicassistantclient.composeapp.generated.resources.item_no_data
@@ -384,11 +390,6 @@ private fun ItemContent(
                 // force_refresh is a playlist-tracks-only server argument, so no other
                 // media type gets the action.
                 onRefresh = onRefreshPlaylist.takeIf { item is Playlist },
-                // The in-list filter only exists for the flat playable-items tab (issue #1010).
-                query = state.playableItemsQuery,
-                onQueryChanged = onPlayableItemsQueryChanged.takeIf {
-                    item is Album || item is Playlist || item is Podcast
-                },
             )
         },
     ) {
@@ -442,6 +443,10 @@ private fun ItemContent(
                             onPlayableItemsSortChanged = onPlayableItemsSortChanged,
                             viewModeProvider = viewModeProvider,
                             onToggleViewMode = onToggleViewMode,
+                            query = state.playableItemsQuery,
+                            onQueryChanged = onPlayableItemsQueryChanged.takeIf {
+                                item is Album || item is Playlist || item is Podcast
+                            },
                         )
                     }
                     val tabContext = currentTab.sortContext?.toClickContext()
@@ -496,6 +501,8 @@ private fun TabsBar(
     onPlayableItemsSortChanged: (SubItemContext, SortOption) -> Unit,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onToggleViewMode: (MediaType) -> Unit,
+    query: String?,
+    onQueryChanged: ((String?) -> Unit)?,
 ) {
     val currentTab = tabs[selectedIndex]
     val sortCtx = currentTab.sortContext
@@ -513,58 +520,81 @@ private fun TabsBar(
         null -> null
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PrimaryScrollableTabRow(
-            selectedTabIndex = selectedIndex,
-            containerColor = Color.Transparent,
-            contentColor = controlTint,
-            edgePadding = 0.dp,
-            // Underline under the active tab only, tinted to the control accent (the default
-            // PrimaryIndicator is colorScheme.primary). No full-width bottom divider.
-            indicator = {
-                TabRowDefaults.PrimaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(selectedIndex),
-                    color = controlTint,
-                )
-            },
-            divider = {},
-            modifier = Modifier.weight(1f),
-        ) {
-            tabs.forEachIndexed { i, tab ->
-                val selected = i == selectedIndex
-                Tab(
-                    selected = selected,
-                    onClick = { onTabSelected(i) },
-                    text = {
-                        Text(
-                            text = tab.stringResource()?.let { stringResource(it) }.orEmpty(),
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            color = controlTint,
-                        )
-                    },
+    Column {
+        onQueryChanged?.let { changed ->
+            query?.let {
+                SearchInput(
+                    mode = SearchInputMode.FIND_IN_LIST,
+                    query = it,
+                    onQueryChanged = changed,
                 )
             }
         }
-        if (sortCtx != null && currentSort != null) {
-            ItemSortChip(
-                sortOption = currentSort,
-                sortContext = sortCtx,
-                onSortChanged = { opt ->
-                    onPlayableItemsSortChanged(sortCtx, opt)
-                },
-            )
-        }
 
-        currentTab.viewMediaType?.let { viewMediaType ->
-            ViewModeToggle(
-                viewMode = viewModeProvider(viewMediaType),
-                onToggleViewMode = { onToggleViewMode(viewMediaType) },
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PrimaryScrollableTabRow(
+                selectedTabIndex = selectedIndex,
+                containerColor = Color.Transparent,
+                contentColor = controlTint,
+                edgePadding = 0.dp,
+                // Underline under the active tab only, tinted to the control accent (the default
+                // PrimaryIndicator is colorScheme.primary). No full-width bottom divider.
+                indicator = {
+                    TabRowDefaults.PrimaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(selectedIndex),
+                        color = controlTint,
+                    )
+                },
+                divider = {},
+                modifier = Modifier.weight(1f),
+            ) {
+                tabs.forEachIndexed { i, tab ->
+                    val selected = i == selectedIndex
+                    Tab(
+                        selected = selected,
+                        onClick = { onTabSelected(i) },
+                        text = {
+                            Text(
+                                text = tab.stringResource()?.let { stringResource(it) }.orEmpty(),
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = controlTint,
+                            )
+                        },
+                    )
+                }
+            }
+
+            if (sortCtx != null && currentSort != null) {
+                ItemSortChip(
+                    sortOption = currentSort,
+                    sortContext = sortCtx,
+                    onSortChanged = { opt ->
+                        onPlayableItemsSortChanged(sortCtx, opt)
+                    },
+                )
+            }
+
+            currentTab.viewMediaType?.let { viewMediaType ->
+                ViewModeToggle(
+                    viewMode = viewModeProvider(viewMediaType),
+                    onToggleViewMode = { onToggleViewMode(viewMediaType) },
+                )
+            }
+
+            onQueryChanged?.let { changed ->
+                IconButton(onClick = { changed(if (query == null) "" else null) }) {
+                    if (query == null) {
+                        Icon(Icons.Default.Search, stringResource(Res.string.cd_find_in_list))
+                    } else {
+                        Icon(Icons.Default.SearchOff, stringResource(Res.string.cd_close))
+                    }
+                }
+            }
         }
     }
 }
