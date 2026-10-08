@@ -107,7 +107,7 @@
   <string name="cd_delete_crash_logs">Delete crash logs</string>
   <string name="cd_favorite">Favorite</string>
   <string name="cd_filter">Filters</string>
-  <string name="cd_find_in_list">Find in list</string>
+  <string name="cd_find_in_list">Search in list</string>
   <string name="cd_fully_played">Fully played</string>
   <string name="cd_genre_filter">Genre filters</string>
   <string name="cd_in_progress">In progress</string>
@@ -174,7 +174,7 @@
   <string name="filter_providers">Music providers</string>
   <string name="filter_selected_count">%1$d selected</string>
   <string name="filter_sheet_title">Filters</string>
-  <string name="find_in_list_label">Find in list…</string>
+  <string name="find_in_list_label">Search in list…</string>
   <string name="genre_filter_empty_all">All</string>
   <string name="genre_filter_empty_default">Default</string>
   <string name="genre_filter_empty_non_empty">Non-empty only</string>
