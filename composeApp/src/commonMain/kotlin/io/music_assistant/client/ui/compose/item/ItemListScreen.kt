@@ -21,11 +21,11 @@ import io.music_assistant.client.ui.compose.library.ItemListContent
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
 import io.music_assistant.client.ui.compose.search.SearchInput
-import io.music_assistant.client.ui.compose.search.SearchInputMode
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_close
 import musicassistantclient.composeapp.generated.resources.cd_find_in_list
 import musicassistantclient.composeapp.generated.resources.common_back
+import musicassistantclient.composeapp.generated.resources.find_in_list_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -51,9 +51,9 @@ fun ItemListScreen(
                 title = {
                     query?.let {
                         SearchInput(
-                            mode = SearchInputMode.FIND_IN_LIST,
                             query = it,
                             onQueryChanged = itemListViewModel::filter,
+                            placeholder = stringResource(Res.string.find_in_list_label),
                         )
                     } ?: Text(title)
                 },

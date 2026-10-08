@@ -105,7 +105,6 @@ import io.music_assistant.client.ui.compose.item.artist.ArtistDetailsViewModel.S
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
 import io.music_assistant.client.ui.compose.search.SearchInput
-import io.music_assistant.client.ui.compose.search.SearchInputMode
 import io.music_assistant.client.ui.fullBleed
 import io.music_assistant.client.ui.theme.AppTheme
 import musicassistantclient.composeapp.generated.resources.Res
@@ -116,6 +115,7 @@ import musicassistantclient.composeapp.generated.resources.artist_section_top
 import musicassistantclient.composeapp.generated.resources.cd_close
 import musicassistantclient.composeapp.generated.resources.cd_find_in_list
 import musicassistantclient.composeapp.generated.resources.cd_provider_filter
+import musicassistantclient.composeapp.generated.resources.find_in_list_label
 import musicassistantclient.composeapp.generated.resources.item_error
 import musicassistantclient.composeapp.generated.resources.item_no_data
 import musicassistantclient.composeapp.generated.resources.library_empty
@@ -524,9 +524,9 @@ private fun TabsBar(
         onQueryChanged?.let { changed ->
             query?.let {
                 SearchInput(
-                    mode = SearchInputMode.FIND_IN_LIST,
                     query = it,
                     onQueryChanged = changed,
+                    placeholder = stringResource(Res.string.find_in_list_label),
                 )
             }
         }
