@@ -1,7 +1,8 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package io.music_assistant.client.ui.compose.item
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
@@ -360,14 +360,20 @@ private fun ItemContent(
     )
 
     val heroSlot: @Composable () -> Unit = {
-        ProvideClickActions(ClickContext.DETAIL) {
-            ItemHeader(
-                item = item,
-                colors = colors,
-                providerIconFetcher = providerIconFetcher,
-                onPlayClick = onPlayItemClick,
-                navigateToItem = onNavigateClick,
-            )
+        AnimatedVisibility(
+            visible = state.playableItemsQuery == null,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            ProvideClickActions(ClickContext.DETAIL) {
+                ItemHeader(
+                    item = item,
+                    colors = colors,
+                    providerIconFetcher = providerIconFetcher,
+                    onPlayClick = onPlayItemClick,
+                    navigateToItem = onNavigateClick,
+                )
+            }
         }
     }
 
@@ -384,7 +390,6 @@ private fun ItemContent(
                 // force_refresh is a playlist-tracks-only server argument, so no other
                 // media type gets the action.
                 onRefresh = onRefreshPlaylist.takeIf { item is Playlist },
-                // The in-list filter only exists for the flat playable-items tab (issue #1010).
                 query = state.playableItemsQuery,
                 onQueryChanged = onPlayableItemsQueryChanged.takeIf {
                     item is Album || item is Playlist || item is Podcast
@@ -513,58 +518,61 @@ private fun TabsBar(
         null -> null
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PrimaryScrollableTabRow(
-            selectedTabIndex = selectedIndex,
-            containerColor = Color.Transparent,
-            contentColor = controlTint,
-            edgePadding = 0.dp,
-            // Underline under the active tab only, tinted to the control accent (the default
-            // PrimaryIndicator is colorScheme.primary). No full-width bottom divider.
-            indicator = {
-                TabRowDefaults.PrimaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(selectedIndex),
-                    color = controlTint,
-                )
-            },
-            divider = {},
-            modifier = Modifier.weight(1f),
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            tabs.forEachIndexed { i, tab ->
-                val selected = i == selectedIndex
-                Tab(
-                    selected = selected,
-                    onClick = { onTabSelected(i) },
-                    text = {
-                        Text(
-                            text = tab.stringResource()?.let { stringResource(it) }.orEmpty(),
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            color = controlTint,
-                        )
+            PrimaryScrollableTabRow(
+                selectedTabIndex = selectedIndex,
+                containerColor = Color.Transparent,
+                contentColor = controlTint,
+                edgePadding = 0.dp,
+                // Underline under the active tab only, tinted to the control accent (the default
+                // PrimaryIndicator is colorScheme.primary). No full-width bottom divider.
+                indicator = {
+                    TabRowDefaults.PrimaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(selectedIndex),
+                        color = controlTint,
+                    )
+                },
+                divider = {},
+                modifier = Modifier.weight(1f),
+            ) {
+                tabs.forEachIndexed { i, tab ->
+                    val selected = i == selectedIndex
+                    Tab(
+                        selected = selected,
+                        onClick = { onTabSelected(i) },
+                        text = {
+                            Text(
+                                text = tab.stringResource()?.let { stringResource(it) }.orEmpty(),
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = controlTint,
+                            )
+                        },
+                    )
+                }
+            }
+
+            if (sortCtx != null && currentSort != null) {
+                ItemSortChip(
+                    sortOption = currentSort,
+                    sortContext = sortCtx,
+                    onSortChanged = { opt ->
+                        onPlayableItemsSortChanged(sortCtx, opt)
                     },
                 )
             }
-        }
-        if (sortCtx != null && currentSort != null) {
-            ItemSortChip(
-                sortOption = currentSort,
-                sortContext = sortCtx,
-                onSortChanged = { opt ->
-                    onPlayableItemsSortChanged(sortCtx, opt)
-                },
-            )
-        }
 
-        currentTab.viewMediaType?.let { viewMediaType ->
-            ViewModeToggle(
-                viewMode = viewModeProvider(viewMediaType),
-                onToggleViewMode = { onToggleViewMode(viewMediaType) },
-            )
+            currentTab.viewMediaType?.let { viewMediaType ->
+                ViewModeToggle(
+                    viewMode = viewModeProvider(viewMediaType),
+                    onToggleViewMode = { onToggleViewMode(viewMediaType) },
+                )
+            }
         }
     }
 }
