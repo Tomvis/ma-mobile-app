@@ -1,5 +1,8 @@
 package io.music_assistant.client.ui.compose.item
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +22,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
@@ -104,7 +102,6 @@ import io.music_assistant.client.ui.compose.item.artist.ArtistDetailsViewModel
 import io.music_assistant.client.ui.compose.item.artist.ArtistDetailsViewModel.Section
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
-import io.music_assistant.client.ui.compose.search.SearchInput
 import io.music_assistant.client.ui.fullBleed
 import io.music_assistant.client.ui.theme.AppTheme
 import musicassistantclient.composeapp.generated.resources.Res
@@ -112,10 +109,7 @@ import musicassistantclient.composeapp.generated.resources.album_disc_header
 import musicassistantclient.composeapp.generated.resources.artist_section_all
 import musicassistantclient.composeapp.generated.resources.artist_section_in_library
 import musicassistantclient.composeapp.generated.resources.artist_section_top
-import musicassistantclient.composeapp.generated.resources.cd_close
-import musicassistantclient.composeapp.generated.resources.cd_find_in_list
 import musicassistantclient.composeapp.generated.resources.cd_provider_filter
-import musicassistantclient.composeapp.generated.resources.find_in_list_label
 import musicassistantclient.composeapp.generated.resources.item_error
 import musicassistantclient.composeapp.generated.resources.item_no_data
 import musicassistantclient.composeapp.generated.resources.library_empty
@@ -366,14 +360,20 @@ private fun ItemContent(
     )
 
     val heroSlot: @Composable () -> Unit = {
-        ProvideClickActions(ClickContext.DETAIL) {
-            ItemHeader(
-                item = item,
-                colors = colors,
-                providerIconFetcher = providerIconFetcher,
-                onPlayClick = onPlayItemClick,
-                navigateToItem = onNavigateClick,
-            )
+        AnimatedVisibility(
+            visible = state.playableItemsQuery == null,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            ProvideClickActions(ClickContext.DETAIL) {
+                ItemHeader(
+                    item = item,
+                    colors = colors,
+                    providerIconFetcher = providerIconFetcher,
+                    onPlayClick = onPlayItemClick,
+                    navigateToItem = onNavigateClick,
+                )
+            }
         }
     }
 
@@ -390,6 +390,10 @@ private fun ItemContent(
                 // force_refresh is a playlist-tracks-only server argument, so no other
                 // media type gets the action.
                 onRefresh = onRefreshPlaylist.takeIf { item is Playlist },
+                query = state.playableItemsQuery,
+                onQueryChanged = onPlayableItemsQueryChanged.takeIf {
+                    item is Album || item is Playlist || item is Podcast
+                },
             )
         },
     ) {
@@ -443,10 +447,6 @@ private fun ItemContent(
                             onPlayableItemsSortChanged = onPlayableItemsSortChanged,
                             viewModeProvider = viewModeProvider,
                             onToggleViewMode = onToggleViewMode,
-                            query = state.playableItemsQuery,
-                            onQueryChanged = onPlayableItemsQueryChanged.takeIf {
-                                item is Album || item is Playlist || item is Podcast
-                            },
                         )
                     }
                     val tabContext = currentTab.sortContext?.toClickContext()
@@ -501,8 +501,6 @@ private fun TabsBar(
     onPlayableItemsSortChanged: (SubItemContext, SortOption) -> Unit,
     viewModeProvider: @Composable (MediaType) -> ViewMode,
     onToggleViewMode: (MediaType) -> Unit,
-    query: String?,
-    onQueryChanged: ((String?) -> Unit)?,
 ) {
     val currentTab = tabs[selectedIndex]
     val sortCtx = currentTab.sortContext
@@ -521,16 +519,6 @@ private fun TabsBar(
     }
 
     Column {
-        onQueryChanged?.let { changed ->
-            query?.let {
-                SearchInput(
-                    query = it,
-                    onQueryChanged = changed,
-                    placeholder = stringResource(Res.string.find_in_list_label),
-                )
-            }
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -584,16 +572,6 @@ private fun TabsBar(
                     viewMode = viewModeProvider(viewMediaType),
                     onToggleViewMode = { onToggleViewMode(viewMediaType) },
                 )
-            }
-
-            onQueryChanged?.let { changed ->
-                IconButton(onClick = { changed(if (query == null) "" else null) }) {
-                    if (query == null) {
-                        Icon(Icons.Default.Search, stringResource(Res.string.cd_find_in_list))
-                    } else {
-                        Icon(Icons.Default.SearchOff, stringResource(Res.string.cd_close))
-                    }
-                }
             }
         }
     }

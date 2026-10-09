@@ -20,9 +20,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -78,6 +80,7 @@ import io.music_assistant.client.ui.compose.common.items.resolveDetailOverflowAc
 import io.music_assistant.client.ui.compose.common.items.toOverflowOption
 import io.music_assistant.client.ui.compose.common.painters.rememberPlaceholderPainter
 import io.music_assistant.client.ui.compose.common.providers.ProviderIconFetcher
+import io.music_assistant.client.ui.compose.search.SearchInput
 import io.music_assistant.client.ui.contentColorByLuminance
 import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.ui.inactive
@@ -85,8 +88,11 @@ import io.music_assistant.client.utils.WindowClass
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_go_to_artist
 import musicassistantclient.composeapp.generated.resources.action_similar_artists
+import musicassistantclient.composeapp.generated.resources.cd_close
+import musicassistantclient.composeapp.generated.resources.cd_find_in_list
 import musicassistantclient.composeapp.generated.resources.cd_more
 import musicassistantclient.composeapp.generated.resources.common_back
+import musicassistantclient.composeapp.generated.resources.find_in_list_label
 import musicassistantclient.composeapp.generated.resources.refresh
 import org.jetbrains.compose.resources.stringResource
 
@@ -166,7 +172,11 @@ internal fun ItemTopBar(
     navigateToItem: (AppMediaItem) -> Unit,
     onSimilarArtistsClick: () -> Unit,
     onRefresh: (() -> Unit)? = null,
+    query: String?,
+    onQueryChanged: ((String?) -> Unit)?,
 ) {
+    val searchEnabled = onQueryChanged != null
+
     // Flat fill equal to the header gradient's top color, so the bar reads as one
     // continuous wash with the header below it. Back/overflow icons are NOT control-tinted
     // — just black or white per the composited bar luminance, keeping them legible.
@@ -179,7 +189,15 @@ internal fun ItemTopBar(
     // single-pass color change, in lockstep with the header gradient.
     Box(modifier = Modifier.background(barBg)) {
         TopAppBar(
-            title = {},
+            title = {
+                if (searchEnabled && query != null) {
+                    SearchInput(
+                        query = query,
+                        onQueryChanged = onQueryChanged,
+                        placeholder = stringResource(Res.string.find_in_list_label),
+                    )
+                }
+            },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
                 scrolledContainerColor = Color.Transparent,
@@ -196,21 +214,34 @@ internal fun ItemTopBar(
                 }
             },
             actions = {
-                onRefresh?.let { refresh ->
-                    IconButton(onClick = refresh) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            stringResource(Res.string.refresh),
-                        )
+                if (searchEnabled && query != null) {
+                    IconButton(onClick = { onQueryChanged(null) }) {
+                        Icon(Icons.Default.Close, stringResource(Res.string.cd_close))
                     }
+                } else {
+                    onRefresh?.let { refresh ->
+                        IconButton(onClick = refresh) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                stringResource(Res.string.refresh),
+                            )
+                        }
+                    }
+
+                    if (searchEnabled) {
+                        IconButton(onClick = { onQueryChanged("") }) {
+                            Icon(Icons.Default.Search, stringResource(Res.string.cd_find_in_list))
+                        }
+                    }
+
+                    ItemOverflow(
+                        item = item,
+                        libraryActions = libraryActions,
+                        playlistActions = playlistActions,
+                        navigateToItem = navigateToItem,
+                        onSimilarArtistsClick = onSimilarArtistsClick,
+                    )
                 }
-                ItemOverflow(
-                    item = item,
-                    libraryActions = libraryActions,
-                    playlistActions = playlistActions,
-                    navigateToItem = navigateToItem,
-                    onSimilarArtistsClick = onSimilarArtistsClick,
-                )
             },
         )
     }
