@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package io.music_assistant.client.ui.compose.library
 
 import androidx.compose.foundation.layout.Column
@@ -10,10 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +41,6 @@ import io.music_assistant.client.ui.compose.item.ViewModeViewModel
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.nav.TwoRowTopAppBar
 import io.music_assistant.client.ui.compose.search.SearchInput
-import io.music_assistant.client.ui.compose.search.SearchInputMode
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.cd_close
 import musicassistantclient.composeapp.generated.resources.common_back
@@ -58,6 +53,7 @@ import musicassistantclient.composeapp.generated.resources.media_type_playlists
 import musicassistantclient.composeapp.generated.resources.media_type_podcasts
 import musicassistantclient.composeapp.generated.resources.media_type_radio
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
+import musicassistantclient.composeapp.generated.resources.search_query_label
 import org.jetbrains.compose.resources.stringResource
 
 // Cap the reception-filter active-count badge so it stays within Material's badge width.
@@ -173,10 +169,10 @@ private fun LibraryListTopBar(
             title = {
                 if (showSearch) {
                     SearchInput(
-                        mode = SearchInputMode.EXPLICIT_SEARCH,
                         query = searchQuery,
                         onQueryChanged = onSearchQueryChanged,
-                        onSearch = onSearch,
+                        onSearchAction = onSearch,
+                        placeholder = stringResource(Res.string.search_query_label),
                     )
                 } else {
                     val title = when (mediaType) {
