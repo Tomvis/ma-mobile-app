@@ -37,17 +37,17 @@ class ReceptionFilterTest {
     }
 
     @Test fun ratingsSerializeSortedNumberArrays() {
-        // AMG selectors are half stars, so the array has to survive the .5 unrounded.
+        // Both sources select half points, so the array has to survive the .5 unrounded.
         val args = ReceptionFilter(
             amg = SourceFilter(ratings = setOf(5.0, 3.5)),
-            tps = SourceFilter(ratings = setOf(9.0, 1.0)),
+            tps = SourceFilter(ratings = setOf(9.0, 8.5)),
         ).toRequestArgs()
         assertEquals(
             listOf(3.5, 5.0),
             (args["amg_ratings"] as JsonArray).map { it.toString().toDouble() },
         )
         assertEquals(
-            listOf(1.0, 9.0),
+            listOf(8.5, 9.0),
             (args["tps_ratings"] as JsonArray).map { it.toString().toDouble() },
         )
     }

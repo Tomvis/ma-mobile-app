@@ -174,8 +174,8 @@ private fun ColumnScope.ReceptionFilters(state: MutableState<ReceptionFilter>) {
         SourceChipsRow(
             label = Res.string.filter_tps,
             accoladeLabels = TPS_ACCOLADE_LABELS,
-            ratings = ReceptionFilter.TPS_BANDS,
-            ratingLabel = ::tpsBandLabel,
+            ratings = ReceptionFilter.TPS_RATINGS,
+            ratingLabel = ::tpsRatingLabel,
             filter = working.tps,
             onChange = { working = working.copy(tps = it) },
         )
@@ -211,7 +211,7 @@ private fun ReceptionFilter.toggleDr(option: DrQuality?): ReceptionFilter =
 
 /**
  * One chip of a source's row. The row mixes rating chips — labelled from a number
- * ("4★", "7–8") rather than a string resource — with the resource-labelled accolade,
+ * ("4★", "9.5") rather than a string resource — with the resource-labelled accolade,
  * favorite and untagged chips, which is why it goes through the plain-String
  * [MultiChoiceChipsRow] overload.
  */
@@ -283,13 +283,9 @@ private fun amgRatingLabel(rating: Double): String {
     return "$whole$half★"
 }
 
-// TPS bands: selector `lo` covers [lo, lo+2) on the /10 scale; 9 is the open top band.
-// Label with the inclusive integer span [lo, lo+1] so adjacent chips don't share an
-// endpoint (e.g. "7–8", not "7–9" which wrongly implies the 7-band covers 9).
-private fun tpsBandLabel(lo: Double): String {
-    val band = lo.toInt()
-    return if (band >= 9) "9+" else "$band–${band + 1}"
-}
+// TPS half-point selectors on /10: whole scores drop the decimal ("9", "9.5", "10").
+private fun tpsRatingLabel(rating: Double): String =
+    if (rating % 1.0 == 0.0) rating.toInt().toString() else rating.toString()
 
 // The body puts the sections in a Modifier.weight(1f) child, which measures to zero in a
 // wrap-content host — the preview would then show only the "Clear all" row. Give the host

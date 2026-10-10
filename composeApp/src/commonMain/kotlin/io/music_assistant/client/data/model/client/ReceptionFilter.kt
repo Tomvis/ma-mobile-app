@@ -67,11 +67,11 @@ data class ReceptionFilter(
         // Chip labels for the DR buckets and accolade kinds live in
         // ReceptionFilterAction.kt, their only consumer; the taxonomies themselves are
         // DrQuality/AccoladeKind. These numeric selectors have no enum, so they stay here.
-        // AMG publishes half stars over its whole 0.5..5.0 scale (Unlistenable .. Iconic)
-        // and the server buckets each selector as one exact step, so a 4-star album and a
-        // 4½-star one are separately selectable.
-        val AMG_RATINGS = listOf(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
-        val TPS_BANDS = listOf(1.0, 3.0, 5.0, 7.0, 9.0)
+        // Both sources score in half points (AMG 0.5..5.0 stars, TPS 0.5..10) and the
+        // server buckets each selector as one exact step, so a 4-star album and a
+        // 4½-star one are separately selectable; an off-grid TPS 8.75 lands in 8.5.
+        val AMG_RATINGS = (1..10).map { it / 2.0 }
+        val TPS_RATINGS = (1..20).map { it / 2.0 }
     }
 }
 
