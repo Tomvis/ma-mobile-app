@@ -52,6 +52,7 @@ import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.Artist
 import io.music_assistant.client.data.model.client.items.Audiobook
@@ -265,11 +266,12 @@ fun MainNavigationRoot(
         AdaptiveNavigationBarLayout(
             showNavigation = !playerExpanded,
             navigationItems = navigationItems(
-                multiBackStack,
-                homeScreenState,
-                libraryScreenState,
-                searchScreenState,
-                playersState,
+                multiBackStack = multiBackStack,
+                homeScreenState = homeScreenState,
+                libraryScreenState = libraryScreenState,
+                searchScreenState = searchScreenState,
+                playersState = playersState,
+                selectPlayer = homeScreenViewModel::selectPlayer,
             ),
         ) { scaffoldContentPadding ->
             FloatingBarLayout(
@@ -360,6 +362,7 @@ private fun navigationItems(
     libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
     playersState: HomeScreenViewModel.PlayersState,
+    selectPlayer: (Player) -> Unit,
 ): List<NavigationItem> {
     val navigationItems = mutableListOf(
         multiBackStack.createNavigationItem(
@@ -386,11 +389,16 @@ private fun navigationItems(
         val selectedPlayer = playersState.selectedPlayer
         if (selectedPlayer != null) {
             var showPlayerSelection by remember { mutableStateOf(false) }
+
             if (showPlayerSelection) {
                 SelectPlayerDialog(
                     selectedPlayer = selectedPlayer,
                     players = playersState.playerData,
                     onDismissRequest = { showPlayerSelection = false },
+                    onMoveToPlayer = { id: String ->
+                        playersState.playerData.find { it.player.id == id }
+                            ?.let { selectPlayer(it.player) }
+                    },
                 )
             }
 
