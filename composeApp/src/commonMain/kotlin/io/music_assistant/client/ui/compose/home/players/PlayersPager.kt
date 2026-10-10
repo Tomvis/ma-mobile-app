@@ -1155,21 +1155,6 @@ private fun CollapsedPlayerPage(
     chapterProgressEnabled: Boolean = true,
     livePositionFlow: Flow<Double>? = null,
 ) {
-    if (!isWideScreen) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            PlayerSelectionButton(
-                player = player,
-                controlTint = colors.controlTint,
-                sendSpinState = sendspinState,
-                onSelectPlayer = onSelectPlayer,
-                onGroupButton = onGroupButton,
-            )
-        }
-    }
-
     CompactPlayerItem(
         modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
         item = player,
