@@ -66,6 +66,7 @@ import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.sharedicons.SharedIcons
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
+import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.providers.providerIconFetcher
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
@@ -73,6 +74,8 @@ import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
 import io.music_assistant.client.ui.compose.home.players.QueueDjViewModel
 import io.music_assistant.client.ui.compose.home.players.SelectPlayerDialog
+import io.music_assistant.client.ui.compose.home.players.rememberHideUnavailablePlayers
+import io.music_assistant.client.ui.compose.home.players.rememberToggleHideUnavailablePlayers
 import io.music_assistant.client.ui.compose.item.ItemDetailsScreen
 import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
 import io.music_assistant.client.ui.compose.item.ItemListScreen
@@ -271,7 +274,9 @@ fun MainNavigationRoot(
                 libraryScreenState = libraryScreenState,
                 searchScreenState = searchScreenState,
                 playersState = playersState,
-                selectPlayer = homeScreenViewModel::selectPlayer,
+                onSelectPlayer = homeScreenViewModel::selectPlayer,
+                onPlayerAction = homeScreenViewModel::playerAction,
+                onPlayerSortChange = homeScreenViewModel::onPlayersSortChanged,
             ),
         ) { scaffoldContentPadding ->
             FloatingBarLayout(
@@ -362,7 +367,9 @@ private fun navigationItems(
     libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
     playersState: HomeScreenViewModel.PlayersState,
-    selectPlayer: (Player) -> Unit,
+    onSelectPlayer: (Player) -> Unit,
+    onPlayerAction: (String, PlayerAction) -> Unit,
+    onPlayerSortChange: (List<String>) -> Unit,
 ): List<NavigationItem> {
     val navigationItems = mutableListOf(
         multiBackStack.createNavigationItem(
@@ -397,8 +404,12 @@ private fun navigationItems(
                     onDismissRequest = { showPlayerSelection = false },
                     onMoveToPlayer = { id: String ->
                         playersState.playerData.find { it.player.id == id }
-                            ?.let { selectPlayer(it.player) }
+                            ?.let { onSelectPlayer(it.player) }
                     },
+                    onReorder = onPlayerSortChange,
+                    onPlayerAction = onPlayerAction,
+                    hideUnavailable = rememberHideUnavailablePlayers(),
+                    onToggleHideUnavailable = rememberToggleHideUnavailablePlayers(),
                 )
             }
 

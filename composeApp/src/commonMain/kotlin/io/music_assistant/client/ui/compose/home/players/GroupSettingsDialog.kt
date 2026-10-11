@@ -105,7 +105,7 @@ fun GroupSettingsDialog(
 }
 
 @Composable
-private fun GroupSettings(
+fun GroupSettings(
     item: PlayerData,
     onDismiss: () -> Unit,
     playerAction: (String, PlayerAction) -> Unit,
@@ -298,7 +298,6 @@ private fun GroupSettings(
  * phone-speaker player. The row stays visible even when the local player
  * isn't joined to the group; the name and management buttons disabled.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GroupPlayerItemCard(
     background: Color = Color.Transparent,
