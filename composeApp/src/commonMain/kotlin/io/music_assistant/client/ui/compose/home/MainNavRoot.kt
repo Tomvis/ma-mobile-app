@@ -265,6 +265,9 @@ fun MainNavigationRoot(
     val rootScreenEditing = homeScreenState.value?.editMode == true ||
         libraryScreenState.value?.editMode == true
 
+    val leaderLeaveSupported by homeScreenViewModel.leaderLeaveSupported
+        .collectAsStateWithLifecycle()
+
     Box(modifier = Modifier.fillMaxSize()) {
         AdaptiveNavigationBarLayout(
             showNavigation = !playerExpanded,
@@ -277,6 +280,8 @@ fun MainNavigationRoot(
                 onSelectPlayer = homeScreenViewModel::selectPlayer,
                 onPlayerAction = homeScreenViewModel::playerAction,
                 onPlayerSortChange = homeScreenViewModel::onPlayersSortChanged,
+                onAdjustPlaybackDelay = { homeScreenViewModel.adjustSendspinStaticDelayMs(it) },
+                canLeaveGroup = leaderLeaveSupported,
             ),
         ) { scaffoldContentPadding ->
             FloatingBarLayout(
@@ -370,6 +375,8 @@ private fun navigationItems(
     onSelectPlayer: (Player) -> Unit,
     onPlayerAction: (String, PlayerAction) -> Unit,
     onPlayerSortChange: (List<String>) -> Unit,
+    onAdjustPlaybackDelay: (Int) -> Unit,
+    canLeaveGroup: Boolean,
 ): List<NavigationItem> {
     val navigationItems = mutableListOf(
         multiBackStack.createNavigationItem(
@@ -410,6 +417,8 @@ private fun navigationItems(
                     onPlayerAction = onPlayerAction,
                     hideUnavailable = rememberHideUnavailablePlayers(),
                     onToggleHideUnavailable = rememberToggleHideUnavailablePlayers(),
+                    onAdjustPlaybackDelay = onAdjustPlaybackDelay,
+                    canLeaveGroup = canLeaveGroup,
                 )
             }
 

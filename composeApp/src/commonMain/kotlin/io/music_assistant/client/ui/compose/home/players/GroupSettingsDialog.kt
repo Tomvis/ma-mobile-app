@@ -95,7 +95,7 @@ fun GroupSettingsDialog(
                         onDismiss = onDismissRequest,
                         playerAction = groupAction,
                         localPlayerId = localPlayerId,
-                        onAdjustPlaybackDelay = onAdjustPlaybackDelay,
+                        onAdjustPlaybackDelay = onAdjustPlaybackDelay ?: {},
                         canLeaveGroup = canLeaveGroup,
                     )
                 }
@@ -109,9 +109,9 @@ fun GroupSettings(
     item: PlayerData,
     onDismiss: () -> Unit,
     playerAction: (String, PlayerAction) -> Unit,
-    localPlayerId: String? = null,
-    onAdjustPlaybackDelay: ((Int) -> Unit)? = null,
-    canLeaveGroup: Boolean = false,
+    localPlayerId: String?,
+    onAdjustPlaybackDelay: ((Int) -> Unit),
+    canLeaveGroup: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
