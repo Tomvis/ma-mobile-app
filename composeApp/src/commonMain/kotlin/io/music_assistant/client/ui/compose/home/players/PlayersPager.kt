@@ -169,6 +169,7 @@ fun PlayersPager(
     contentPadding: PaddingValues,
     toastState: ToastState,
     navigateToItem: (AppMediaItem) -> Unit,
+    onSelectPlayer: () -> Unit,
 ) {
     LaunchedEffect(actionsViewModel, toastState) {
         actionsViewModel.toasts.collect { toastState.showToast(it) }
@@ -190,10 +191,6 @@ fun PlayersPager(
         // Sleep timers are a server-side feature from schema 35 on; below that the
         // menu entry and the badge stay hidden entirely.
         val sleepTimerSupported by homeScreenViewModel.sleepTimerSupported
-            .collectAsStateWithLifecycle()
-        // Older servers dissolve the group and stop playback when the leader leaves,
-        // so the leave gesture stays hidden below the handoff floor.
-        val leaderLeaveSupported by homeScreenViewModel.leaderLeaveSupported
             .collectAsStateWithLifecycle()
         val announcementAvailability by koinInject<AnnouncementRepository>().availability
             .collectAsStateWithLifecycle()
@@ -224,13 +221,10 @@ fun PlayersPager(
         PlayerDialogHost(
             request = dialogRequest,
             players = playerDataList,
-            allPlayers = state.allPlayerData,
             homeScreenViewModel = homeScreenViewModel,
             dspSettingsViewModel = dspSettingsViewModel,
             providerViewModel = providerViewModel,
             playlistActions = actionsViewModel,
-            canLeaveGroup = leaderLeaveSupported,
-            onMoveToPlayer = moveToPlayer,
             onNavigateToItem = {
                 navigateToItem(it)
                 onClose()
@@ -285,11 +279,6 @@ fun PlayersPager(
                 val lyrics = currentTrack?.lyrics
                 val trackId = currentTrack?.itemId
                 val queueItemId = currentQueueItem?.id
-                val onSelectPlayer: () -> Unit = remember(playerId) {
-                    {
-                        dialogRequest = PlayerDialogRequest.Select(playerId)
-                    }
-                }
                 val onDspButton: () -> Unit = remember(playerId) {
                     {
                         dialogRequest = PlayerDialogRequest.Dsp(playerId)
