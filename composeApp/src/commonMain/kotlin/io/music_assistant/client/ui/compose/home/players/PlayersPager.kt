@@ -147,6 +147,7 @@ import musicassistantclient.composeapp.generated.resources.players_none_availabl
 import musicassistantclient.composeapp.generated.resources.queue_clear
 import musicassistantclient.composeapp.generated.resources.queue_no_other_players
 import musicassistantclient.composeapp.generated.resources.queue_transfer
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
@@ -952,10 +953,10 @@ private fun PlayerOverflowMenu(
                     OverflowMenuOption(
                         title = playerData.player.nameAndSuffix,
                         leadingContent = {
-                            PlayerIcon(
-                                player = playerData.player,
-                                isLocal = playerData.isLocal,
+                            Icon(
+                                painter = painterResource(playerData.iconRes()),
                                 modifier = Modifier.size(24.dp),
+                                contentDescription = null,
                             )
                         },
                         onClick = {
