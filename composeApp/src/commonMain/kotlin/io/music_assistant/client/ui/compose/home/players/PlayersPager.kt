@@ -48,7 +48,6 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Waves
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -157,7 +156,6 @@ private const val PLAYER_PANE_WEIGHT = 2f
 private const val QUEUE_PANE_WEIGHT = 1f
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun PlayersPager(
     playerPagerState: PagerState,
     state: HomeScreenViewModel.PlayersState,
@@ -292,11 +290,6 @@ fun PlayersPager(
                         dialogRequest = PlayerDialogRequest.Select(playerId)
                     }
                 }
-                val onGroupButton: () -> Unit = remember(playerId) {
-                    {
-                        dialogRequest = PlayerDialogRequest.Group(playerId)
-                    }
-                }
                 val onDspButton: () -> Unit = remember(playerId) {
                     {
                         dialogRequest = PlayerDialogRequest.Dsp(playerId)
@@ -400,7 +393,6 @@ fun PlayersPager(
                                 colors = colors,
                                 sendspinState = state.sendspinState,
                                 onSelectPlayer = onSelectPlayer,
-                                onGroupButton = onGroupButton,
                                 playerAction = playerAction1,
                                 chapterProgressEnabled = chapterProgressEnabled,
                                 livePositionFlow = livePositionFlow,
@@ -410,7 +402,6 @@ fun PlayersPager(
                                 player = player,
                                 colors = colors,
                                 onSelectPlayer = onSelectPlayer,
-                                onGroupButton = onGroupButton,
                                 onDspButton = onDspButton.takeIf {
                                     !player.player.isGroup && grantedScopes.canConfigurePlayers
                                 },
@@ -516,12 +507,10 @@ private fun BoundPlayerInfo(
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 private fun ExpandedPlayerPage(
     player: PlayerData,
     colors: PlayerColors,
     onSelectPlayer: () -> Unit,
-    onGroupButton: () -> Unit,
     onDspButton: (() -> Unit)?,
     onSleepTimerButton: (() -> Unit)?,
     onAnnounceButton: (() -> Unit)?,
@@ -601,7 +590,6 @@ private fun ExpandedPlayerPage(
                     controlTint = colors.controlTint,
                     sendSpinState = sendspinState,
                     onSelectPlayer = onSelectPlayer,
-                    onGroupButton = onGroupButton,
                 )
             },
             end = {
@@ -655,7 +643,6 @@ private fun ExpandedPlayerPage(
                     colors = colors,
                     playerAction = playerAction,
                     onSelectPlayer = if (isWideScreen && !isQueueExpanded) onSelectPlayer else null,
-                    onGroupButton = if (isWideScreen && !isQueueExpanded) onGroupButton else null,
                     showAdditionalControls = isWideScreen,
                     sendSpinState = sendspinState,
                     chapterProgressEnabled = chapterProgressEnabled,
@@ -1149,7 +1136,6 @@ private fun CollapsedPlayerPage(
     colors: PlayerColors,
     sendspinState: PlayerState?,
     onSelectPlayer: () -> Unit,
-    onGroupButton: () -> Unit,
     playerAction: (PlayerData, PlayerAction) -> Unit,
     // Server preference gate for chapter-based Next enablement and the chapter subtitle.
     chapterProgressEnabled: Boolean = true,
@@ -1161,7 +1147,6 @@ private fun CollapsedPlayerPage(
         colors = colors,
         playerAction = playerAction,
         onSelectPlayer = if (isWideScreen) onSelectPlayer else null,
-        onGroupButton = if (isWideScreen) onGroupButton else null,
         sendSpinState = sendspinState,
         chapterProgressEnabled = chapterProgressEnabled,
         livePositionFlow = livePositionFlow,
@@ -1184,7 +1169,6 @@ fun ExpandedPlayerPagePreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
@@ -1223,7 +1207,6 @@ fun ExpandedPlayerPageMediumScreenPreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
@@ -1262,7 +1245,6 @@ fun ExpandedPlayerPageExpandedScreenPreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
@@ -1305,7 +1287,6 @@ fun ExpandedPlayerPageExpandedScreenPlusPreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
@@ -1345,7 +1326,6 @@ fun ExpandedPlayerPagePhoneLandscapePreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
@@ -1384,7 +1364,6 @@ fun ExpandedPlayerPageLargeScreenPreview() {
                 MaterialTheme.colorScheme.onSurface,
             ),
             onSelectPlayer = {},
-            onGroupButton = {},
             onDspButton = null,
             onSleepTimerButton = null,
             onAnnounceButton = null,
