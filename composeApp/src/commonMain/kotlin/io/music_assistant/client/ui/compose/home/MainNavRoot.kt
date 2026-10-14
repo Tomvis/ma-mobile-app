@@ -427,6 +427,7 @@ private fun navigationItems(
                 onClick = onSelectPlayer,
                 icon = vectorResource(selectedPlayer.iconRes()),
                 label = selectedPlayer.label(),
+                marqueeLabel = true,
                 contentDescription = selectedPlayer.contentDescription(),
             )
         }
