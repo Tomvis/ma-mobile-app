@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.media_playback_stopped_connection_lost
+import musicassistantclient.composeapp.generated.resources.sendspin_failed_incompatible_protocol
 import musicassistantclient.composeapp.generated.resources.sendspin_failed_server_rejected
 import musicassistantclient.composeapp.generated.resources.sendspin_failed_setup
 import musicassistantclient.composeapp.generated.resources.sendspin_failed_unauthorized
@@ -203,6 +204,7 @@ class LocalPlayerAdapter(
             FailureCause.Unpaired -> Res.string.sendspin_failed_unpaired
             FailureCause.ServerRejected -> Res.string.sendspin_failed_server_rejected
             FailureCause.SetupFailed -> Res.string.sendspin_failed_setup
+            FailureCause.IncompatibleProtocol -> Res.string.sendspin_failed_incompatible_protocol
         }
 
     private suspend fun approvePairing(pairingToken: String) {

@@ -67,6 +67,11 @@ actual class PlatformFeature {
   (`api/Paging.kt`) when a caller needs the whole list. `playlist_tracks` is streamed by the
   server in 500-item `partial` batches that `RpcEngine` reassembles. `library_items` already
   returns slim summary items by default.
+- **Collections**: an audiobook series is `MediaType.COLLECTION` (`MediaCollection`, books in `items`). The
+  server returns series rows only when `library_items` gets `collapse_collections`. The Audiobooks top bar sets
+  it with the `SeriesGrouping` toggle, which is a display setting and not a filter. `music/audiobooks/get_collection`
+  loads one series. Home rows from Audiobookshelf can also contain series. Play the series `uri` and the
+  server starts the first book that is not fully played. Android Auto and CarPlay show the flat book list.
 - **In-list filter**: `List.clientFiltered(query)` (`model/client/QueryFilter.kt`) filters loaded
   items on the client. Derive the visible list as raw → filter → sort in one place.
 - **Announcements**: `AnnouncementRepository` (`data/announcement/`) runs both kinds in an app scope,
@@ -160,7 +165,7 @@ The built-in player is the `:sendspin` Gradle module (`io.music_assistant.sendsp
 - `data/LocalPlayerEndpoints` derives the endpoint from the MA session. A WebRTC session gets the data channel. A direct session gets the proxied WebSocket at `<wsUrl>/sendspin`, or the custom Sendspin server from settings. A reconnecting MA session keeps the last endpoint.
 - `player/local/` holds the platform sinks and decoders. Android: `AudioTrackSink` and `AndroidDecoderFactory`. iOS: `AudioQueueSink` and pass-through `IosDecoderFactory` (the native player decodes).
 - The control plane stays on the MA REST API. Sendspin carries audio only (role `player@v1`).
-- Only the Noise-encrypted protocol is supported. Servers that predate it cannot use the local player.
+- Only the Noise-encrypted protocol is supported. `supportsEncryptedSendspin(schemaVersion)` requires MA schema 45 or newer. A known lower schema produces `Endpoint.Unsupported`, and the player fails without opening a transport. A missing schema is inconclusive: endpoint selection permits a handshake rather than rejecting the server. An explicit unsupported wire version also fails terminally; network failures and handshake timeouts still retry.
 
 ### Android Services Integration
 

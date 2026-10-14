@@ -13,9 +13,11 @@ import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Genre
+import io.music_assistant.client.data.model.client.items.MediaCollection
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.settings.SeriesGrouping
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.Timings
 import io.music_assistant.client.ui.compose.common.DataState
@@ -50,6 +52,7 @@ class LibraryListViewModel(
             // This VM is recreated on every tab re-enter, so the persisted sort is
             // what makes the choice survive leaving the screen.
             sortOption = settingsRepository.getSortOption(mediaType),
+            seriesGrouping = settingsRepository.getSeriesGrouping(),
         ),
     )
     val state = _state.asStateFlow()
@@ -217,6 +220,13 @@ class LibraryListViewModel(
         _state.update { it.copy(searchQuery = query) }
     }
 
+    fun onSeriesGroupingToggled() {
+        val grouping = _state.value.seriesGrouping.toggled()
+        settingsRepository.setSeriesGrouping(grouping)
+        _state.update { it.copy(seriesGrouping = grouping) }
+        searchTrigger.tryEmit(Unit)
+    }
+
     fun onSortChanged(sortOption: SortOption) {
         settingsRepository.setSortOption(mediaType, sortOption)
         _state.update { it.copy(sortOption = sortOption) }
@@ -262,6 +272,7 @@ class LibraryListViewModel(
                 searchQuery,
                 currentState.filters,
                 currentState.receptionFilter,
+                currentState.seriesGrouping,
             )
             val result = mediaItemRepository.fetchMediaItems(request)
 
@@ -294,6 +305,7 @@ class LibraryListViewModel(
         searchQuery: String?,
         filters: LibraryFilters,
         receptionFilter: ReceptionFilter,
+        seriesGrouping: SeriesGrouping,
     ): Request {
         val favorite = filters.favorite.takeIf { it }
         val providers = filters.providers.takeIf { it.isNotEmpty() }
@@ -350,6 +362,7 @@ class LibraryListViewModel(
                 favorite = favorite,
                 providers = providers,
                 genres = genres,
+                collapseCollections = seriesGrouping == SeriesGrouping.GROUPED,
             )
 
             MediaType.PODCAST -> Request.Podcast.listLibrary(
@@ -417,11 +430,13 @@ class LibraryListViewModel(
                 searchQuery,
                 state.value.filters,
                 state.value.receptionFilter,
+                state.value.seriesGrouping,
             )
             val result = mediaItemRepository.fetchMediaItems(request)
 
             result.getOrNull()
-                ?.filter { it.mediaType == mediaType }
+                // A grouped audiobook listing mixes series rows in with the books.
+                ?.filter { it.mediaType == mediaType || it is MediaCollection }
                 ?.let { items ->
                     updateStateWithData(
                         items = items,
@@ -475,5 +490,7 @@ class LibraryListViewModel(
         // Fork: album-only critical-reception filter, kept beside [filters] because it
         // is transient (not persisted through SettingsRepository).
         val receptionFilter: ReceptionFilter = ReceptionFilter(),
+        // Audiobooks only: GROUPED sends `collapse_collections`, so a series comes back as one row.
+        val seriesGrouping: SeriesGrouping = SeriesGrouping.FLAT,
     )
 }
