@@ -29,9 +29,12 @@ import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
+import io.music_assistant.client.data.model.client.items.isAiRadioShow
 import io.music_assistant.client.data.model.client.toItemKind
 import io.music_assistant.client.data.model.server.ServerAiRadioStation
+import io.music_assistant.client.data.model.server.aiRadioStationUri
 import io.music_assistant.client.data.planLocalPlayerDispatch
+import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.repository.AiRadioRepository
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.fetchRecommendationFolders
@@ -85,6 +88,7 @@ object KmpHelper : KoinComponent {
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val aiRadioRepository: AiRadioRepository by inject()
+    private val playDispatcher: PlayDispatcher by inject()
     private val settingsRepository: SettingsRepository by inject()
     private val volumeButtonService: VolumeButtonService by inject()
 
@@ -298,23 +302,18 @@ object KmpHelper : KoinComponent {
     }
 
     /**
-     * Starts an AI Radio station on the local player, mirroring [dispatchLocal]'s target: a
-     * CarPlay tap wants audio out of the head unit, never mirrored to a house player.
+     * Plays an AI Radio show on the local player through [dispatchLocal]: a CarPlay tap wants
+     * audio out of the head unit, never mirrored to a house player. A show is a Radio item.
      *
-     * Returns false when there is no local player to start it on, so Swift can say so instead
+     * Returns false when there is no local player to play it on, so Swift can say so instead
      * of pushing a Now Playing screen that never fills.
      */
-    fun startAiRadioStation(stationId: String): Boolean {
-        val playerId = mainDataSource.localPlayer.value?.player?.id ?: run {
-            log.w { "AI Radio: no local player — ignoring station $stationId" }
-            return false
-        }
-        mainScope.launch {
-            aiRadioRepository.start(stationId, playerId)
-                .onFailure { log.w(it) { "AI Radio: start failed for $stationId" } }
-        }
-        return true
-    }
+    fun startAiRadioStation(stationId: String): Boolean =
+        dispatchLocal(
+            mediaUris = listOf(aiRadioStationUri(stationId)),
+            option = QueueOption.REPLACE,
+            endlessMixMode = false,
+        )
 
     fun fetchRecommendations(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("recommendations", completion) {
@@ -377,6 +376,7 @@ object KmpHelper : KoinComponent {
     fun fetchRadioStations(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("radioStations", completion) {
             Request.RadioStation.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
+                ?.filterNot { it.isAiRadioShow }
                 ?: emptyList()
         }
     }
@@ -527,7 +527,7 @@ object KmpHelper : KoinComponent {
             log.i { "dispatchLocal($option, endlessMix=$endlessMixMode): detaching ${plan.playerId} from $syncedToId" }
         }
         mainScope.launch {
-            executeLocalPlayerDispatch(serviceClient, plan) { label, error ->
+            executeLocalPlayerDispatch(serviceClient, playDispatcher, plan) { label, error ->
                 log.w(error) { "$label RPC failed: ${error.message}" }
             }
         }

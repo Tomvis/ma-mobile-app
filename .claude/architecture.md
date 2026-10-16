@@ -72,6 +72,25 @@ actual class PlatformFeature {
   it with the `SeriesGrouping` toggle, which is a display setting and not a filter. `music/audiobooks/get_collection`
   loads one series. Home rows from Audiobookshelf can also contain series. Play the series `uri` and the
   server starts the first book that is not fully played. Android Auto and CarPlay show the flat book list.
+- **Input sources**: a live input from a server plugin is `MediaType.AUDIO_SOURCE` (`AudioSource`). The server
+  puts the sources that a client can start at the `music/browse` root, from server 2.9.0. Play the source `uri`
+  with `play_media`. A source never ends, so the long-press menu has "Play now" only. A source has no favorite
+  state. Native player inputs (`source_list`, `players/cmd/select_source`) are a different feature, and the
+  client does not show them.
+- **Ambient sound overlay**: the server mixes a looping `sound_effect` item into the queue stream, so all
+  players on the stream hear it. `QueueOverlayRepository` (`data/repository/`) sends `player_queues/overlay`
+  and loads the sounds with `music/sound_effects`. The command goes to the server for every player and is never
+  a `PlayerAction`, so the local player does not intercept it. A null `QueueInfo.overlay` means that the server
+  has no overlay support. Show the feature only if a provider has the `sound_effects` feature. To turn the overlay
+  off, send `enabled=false` only, because the server keeps the last sound and volume.
+- **Play requests**: send every `player_queues/play_media` through `PlayDispatcher` (`data/play/`). Do not send it
+  from a screen or from a car surface directly. The dispatcher runs each request in an app scope, because the server
+  answers only after playback starts, and that can take tens of seconds. It sends one request for each queue at a
+  time. It drops a double tap, and a new "play" or "replace" request replaces a waiting one (`coalesce`).
+  `busyQueueIds` gives the queues that have a request in progress or waiting. `PlayerData.playRequestPending`
+  joins it with the server flag `extra_attributes.play_action_in_progress` (any client), and `PlayerControls`
+  shows a ring around the main button while it is true. Read the server flag from the server queues, because the
+  local player's queue info comes from `LocalPlayerAdapter`.
 - **In-list filter**: `List.clientFiltered(query)` (`model/client/QueryFilter.kt`) filters loaded
   items on the client. Derive the visible list as raw → filter → sort in one place.
 - **Announcements**: `AnnouncementRepository` (`data/announcement/`) runs both kinds in an app scope,
@@ -79,6 +98,17 @@ actual class PlatformFeature {
   `message`. Voice has no upload endpoint: raw s16le PCM streams live over `/live_announcement`
   (WebSocket) or the `live_announcement` data channel (WebRTC). Closing the link ends the clip, so
   never cancel a session early. The platform microphone is the `MicrophoneCapture` Koin binding.
+- **AI Radio**: The client supports server schema 88 and higher only (`supportsAiRadio`). Both gates,
+  `MainDataSource.aiRadioAvailable` and `aiRadioQueueDjAvailable`, need it. A station is a finite
+  Radio item (`ai_radio://radio/<station_id>`, `ServerAiRadioStation.uri`). Play it through
+  `PlayDispatcher` like any radio. There is no start, stop or status command. The server also mirrors
+  each show into the library as a Radio row. The Radio lists hide these rows (`isAiRadioShow`),
+  because the AI Radio section lists them. The `ai_radio` plugin
+  sends `provider_event` refetch hints (`object_id` `ai_radio`). The hints have no state, so re-read
+  the endpoint that the hint names. `AiRadioRepository.changes` maps the hints to `AiRadioChange`.
+  It also sends `RESYNC` when the command session comes back, because the server does not send
+  again the hints that the client lost. The queue DJ menu (`QueueDjViewModel`) and the stations
+  screen show their cache and use only these changes. A show on a queue does not lock the queue DJ.
 
 ## HTTP Clients
 
@@ -134,6 +164,12 @@ fun FeatureScreen(viewModel: FeatureViewModel = koinViewModel()) {
 - Use sealed class/interface for result types
 - Display errors via Toast or inline error states
 - Log with context: `Logger.withTag("Component").e { "message" }`
+
+## Localization
+
+- Edit only the English file, `composeResources/values/strings.xml`. Lokalise syncs the `values-*` locale files.
+- Do not edit a `values-*` file. If you remove a key from the English file, Lokalise removes it from the locale files.
+- To change the meaning of a string, add a new key and remove the old key. Translators see a new key, but they do not see a changed text.
 
 ## UI Architecture
 

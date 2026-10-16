@@ -2,10 +2,11 @@ package io.music_assistant.client.ui.compose.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
-import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
@@ -15,6 +16,8 @@ import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.Track
+import io.music_assistant.client.data.play.PlayDispatcher
+import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.ui.Timings
 import io.music_assistant.client.ui.compose.common.DataState
@@ -50,7 +53,7 @@ data class GlobalSearchRequest(val query: String, val mediaType: MediaType?)
 
 @OptIn(FlowPreview::class, ExperimentalAtomicApi::class)
 class SearchViewModel(
-    private val apiClient: ServiceClient,
+    private val playDispatcher: PlayDispatcher,
     private val mainDataSource: MainDataSource,
     private val mediaItemRepository: MediaItemRepository,
 ) : ViewModel() {
@@ -145,6 +148,27 @@ class SearchViewModel(
         }
 
         searchTrigger.tryEmit(Unit)
+    }
+
+    fun onPlayClick(
+        track: AppMediaItem,
+        option: QueueOption,
+        radio: Boolean,
+    ) {
+        mainDataSource.selectedPlayer?.queueOrPlayerId?.let { queueId ->
+            track.mediaUri?.let { mediaUri ->
+                Logger.withTag("PlayDispatch")
+                    .i { "SearchViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
+                playDispatcher.play(
+                    PlayRequest(
+                        queueOrPlayerId = queueId,
+                        media = listOf(mediaUri),
+                        option = option,
+                        endlessMixMode = radio && track !is Genre,
+                    ),
+                )
+            }
+        }
     }
 
     private fun updateSearchResultsIfNeeded(changed: Track) {

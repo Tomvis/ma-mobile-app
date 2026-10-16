@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.data.MainDataSource
-import io.music_assistant.client.data.model.server.ServerAiRadioSession
+import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.server.ServerAiRadioStation
+import io.music_assistant.client.data.play.PlayDispatcher
+import io.music_assistant.client.data.play.PlayRequest
+import io.music_assistant.client.data.repository.AiRadioChange
 import io.music_assistant.client.data.repository.AiRadioRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +23,16 @@ import kotlinx.coroutines.launch
 /**
  * Backs the AI Radio station list.
  *
- * Server errors (no permission, run slot taken, station already running) already reach the
- * user through [io.music_assistant.client.api.ErrorMessageBus], so this only tracks what the
- * screen must render differently: loading, a failed load, and which station is on air.
+ * Server errors already reach the user through [io.music_assistant.client.api.ErrorMessageBus],
+ * so this only tracks what the screen must render differently: loading and a failed load.
  *
- * The provider emits no events, so the run state is polled: once on entry, then again after
- * each start and stop. That is the only way the Stop control learns it should appear.
+ * The list loads on entry, then follows [AiRadioRepository.changes]. A show is a Radio item, so
+ * it plays and stops like any radio; the screen holds no run state.
  */
 class AiRadioViewModel(
     private val repository: AiRadioRepository,
     private val dataSource: MainDataSource,
+    private val playDispatcher: PlayDispatcher,
 ) : ViewModel() {
     /**
      * A failed load and an empty station list mean opposite things to the user — "try
@@ -45,7 +49,6 @@ class AiRadioViewModel(
          */
         data class Ready(
             val stations: List<ServerAiRadioStation>,
-            val running: ServerAiRadioSession?,
             val artwork: Map<String, String> = emptyMap(),
         ) : State
     }
@@ -68,18 +71,46 @@ class AiRadioViewModel(
             dataSource.selectedPlayerIndex.value != null,
         )
 
+    // One in-flight re-read: a burst of hints keeps only the latest.
+    private var stationsRefresh: Job? = null
+
+    init {
+        viewModelScope.launch {
+            repository.changes.collect { change ->
+                when (change) {
+                    AiRadioChange.STATIONS, AiRadioChange.RESYNC -> refreshStations()
+                    AiRadioChange.HOSTS, AiRadioChange.QUEUE_DJ -> Unit
+                }
+            }
+        }
+    }
+
     fun load() {
         viewModelScope.launch {
             _state.value = State.Loading
             val stations = repository.stations()
                 .onFailure { Logger.w(it) { "AI Radio: station list failed" } }
                 .getOrNull()
-            _state.value = if (stations == null) {
-                State.Failed
-            } else {
-                State.Ready(stations, runningSessionOrNull())
-            }
+            _state.value = stations?.let { State.Ready(it) } ?: State.Failed
             stations?.let { loadArtwork(it) }
+        }
+    }
+
+    /**
+     * Re-reads the list in place, without the Loading state. Only a shown list is refreshed:
+     * a failed or pending load is [load]'s to finish. A failed re-read keeps the shown list.
+     */
+    private fun refreshStations() {
+        stationsRefresh?.cancel()
+        stationsRefresh = viewModelScope.launch {
+            val stations = repository.stations()
+                .onFailure { Logger.w(it) { "AI Radio: station list refresh failed" } }
+                .getOrNull() ?: return@launch
+            val current = _state.value as? State.Ready ?: return@launch
+            if (current.stations == stations) return@launch
+            // Old covers stay until the new lookups land, so known rows do not flash placeholders.
+            _state.value = current.copy(stations = stations)
+            loadArtwork(stations)
         }
     }
 
@@ -102,58 +133,24 @@ class AiRadioViewModel(
     }
 
     /**
-     * Starts [stationId] on the player the user has selected. The server wants a player id,
-     * not a queue id.
-     *
-     * Read from [MainDataSource.selectedPlayer], NOT from `nowPlayingPlayer`: the latter is the
-     * media session's presented player, which only considers players that already hold a queue
-     * item. A freshly selected idle player — the usual case when starting a station — is not
-     * among them, so it would silently resolve to whatever else was already playing. And an
-     * empty `player_id_override` is not an error server-side: `start_run` falls back to the
-     * station's own `default_player_id`, so a wrong id here plays somewhere unexpected instead
-     * of failing loudly.
+     * Plays [station] on the queue of the player the user has selected, replacing what it
+     * plays. Read from [MainDataSource.selectedPlayer], NOT from `nowPlayingPlayer`: the latter
+     * only considers players that already hold a queue item, so a freshly selected idle player
+     * would silently resolve to whatever else was already playing.
      */
-    fun start(stationId: String) {
-        val playerId = dataSource.selectedPlayer?.playerId ?: run {
-            Logger.w { "AI Radio: no target player, ignoring start of $stationId" }
+    fun play(station: ServerAiRadioStation) {
+        val queueId = dataSource.selectedPlayer?.queueOrPlayerId ?: run {
+            Logger.w { "AI Radio: no target player, ignoring play of ${station.id}" }
             return
         }
-        viewModelScope.launch {
-            repository.start(stationId, playerId)
-                .onFailure { Logger.w(it) { "AI Radio: start failed for $stationId" } }
-            refreshRunning()
-        }
+        playDispatcher.play(
+            PlayRequest(
+                queueOrPlayerId = queueId,
+                media = listOf(station.uri),
+                option = QueueOption.REPLACE,
+            ),
+        )
     }
-
-    /**
-     * Stops whatever [stationId] has on air. Keyed on the station rather than on the session id
-     * from the last poll, which may name a run that has since ended by itself.
-     */
-    fun stop(stationId: String) {
-        viewModelScope.launch {
-            repository.stop(stationId)
-                .onFailure { Logger.w(it) { "AI Radio: stop failed for $stationId" } }
-            refreshRunning()
-        }
-    }
-
-    /**
-     * Re-reads the run state after a start or stop. The provider emits no events, so this
-     * poll is the only way the screen learns what changed.
-     */
-    private fun refreshRunning() {
-        viewModelScope.launch {
-            val running = runningSessionOrNull()
-            _state.update { current ->
-                (current as? State.Ready)?.copy(running = running) ?: current
-            }
-        }
-    }
-
-    private suspend fun runningSessionOrNull(): ServerAiRadioSession? =
-        repository.runningSession()
-            .onFailure { Logger.w(it) { "AI Radio: status read failed" } }
-            .getOrNull()
 
     private companion object {
         const val SUBSCRIPTION_STOP_TIMEOUT_MS = 5000L

@@ -124,6 +124,9 @@ fun ReceptionFilterAction(
         active = filter.isActive,
         state = { mutableStateOf(filter) },
         onApply = { onFilterChanged(it.value) },
+        // The sheet keeps its own "Clear all" row (below), so upstream's reset button stays off.
+        canReset = { false },
+        onReset = {},
         title = Res.string.filter_title,
         contentDescription = Res.string.cd_reception_filter,
     ) { state ->

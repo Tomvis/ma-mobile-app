@@ -18,8 +18,10 @@ import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
 import io.music_assistant.client.data.factory.QueueFactory
+import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.repository.AiRadioRepository
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.data.repository.QueueOverlayRepository
 import io.music_assistant.client.data.repository.ServiceClientMediaItemRepository
 import io.music_assistant.client.imageloader.ArtworkDiskStore
 import io.music_assistant.client.imageloader.ArtworkRepository
@@ -43,6 +45,7 @@ import io.music_assistant.client.ui.compose.common.providers.MdiCodepoints
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
+import io.music_assistant.client.ui.compose.home.players.QueueDjViewModel
 import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
 import io.music_assistant.client.ui.compose.item.ItemListViewModel
 import io.music_assistant.client.ui.compose.item.ViewModeViewModel
@@ -144,7 +147,7 @@ fun sharedModule(
         singleOf(::MediaItemFactory)        // Stateless DTO → domain mapper
         singleOf(::PlayerFactory)           // Stateless DTO → domain mapper
         singleOf(::QueueFactory)            // Stateless DTO → domain mapper (depends on MediaItemFactory)
-        singleOf(::AiRadioRepository)       // Optional ai_radio plugin: list and run stations
+        single { AiRadioRepository(get(), get()) } // Optional ai_radio plugin: stations and queue DJ
         single(createdAtStart = true) {     // Fork (HW-65): per-person home theme, read at sign-in
             HomeThemeRepository(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
@@ -154,6 +157,19 @@ fun sharedModule(
                 httpClient = get(named("webrtcHttpClient")),
                 microphone = get(),
                 errorBus = get(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
+        single {                            // Queue ambient sound overlay; Apply outlives the dialog
+            QueueOverlayRepository(
+                apiClient = get(),
+                mediaItemFactory = get(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
+        single {                            // Sole play_media sender; requests outlive the screen
+            PlayDispatcher(
+                apiClient = get(),
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             )
         }
@@ -167,12 +183,12 @@ fun sharedModule(
         viewModelOf(::ThemeViewModel)
         factory { BackgroundRestrictionViewModel(get(), get(), get()) }
         factory { SchemaVersionWarningViewModel(get()) }
-        factory { ActionsViewModel(get(), get(), get()) }
+        factory { ActionsViewModel(get(), get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get(), get(), get()) }
         factory { DefaultClickActionsViewModel(get()) }
         factory { CarActionsViewModel(get(), get()) }
         factory { CarDspViewModel(get(), get()) }
-        factory { AiRadioViewModel(get(), get()) }
+        factory { AiRadioViewModel(get(), get(), get()) }
         factory {
             AuthenticationViewModel(
                 auth = get(),
@@ -181,7 +197,7 @@ fun sharedModule(
         }
         factory { LibraryCategoriesViewModel(get(), get()) }
         factory { ListenLaterViewModel(get()) }
-        factory { params -> LibraryListViewModel(params[0], get(), get(), get(), get()) }
+        factory { params -> LibraryListViewModel(params[0], get(), get(), get(), get(), get()) }
         factory { params -> BrowseViewModel(params.getOrNull<String>(), get(), get(), get()) }
         factory { params ->
             ItemDetailsViewModel(
@@ -195,12 +211,13 @@ fun sharedModule(
             )
         }
         factory { params ->
-            ArtistDetailsViewModel(params[0], get())
+            ArtistDetailsViewModel(params[0], get(), get())
         }
         factory { ViewModeViewModel(get()) }
         factory { params -> ItemListViewModel(params[0], get(), get()) }
         factory { DspSettingsViewModel(get()) }
-        factory { HomeScreenViewModel(get(), get(), get(), get()) }
+        factory { QueueDjViewModel(get(), get<MainDataSource>().aiRadioQueueDjAvailable) }
+        factory { HomeScreenViewModel(get(), get(), get(), get(), get()) }
         factory { SearchViewModel(get(), get(), get()) }
         factory { ProviderViewModel(get()) }
     }

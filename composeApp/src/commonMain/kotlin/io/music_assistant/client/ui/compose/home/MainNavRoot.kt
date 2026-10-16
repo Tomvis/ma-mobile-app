@@ -74,6 +74,7 @@ import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
+import io.music_assistant.client.ui.compose.home.players.QueueDjViewModel
 import io.music_assistant.client.ui.compose.item.ItemDetailsScreen
 import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
 import io.music_assistant.client.ui.compose.item.ItemListScreen
@@ -130,6 +131,7 @@ fun MainNavigationRoot(
     viewModeViewModel: ViewModeViewModel = koinViewModel(),
     dspSettingsViewModel: DspSettingsViewModel = koinViewModel(),
     providerViewModel: ProviderViewModel = koinViewModel(),
+    queueDjViewModel: QueueDjViewModel = koinViewModel(),
     goToSettings: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -317,6 +319,7 @@ fun MainNavigationRoot(
                                     actionsViewModel = playerActionsViewModel,
                                     dspSettingsViewModel = dspSettingsViewModel,
                                     providerViewModel = providerViewModel,
+                                    queueDjViewModel = queueDjViewModel,
                                     expanded = expanded,
                                     onClose = { playerExpanded = false },
                                     contentPadding = contentPadding,

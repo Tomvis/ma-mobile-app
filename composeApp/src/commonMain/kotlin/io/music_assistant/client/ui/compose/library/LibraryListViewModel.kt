@@ -8,13 +8,17 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.MediaCollection
+import io.music_assistant.client.data.model.client.items.isAiRadioShow
 import io.music_assistant.client.data.model.server.ServerProviderInstance
+import io.music_assistant.client.data.play.PlayDispatcher
+import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.settings.SeriesGrouping
@@ -42,6 +46,7 @@ class LibraryListViewModel(
     private val mainDataSource: MainDataSource,
     private val settingsRepository: SettingsRepository,
     private val mediaItemRepository: MediaItemRepository,
+    private val playDispatcher: PlayDispatcher,
 ) : ViewModel() {
     private val searchTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
@@ -414,6 +419,27 @@ class LibraryListViewModel(
         }
     }
 
+    fun onPlayClick(
+        item: AppMediaItem,
+        option: QueueOption,
+        radio: Boolean,
+    ) {
+        val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return
+
+        item.mediaUri?.let { mediaUri ->
+            Logger.withTag("PlayDispatch")
+                .i { "ItemListViewModel: uri=$mediaUri option=$option radio=$radio queue=$queueId" }
+            playDispatcher.play(
+                PlayRequest(
+                    queueOrPlayerId = queueId,
+                    media = listOf(mediaUri),
+                    option = option,
+                    endlessMixMode = radio && item !is Genre,
+                ),
+            )
+        }
+    }
+
     /** The server accepts any non-blank query; both page loaders must agree or later pages leak unfiltered items. */
     private fun State.serverSearchQuery(): String? = searchQuery.takeIf { it.isNotBlank() }
 
@@ -461,7 +487,10 @@ class LibraryListViewModel(
         offset: Int,
         hasMore: Boolean,
     ) {
-        val deduped = items.distinctBy { Triple(it.mediaType, it.provider, it.itemId) }
+        // Callers compute `hasMore` from the raw page, so hiding rows here keeps paging intact.
+        val deduped = items
+            .filterNot { it.isAiRadioShow }
+            .distinctBy { Triple(it.mediaType, it.provider, it.itemId) }
         _state.update {
             it.copy(
                 dataState = DataState.Data(deduped),

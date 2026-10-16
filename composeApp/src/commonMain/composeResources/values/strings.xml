@@ -33,6 +33,9 @@
   <string name="action_start_radio">Start radio</string>
   <string name="action_unfavorite">Unfavorite</string>
   <string name="action_view_all">View all</string>
+  <string name="ai_radio_dj">Enable AI Radio DJ</string>
+  <string name="ai_radio_dj_off">Off</string>
+  <string name="ai_radio_dj_on_air">A show is on air</string>
   <string name="ai_radio_empty">No AI stations yet. Create one in the Music Assistant web app.</string>
   <string name="ai_radio_load_failed">Could not load AI stations</string>
   <string name="ai_radio_no_player">Select a player first</string>
@@ -54,6 +57,14 @@
   <string name="all_podcasts">All podcasts</string>
   <string name="all_radio">All radio stations</string>
   <string name="all_tracks">All tracks</string>
+  <string name="ambient_sound_load_failed">Could not load the ambient sounds</string>
+  <string name="ambient_sound_menu_subtitle">%1$s · %2$d%</string>
+  <string name="ambient_sound_none_available">No ambient sounds are available</string>
+  <string name="ambient_sound_off">Off</string>
+  <string name="ambient_sound_sound">Sound</string>
+  <string name="ambient_sound_title">Ambient sound</string>
+  <string name="ambient_sound_volume">Relative volume: %1$d%</string>
+  <string name="ambient_sound_volume_hint">Relative to the music volume. At 100%, the sound is as loud as the music.</string>
   <string name="announcement_chime">Play chime first</string>
   <string name="announcement_custom_volume">Custom volume</string>
   <string name="announcement_failed">The announcement failed</string>
@@ -71,6 +82,7 @@
   <string name="artist_section_all">Discography</string>
   <string name="artist_section_in_library">In library</string>
   <string name="artist_section_top">Top tracks</string>
+  <string name="artist_source_all">All</string>
   <string name="auth_authenticating">Authenticating…</string>
   <string name="auth_authorize_ha">Authorize with Home Assistant</string>
   <string name="auth_hide_password">Hide password</string>
@@ -97,6 +109,7 @@
   <string name="cd_add_playlist">Add playlist</string>
   <string name="cd_add_to_group">Add to group</string>
   <string name="cd_album_item">Album "%1$s" from %2$s</string>
+  <string name="cd_ambient_sound_on">Ambient sound on</string>
   <string name="cd_applied">Applied</string>
   <string name="cd_autoplay_off">Autoplay off</string>
   <string name="cd_autoplay_on">Autoplay on</string>
@@ -175,9 +188,10 @@
   <string name="filter_favorites">Favorites</string>
   <string name="filter_genres">Genres</string>
   <string name="filter_none_selected">Any</string>
-  <string name="filter_providers">Music providers</string>
+  <string name="filter_reset">Reset filters</string>
   <string name="filter_selected_count">%1$d selected</string>
   <string name="filter_sheet_title">Filters</string>
+  <string name="filter_sources">Music sources</string>
   <string name="find_in_list_label">Search in list…</string>
   <string name="genre_filter_empty_all">All</string>
   <string name="genre_filter_empty_default">Default</string>
@@ -197,6 +211,7 @@
   <string name="item_subtitle_series">Series</string>
   <string name="item_subtitle_radio">Radio</string>
   <string name="item_subtitle_sound_effect">AI host</string>
+  <string name="item_subtitle_audio_source">Input</string>
   <string name="item_subtitle_unknown">Unknown</string>
   <string name="kind_album">Albums</string>
   <string name="kind_artist">Artists</string>
@@ -214,8 +229,10 @@
   <string name="loading">Loading…</string>
   <string name="lyrics_screen_wake_on">Screen wake is on</string>
   <string name="media_action_forward">Forward 30s</string>
+  <string name="media_action_next">Next</string>
   <string name="media_action_next_player">Next player</string>
   <string name="media_action_open_app">Open app</string>
+  <string name="media_action_previous">Previous</string>
   <string name="media_action_repeat">Repeat</string>
   <string name="media_action_rewind">Rewind 10s</string>
   <string name="media_action_shuffle">Shuffle</string>
@@ -265,6 +282,7 @@
   <string name="players_none_available">No players available</string>
   <string name="players_nothing">Nothing playing</string>
   <string name="players_remote_volume_hint">Volume buttons only work for the local player</string>
+  <string name="players_swipe_hint">Swipe left or right to switch between players</string>
   <string name="players_title">Players</string>
   <string name="playlist_add_button">Add playlist</string>
   <string name="playlist_add_new">Add new</string>

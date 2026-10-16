@@ -218,13 +218,14 @@ class StreamFavoriteActionsTest {
                     toastState = toastState,
                     navigateToItem = {},
                     providerViewModel = getKoin().get(),
+                    queueDjViewModel = getKoin().get(),
                 )
                 ToastHost(toastState)
             }
         }
     }
 
-    private fun viewModel() = ActionsViewModel(client, getKoin().get(), getKoin().get())
+    private fun viewModel() = ActionsViewModel(client, getKoin().get(), getKoin().get(), getKoin().get())
 
     private class StreamClient : ServiceClient by FakeServiceClient() {
         override val sessionState = MutableStateFlow<SessionState>(SessionState.Disconnected.Initial)

@@ -13,6 +13,7 @@ import io.music_assistant.client.utils.myJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -360,6 +361,26 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 queueItemId?.let { put("queue_item_id", JsonPrimitive(it)) }
             },
         )
+
+        /**
+         * Configures the ambient sound overlay. A null argument is left out, and the server
+         * keeps its current value. The server applies source, then volume, then enabled, so
+         * one call can select a sound and turn it on.
+         */
+        fun setOverlay(
+            queueId: String,
+            enabled: Boolean,
+            source: String? = null,
+            volume: Int? = null,
+        ) = Request(
+            command = APICommands.PLAYER_QUEUES_OVERLAY,
+            args = buildJsonObject {
+                put("queue_id", JsonPrimitive(queueId))
+                put("enabled", JsonPrimitive(enabled))
+                source?.let { put("source", JsonPrimitive(it)) }
+                volume?.let { put("volume", JsonPrimitive(it)) }
+            },
+        )
     }
 
     data object Playlist {
@@ -648,10 +669,12 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun getTopTracks(
             itemId: String,
             providerInstanceIdOrDomain: String,
+            providerFilter: String? = null,
         ) = Library.subItems(
             APICommands.MUSIC_ARTISTS_TOP_TRACKS,
             itemId,
             providerInstanceIdOrDomain,
+            providerFilter = providerFilter,
         )
 
         fun getSimilarArtists(
@@ -753,6 +776,10 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 path?.let { put("path", JsonPrimitive(it)) }
             },
         )
+    }
+
+    data object SoundEffects {
+        fun all() = Request(command = APICommands.MUSIC_SOUND_EFFECTS)
     }
 
     data object Metadata {
@@ -889,12 +916,14 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             itemId: String,
             providerInstanceIdOrDomain: String,
             limit: Int? = null,
+            providerFilter: String? = null,
         ) = Request(
             command = command,
             args = buildJsonObject {
                 put("item_id", JsonPrimitive(itemId))
                 put("provider_instance_id_or_domain", JsonPrimitive(providerInstanceIdOrDomain))
                 limit?.let { put("limit", JsonPrimitive(it)) }
+                providerFilter?.let { put("provider_filter", JsonPrimitive(it)) }
             },
         )
     }
@@ -969,40 +998,23 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
     data object AiRadio {
         fun stations() = Request(command = APICommands.AI_RADIO_STATIONS_LIST)
 
-        /**
-         * Starts [stationId] on [playerId].
-         *
-         * The server resolves the override through `players.get_player`, so this must be a
-         * PLAYER id — not the queue id that most other commands take.
-         */
-        fun start(stationId: String, playerId: String) = Request(
-            command = APICommands.AI_RADIO_START,
-            args = buildJsonObject {
-                put("station_id", JsonPrimitive(stationId))
-                put("player_id_override", JsonPrimitive(playerId))
-            },
-        )
+        /** All hosts, sorted by name server-side. Needs `config.providers.read`. */
+        fun hosts() = Request(command = APICommands.AI_RADIO_HOSTS_LIST)
+
+        /** The `queue_id -> {host_id, station_id}` map of queues that have a DJ. Needs `queues.control`. */
+        fun queueDjStatus() = Request(command = APICommands.AI_RADIO_QUEUE_DJ_STATUS)
 
         /**
-         * Stops whatever run [stationId] currently has on air.
-         *
-         * Deliberately by station and not by session id. The server ignores `station_id`
-         * whenever a `session_id` is present, and a session id can only come from an earlier
-         * poll — by the time the user presses Stop that run may have ended on its own, and the
-         * stale id is answered with "Session X is not running (status=finished)". Asking by
-         * station instead lets the server pick the run that is actually live, and its "no
-         * active run found for station" is at least true when there is none.
-         *
-         * Safe because the provider caps concurrent runs at one, so a station has at most one.
+         * Attaches [hostId] as the DJ of [queueId], or detaches the DJ when [hostId] is null.
+         * Off is an explicit JSON `null`, which is what the server's `host_id: str | None`
+         * expects. Answers with the full status map after the change.
          */
-        fun stop(stationId: String) = Request(
-            command = APICommands.AI_RADIO_STOP,
+        fun setQueueDj(queueId: String, hostId: String?) = Request(
+            command = APICommands.AI_RADIO_QUEUE_DJ_SET,
             args = buildJsonObject {
-                put("station_id", JsonPrimitive(stationId))
+                put("queue_id", JsonPrimitive(queueId))
+                put("host_id", hostId?.let(::JsonPrimitive) ?: JsonNull)
             },
         )
-
-        /** All sessions, newest first. The provider emits no events, so this is poll-only. */
-        fun status() = Request(command = APICommands.AI_RADIO_STATUS)
     }
 }

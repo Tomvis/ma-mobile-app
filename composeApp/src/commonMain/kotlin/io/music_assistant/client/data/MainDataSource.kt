@@ -25,7 +25,8 @@ import io.music_assistant.client.data.model.client.items.LongFormSeekDefaults
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.items.image
 import io.music_assistant.client.data.model.server.AI_RADIO_DOMAIN
-import io.music_assistant.client.data.model.server.AI_RADIO_REQUIRED_SCOPE
+import io.music_assistant.client.data.model.server.AI_RADIO_QUEUE_DJ_SCOPES
+import io.music_assistant.client.data.model.server.AI_RADIO_STATIONS_SCOPES
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.DspConfigPreset
 import io.music_assistant.client.data.model.server.ServerPlayer
@@ -45,6 +46,8 @@ import io.music_assistant.client.data.model.server.events.QueueItemsUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueTimeUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueUpdatedEvent
 import io.music_assistant.client.data.model.server.grantsScope
+import io.music_assistant.client.data.model.server.supportsAiRadio
+import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.player.MediaSessionBridge
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.Timings
@@ -81,6 +84,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Marks the players whose queue has a play request in flight: [localBusyQueueIds] from this
+ * app's PlayDispatcher, or the server flag in [serverQueues] for requests from any client.
+ * The flag is read from the server queues, not from PlayerData.queueInfo, because the local
+ * player's queue info comes from LocalPlayerAdapter and does not carry it.
+ */
+internal fun List<PlayerData>.withPlayRequestsPending(
+    localBusyQueueIds: Set<String>,
+    serverQueues: List<QueueInfo>,
+): List<PlayerData> {
+    val busy = localBusyQueueIds + serverQueues.filter { it.playActionInProgress }.map { it.id }
+    return map { it.copy(playRequestPending = it.queueOrPlayerId in busy) }
+}
+
 /** Preserve newer event/optimistic state when a delayed full snapshot arrives. */
 internal fun mergeFullQueueSnapshot(
     retained: List<QueueInfo>,
@@ -115,6 +132,7 @@ class MainDataSource(
     private val mediaItemFactory: MediaItemFactory,
     private val playerFactory: PlayerFactory,
     private val queueFactory: QueueFactory,
+    private val playDispatcher: PlayDispatcher,
 ) : CoroutineScope {
     private val log = Logger.withTag("MainDataSource")
 
@@ -125,6 +143,7 @@ class MainDataSource(
         val queues: List<QueueInfo>,
         val localData: PlayerData?,
         val favoriteOverrides: Map<String, Boolean>,
+        val busyQueueIds: Set<String>,
     )
 
     /** Local (Sendspin) player lifecycle, state and commands live in the controller. */
@@ -140,13 +159,21 @@ class MainDataSource(
     private val _queueInfos = MutableStateFlow<List<QueueInfo>>(emptyList())
 
     /**
-     * Whether the AI Radio UI may be offered: the optional `ai_radio` plugin is loaded AND
-     * the signed-in user's role grants the scope its start/stop commands demand. Both halves
-     * matter — a `user` role can list stations but cannot play any, so gating on the plugin
-     * alone would render a Library section where every tap fails.
+     * Whether the AI Radio stations may be offered: the optional `ai_radio` plugin is loaded,
+     * the server plays shows as Radio items ([supportsAiRadio]), AND the role grants every scope
+     * in [AI_RADIO_STATIONS_SCOPES]. Gating on the plugin alone would render a Library section
+     * where every tap fails.
      */
     private val _aiRadioAvailable = MutableStateFlow(false)
     val aiRadioAvailable: StateFlow<Boolean> = _aiRadioAvailable.asStateFlow()
+
+    /**
+     * Whether the queue DJ menu may be offered: the `ai_radio` plugin is loaded, the server
+     * speaks the current AI Radio API ([supportsAiRadio]), AND the role grants every scope in
+     * [AI_RADIO_QUEUE_DJ_SCOPES]. Independent of [aiRadioAvailable], which needs other scopes.
+     */
+    private val _aiRadioQueueDjAvailable = MutableStateFlow(false)
+    val aiRadioQueueDjAvailable: StateFlow<Boolean> = _aiRadioQueueDjAvailable.asStateFlow()
 
     /**
      * Authoritative favorite state per track, keyed by [favKey]. The server's
@@ -359,9 +386,9 @@ class MainDataSource(
                 settings.playersSorting,
                 _queueInfos,
                 localPlayerController.localPlayerData,
-                _favoriteOverrides,
-            ) { players, sortedIds, queues, localData, favOverrides ->
-                PlayerBuildInputs(players, sortedIds, queues, localData, favOverrides)
+                combine(_favoriteOverrides, playDispatcher.busyQueueIds, ::Pair),
+            ) { players, sortedIds, queues, localData, (favOverrides, busyQueueIds) ->
+                PlayerBuildInputs(players, sortedIds, queues, localData, favOverrides, busyQueueIds)
             }
                 .debounce(Timings.EVENT_DEBOUNCE) // Small debounce to batch rapid updates, but don't delay initial load
                 .collect { input ->
@@ -378,6 +405,7 @@ class MainDataSource(
                                         input.queues,
                                         input.localData,
                                         input.favoriteOverrides,
+                                        input.busyQueueIds,
                                         oldValues,
                                     ),
                                 )
@@ -714,6 +742,7 @@ class MainDataSource(
         queues: List<QueueInfo>,
         localData: PlayerData?,
         favoriteOverrides: Map<String, Boolean>,
+        busyQueueIds: Set<String>,
         oldValues: DataState<List<PlayerData>>,
     ): List<PlayerData> {
         val localPlayerId = settings.sendspinEffectivePlayerId.value
@@ -785,6 +814,7 @@ class MainDataSource(
         // independent (currentMedia vs queue.currentItem.track.favorite), so order is free.
         return withLocal
             .map { applyNowPlayingArtwork(it) }
+            .withPlayRequestsPending(busyQueueIds, queues)
             .let { list ->
                 if (favoriteOverrides.isEmpty()) {
                     list
@@ -920,6 +950,7 @@ class MainDataSource(
         // Server-scoped: the plugin set and the user's role both belong to the old
         // connection, so another server must not inherit this one's gate.
         _aiRadioAvailable.value = false
+        _aiRadioQueueDjAvailable.value = false
         // Note: _providersIcons deliberately NOT cleared (static data)
     }
 
@@ -1582,7 +1613,7 @@ class MainDataSource(
     }
 
     /**
-     * Resolves the AI Radio gate. Fails closed: any missing piece — plugin absent, role
+     * Resolves the AI Radio gates. Fails closed: any missing piece — plugin absent, role
      * unknown, either fetch failing — leaves the feature hidden rather than half-offered.
      */
     private fun updateAiRadioAvailability() {
@@ -1592,13 +1623,19 @@ class MainDataSource(
                 ?.any { it.domain == AI_RADIO_DOMAIN && it.available } == true
             if (!pluginLoaded) {
                 _aiRadioAvailable.value = false
+                _aiRadioQueueDjAvailable.value = false
                 return@launch
             }
             val roleScopes = apiClient.sendRequest(Request(APICommands.AUTH_SCOPES))
                 .resultAs<Map<String, List<String>>>()
                 .orEmpty()
-            val role = (apiClient.sessionState.value as? HasConnectionData)?.user?.role
-            _aiRadioAvailable.value = grantsScope(roleScopes, role, AI_RADIO_REQUIRED_SCOPE)
+            val connection = apiClient.sessionState.value as? HasConnectionData
+            val role = connection?.user?.role
+            val supported = supportsAiRadio(connection?.serverInfo?.schemaVersion)
+            _aiRadioAvailable.value =
+                supported && AI_RADIO_STATIONS_SCOPES.all { grantsScope(roleScopes, role, it) }
+            _aiRadioQueueDjAvailable.value =
+                supported && AI_RADIO_QUEUE_DJ_SCOPES.all { grantsScope(roleScopes, role, it) }
         }
     }
 

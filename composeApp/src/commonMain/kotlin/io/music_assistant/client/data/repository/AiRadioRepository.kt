@@ -1,31 +1,71 @@
 package io.music_assistant.client.data.repository
 
-import co.touchlab.kermit.Logger
+import io.music_assistant.client.api.Answer
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.client.ImageType
-import io.music_assistant.client.data.model.server.ServerAiRadioSession
+import io.music_assistant.client.data.model.server.AI_RADIO_DOMAIN
+import io.music_assistant.client.data.model.server.ServerAiRadioHost
+import io.music_assistant.client.data.model.server.ServerAiRadioQueueDj
 import io.music_assistant.client.data.model.server.ServerAiRadioStation
-import io.music_assistant.client.data.model.server.ServerAiRadioStatus
+import io.music_assistant.client.data.model.server.events.ProviderEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Read/run access to the optional `ai_radio` plugin provider.
+ * Access to the optional `ai_radio` plugin provider.
  *
- * Listing and running only: stations, sections and hosts are authored in the web frontend,
- * whose prompt editor this deliberately does not reproduce.
+ * Listing and the queue DJ only: stations, sections and hosts are authored in the web frontend,
+ * whose prompt editor this deliberately does not reproduce. A station plays as a Radio item
+ * ([ServerAiRadioStation.uri]) through [io.music_assistant.client.data.play.PlayDispatcher], so
+ * there is no run to start or stop here.
  *
- * Every call fails on a server without the plugin, and starting or stopping additionally
- * needs a scope that only `admin` holds. Gate the call sites on
- * [io.music_assistant.client.data.MainDataSource.aiRadioAvailable] rather than calling blind.
+ * [changes] says what to re-read: the plugin announces its changes as refetch hints.
+ *
+ * Every call fails on a server without the plugin. Gate the call sites on
+ * [io.music_assistant.client.data.MainDataSource.aiRadioAvailable], or on
+ * [io.music_assistant.client.data.MainDataSource.aiRadioQueueDjAvailable] for the queue DJ calls,
+ * rather than calling blind.
  */
 class AiRadioRepository(
     private val apiClient: ServiceClient,
     private val mediaItemRepository: MediaItemRepository,
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
+    /**
+     * Hot stream of what to refetch. Merges the plugin's events with [AiRadioChange.RESYNC] on
+     * each return of the command session (the first value is the current state, not a return).
+     * Replay is zero: a late subscriber loads its own state first and then only sees new changes.
+     */
+    val changes: SharedFlow<AiRadioChange> = merge(
+        apiClient.events
+            .filterIsInstance<ProviderEvent>()
+            // `object_id` is the instance id; the plugin is single-instance, so it equals the domain.
+            .filter { it.objectId == AI_RADIO_DOMAIN }
+            .mapNotNull { event ->
+                AiRadioChange.fromEventName((event.data?.get("event") as? JsonPrimitive)?.content)
+            },
+        apiClient.isReadyForCommands
+            .drop(1)
+            .filter { it }
+            .map { AiRadioChange.RESYNC },
+    ).shareIn(scope, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), replay = 0)
+
     /** All configured stations, sorted by name server-side. Empty until one is authored. */
     suspend fun stations(): Result<List<ServerAiRadioStation>> =
         apiClient.sendRequest(Request.AiRadio.stations()).mapCatching { answer ->
@@ -33,60 +73,26 @@ class AiRadioRepository(
                 ?: error("Missing or undecodable AI Radio station list payload")
         }
 
-    /**
-     * Starts [stationId] on [playerId], which must be a player id rather than a queue id.
-     *
-     * Fails when the user lacks the write scope, when a run is already active for this
-     * station, or when the server's single concurrent-run slot is taken. All three arrive as
-     * server-worded messages worth showing to the user — which is why there is no client-side
-     * guard against starting a station that is already on air.
-     */
-    suspend fun start(stationId: String, playerId: String): Result<ServerAiRadioSession> =
-        apiClient.sendRequest(Request.AiRadio.start(stationId, playerId)).mapCatching { answer ->
-            answer.resultAs<ServerAiRadioSession>()
-                ?: error("Missing or undecodable AI Radio session payload")
+    /** All hosts, for the queue DJ menu. Sorted by name server-side. */
+    suspend fun hosts(): Result<List<ServerAiRadioHost>> =
+        apiClient.sendRequest(Request.AiRadio.hosts()).mapCatching { answer ->
+            answer.resultAs<List<ServerAiRadioHost>>()
+                ?: error("Missing or undecodable AI Radio host list payload")
         }
 
-    /**
-     * Stops whatever run [stationId] has on air, and clears the queue it was playing on.
-     *
-     * The clear is ours to do: the plugin's own stop only calls `player_queues.stop`, so the
-     * show's tracks and its half-rendered host clips stay queued. Pressing play afterwards then
-     * resumes a show whose session no longer exists, and a clip that never got rendered has
-     * nothing left to render it.
-     *
-     * The queue comes from the stopped session itself, never from the current selection — the
-     * user may have switched players since the run began, and clearing the wrong queue would
-     * throw away something they are listening to.
-     *
-     * A failed clear does not fail the stop: the run did end, and reporting otherwise would
-     * invite a retry that stops nothing.
-     */
-    suspend fun stop(stationId: String): Result<ServerAiRadioSession> =
-        apiClient.sendRequest(Request.AiRadio.stop(stationId)).mapCatching { answer ->
-            answer.resultAs<ServerAiRadioSession>()
-                ?: error("Missing or undecodable AI Radio session payload")
-        }.onSuccess { session ->
-            // The answer describes the run the server actually stopped, so its queue is the
-            // right one to clear even though we never named a session.
-            val queueId = session.queueId ?: run {
-                Logger.d { "AI Radio: station $stationId owned no queue, nothing to clear" }
-                return@onSuccess
-            }
-            apiClient.sendRequest(Request.Queue.clear(queueId))
-                .onFailure { Logger.w(it) { "AI Radio: could not clear queue $queueId" } }
-        }
+    /** The `queue_id -> host_id` map of every queue that has a DJ. Re-read on [AiRadioChange.QUEUE_DJ]. */
+    suspend fun queueDjStatus(): Result<Map<String, String>> =
+        apiClient.sendRequest(Request.AiRadio.queueDjStatus()).mapCatching { it.decodeQueueDj() }
 
-    /**
-     * The currently running session, if any. The provider emits no events, so this is the
-     * only way to learn a run's state and it has to be re-read after each start or stop.
-     */
-    suspend fun runningSession(): Result<ServerAiRadioSession?> =
-        apiClient.sendRequest(Request.AiRadio.status()).mapCatching { answer ->
-            val status = answer.resultAs<ServerAiRadioStatus>()
-                ?: error("Missing or undecodable AI Radio status payload")
-            status.sessions.firstOrNull { it.isRunning }
-        }
+    /** Sets or, with a null [hostId], removes the DJ of [queueId]. Answers the new status map. */
+    suspend fun setQueueDj(queueId: String, hostId: String?): Result<Map<String, String>> =
+        apiClient.sendRequest(Request.AiRadio.setQueueDj(queueId, hostId))
+            .mapCatching { it.decodeQueueDj() }
+
+    // The show binding of each entry is dropped: the menu shows the host only.
+    private fun Answer.decodeQueueDj(): Map<String, String> =
+        resultAs<Map<String, ServerAiRadioQueueDj>>()?.mapValues { it.value.hostId }
+            ?: error("Missing or undecodable AI Radio queue DJ payload")
 
     /**
      * Artwork URLs for [stations], keyed by station id.
