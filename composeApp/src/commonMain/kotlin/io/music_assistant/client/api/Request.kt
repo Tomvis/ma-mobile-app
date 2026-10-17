@@ -859,6 +859,13 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        fun itemByUri(uri: String) = Request(
+            command = APICommands.MUSIC_ITEM_BY_URI,
+            args = buildJsonObject {
+                put("uri", JsonPrimitive(uri))
+            },
+        )
+
         fun markPlayed(
             item: MarkableItem,
         ) = Request(
