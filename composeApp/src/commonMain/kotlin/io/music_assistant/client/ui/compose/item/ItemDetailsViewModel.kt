@@ -271,13 +271,13 @@ class ItemDetailsViewModel(
             _state.update { it.copy(playableItemsState = DataState.Loading()) }
 
             try {
-                val tracks = mediaItemRepository.fetchMediaItems(
+                val tracks = mediaItemRepository.fetchAllMediaItems(
                     Request.Playlist.getTracks(
                         itemId = itemId,
                         providerInstanceIdOrDomain = provider,
                         forceRefresh = forceRefresh.takeIf { it },
                     ),
-                ).getOrNull()
+                )
                     ?.filterIsInstance<PlayableItem>()
                     ?: emptyList()
 
@@ -294,12 +294,12 @@ class ItemDetailsViewModel(
             _state.update { it.copy(playableItemsState = DataState.Loading()) }
 
             try {
-                val episodes = mediaItemRepository.fetchMediaItems(
+                val episodes = mediaItemRepository.fetchAllMediaItems(
                     Request.Podcast.getEpisodes(
                         itemId = itemId,
                         providerInstanceIdOrDomain = provider,
                     ),
-                ).getOrNull()
+                )
                     ?.filterIsInstance<PodcastEpisode>()
                     ?: emptyList()
 

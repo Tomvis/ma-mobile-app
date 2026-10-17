@@ -3,6 +3,7 @@ package io.music_assistant.client.data.repository
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.fetchAllPages
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
@@ -11,7 +12,9 @@ import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
+import io.music_assistant.client.data.model.server.pagesPlaylistTracksAndEpisodes
 import io.music_assistant.client.ui.compose.common.getOrEmptyList
+import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +33,12 @@ import kotlinx.coroutines.withContext
 
 interface MediaItemRepository {
     suspend fun fetchMediaItems(request: Request): Result<List<AppMediaItem>>
+
+    /**
+     * Every item of a `playlist_tracks` or `podcast_episodes` [request]. Null when nothing could
+     * be loaded; a page failure after the first page gives the items loaded so far.
+     */
+    suspend fun fetchAllMediaItems(request: Request): List<AppMediaItem>?
     val itemChanges: SharedFlow<MediaItemChange>
     suspend fun search(request: Request): Result<SearchResultData>
     suspend fun fetchMediaItem(request: Request): Result<AppMediaItem?>
@@ -64,6 +73,20 @@ class ServiceClientMediaItemRepository(
                 ?.let(factory::createList)
                 ?: error("Missing or undecodable media list payload")
         }
+
+    /**
+     * A server from 2.11 answers one page, so the pages are walked. An older server streams the
+     * whole list on the plain request (see [pagesPlaylistTracksAndEpisodes]).
+     */
+    override suspend fun fetchAllMediaItems(request: Request): List<AppMediaItem>? =
+        if (pagesPlaylistTracksAndEpisodes(schemaVersion())) {
+            request.fetchAllPages { fetchMediaItems(it).getOrNull() }
+        } else {
+            fetchMediaItems(request).getOrNull()
+        }
+
+    private fun schemaVersion(): Int? =
+        (apiClient.sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion
 
     /**
      * Issue [request] and decode its payload as a single client media item.

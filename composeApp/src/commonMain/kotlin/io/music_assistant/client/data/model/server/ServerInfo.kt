@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 /** Highest server schema_version this client is built and tested against. */
 const val LOCAL_SCHEMA_VERSION = 59
 
+/**
+ * API schema of server 2.11.0. Every 2.11 behaviour change in the app gates on this one constant,
+ * so an earlier 2.11 beta gets the 2.10 behaviour. The value follows the `dev` branch until 2.11.0
+ * is released.
+ */
+const val SERVER_2_11_SCHEMA = 96
+
 @Serializable
 data class ServerInfo(
     @SerialName("server_id") var serverId: String,

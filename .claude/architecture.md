@@ -64,8 +64,11 @@ actual class PlatformFeature {
 - **Models**: Server DTOs in `model/server/`, domain models in `model/client/`
 - **List payloads**: `library_items` and `player_queues/items` answer in one message and the
   server caps a message at about 9 MB. Never send a huge `limit`. Page with `Request.fetchAllPages`
-  (`api/Paging.kt`) when a caller needs the whole list. `playlist_tracks` is streamed by the
-  server in 500-item `partial` batches that `RpcEngine` reassembles. `library_items` already
+  (`api/Paging.kt`) when a caller needs the whole list. `playlist_tracks` and `podcast_episodes`
+  depend on the server version. Server 2.10 streams the whole list in 500-item `partial` batches
+  that `RpcEngine` reassembles, and it ignores `limit` and `offset`. Server 2.11 answers one
+  500-item page. `MediaItemRepository.fetchAllMediaItems` selects the method from the schema
+  (`SERVER_2_11_SCHEMA`), so load these two lists through it. `library_items` already
   returns slim summary items by default.
 - **Collections**: an audiobook series is `MediaType.COLLECTION` (`MediaCollection`, books in `items`). The
   server returns series rows only when `library_items` gets `collapse_collections`. The Audiobooks top bar sets
@@ -191,6 +194,7 @@ The built-in player is the `:sendspin` Gradle module (`io.music_assistant.sendsp
 - `SendspinPlayer(config: StateFlow<LocalPlayerConfig?>, deps, scope)` creates the player. A `null` config disables it. There is no start or stop call.
 - `state: StateFlow<PlayerState>` is `Disabled`, `Connecting`, `Connected`, `Reconnecting`, or `Failed`. `Connected` carries the player id, the server name, the clock quality, and the audio status.
 - `events: Flow<PlayerEvent>` carries `PlaybackStarted`, `PlaybackStopped(cause)`, `ServerRefreshNeeded`, `FocusRegained`, and `Warning(code)`.
+- `hold(held)` is the local pause. While held, the player is silent and discards the audio that it gets, with no server round trip. `LocalPlayerAdapter` holds on every local Pause. It releases on every play intent: a local Play, Next, Previous or seek, a `PlayDispatcher` request or a queue-item tap for the local player. It also releases when the server reports that the player is not playing. A `stream/start` while held gives `StreamStartedWhileHeld`, and the adapter sends the pause again. A Play that releases a hold sends a pause before the play, so the server starts a new stream. `LocalCommandQueue.sendOrDrop` sends Play, Next, Previous and seeks. It waits up to 10 s for the session and for the queued commands, then it sends the command or drops it. It never queues them.
 - Ports the app implements: `AudioSink`, `DecoderFactory`, `SendspinKeyStore`, and `Endpoint.WebRtc.openChannel`.
 - The app depends on `sendspin.api` and the root factory only. Every other declaration in the module is `internal`, so the compiler rejects a new leak. The Noise primitives are a private default of the composition root, not an app port.
 

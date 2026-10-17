@@ -420,14 +420,12 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             itemId: String,
             providerInstanceIdOrDomain: String,
             forceRefresh: Boolean? = null,
-            orderBy: String? = null,
         ) = Request(
             command = APICommands.MUSIC_PLAYLISTS_PLAYLIST_TRACKS,
             args = buildJsonObject {
                 put("item_id", JsonPrimitive(itemId))
                 put("provider_instance_id_or_domain", JsonPrimitive(providerInstanceIdOrDomain))
                 forceRefresh?.let { put("force_refresh", JsonPrimitive(it)) }
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
             },
         )
 
