@@ -7,6 +7,7 @@ import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.data.repository.favoriteAfter
 import io.music_assistant.client.ui.compose.common.DataState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,26 +33,35 @@ class ListenLaterViewModel(
                     // album from another surface fires Updated(listenLater=true) (and
                     // possibly Added), which the old remove-only collector ignored — so the
                     // open screen stayed stale on the very action it exists to support.
-                    is MediaItemChange.Added -> reconcile(change.item)
-                    is MediaItemChange.Updated -> reconcile(change.item)
+                    is MediaItemChange.Added -> reconcile(change)
+                    is MediaItemChange.Updated -> reconcile(change)
+                    // A heart toggle never changes membership: patch the row if it's shown.
+                    is MediaItemChange.FavoriteUpdated ->
+                        (change.item as? Album)?.let { upsertItem(it, change, addIfMissing = false) }
                 }
             }
         }
     }
 
-    private fun reconcile(changed: AppMediaItem) {
-        val album = changed as? Album ?: return
-        if (album.listenLater) upsertItem(album) else removeItem(album)
+    private fun reconcile(change: MediaItemChange) {
+        val album = change.item as? Album ?: return
+        if (album.listenLater) upsertItem(album, change) else removeItem(album)
     }
 
-    private fun upsertItem(item: AppMediaItem) {
+    private fun upsertItem(item: AppMediaItem, change: MediaItemChange, addIfMissing: Boolean = true) {
         _state.update { current ->
             val data = current as? DataState.Data ?: return@update current
             val existingIndex = data.data.indexOfFirst { it.matchesIdentityOf(item) }
             val newList = if (existingIndex >= 0) {
                 // Already shown: replace in place so a metadata refresh lands without
-                // disturbing the existing order.
-                data.data.toMutableList().apply { this[existingIndex] = item }
+                // disturbing the existing order. Server 2.11 item events carry no favorite
+                // state, so keep the row's own unless the change has one.
+                val existing = data.data[existingIndex]
+                data.data.toMutableList().apply {
+                    this[existingIndex] = item.withFavorite(change.favoriteAfter(existing.favorite))
+                }
+            } else if (!addIfMissing) {
+                return@update current
             } else {
                 // Newly saved: the list is ordered listen_later_added_at_desc
                 // (newest first), so the fresh pick belongs at the front.
