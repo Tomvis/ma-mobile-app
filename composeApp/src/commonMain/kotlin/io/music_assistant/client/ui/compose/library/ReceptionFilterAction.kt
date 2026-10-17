@@ -67,31 +67,28 @@ private fun accoladeLabels(vararg kinds: AccoladeKind): Map<AccoladeKind, String
     kinds.mapNotNull { kind -> kind.shortLabelRes()?.let { kind to it } }
         .toMap(LinkedHashMap())
 
-// Awards first, then review-column kinds. AOTM is gone — folded into RECORD_OF_THE_MONTH.
-// REVIEW is the default column and not a useful filter.
-private val AWARD_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> = accoladeLabels(
+// Each row offers only the kinds its source actually publishes (music-rater post types):
+// AMG has the monthly pick, score revisions and the TYMHM/SITF/YMIO columns; TPS has the
+// Lost in Time and RFU series. The server scopes each accolade clause to its own source,
+// so a kind under the wrong source is a dead control that always filters to zero.
+// Awards first, then review-column kinds; REVIEW is the default column and not a useful
+// filter. Mirrors the web frontend's AMG_ACCOLADE_KINDS / TPS_ACCOLADE_KINDS.
+private val AMG_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> = accoladeLabels(
     AccoladeKind.AOTY,
     AccoladeKind.RECORD_OF_THE_MONTH,
     AccoladeKind.HONORABLE_MENTION,
     AccoladeKind.SCORE_REVISED,
-)
-
-// The five review columns only ever appear on AMG entries, so they belong in the AMG
-// row alone: the server scopes each accolade clause to its own source, so offering
-// them under TPS makes a dead control that always filters to zero. Mirrors the web
-// frontend's AWARD_ACCOLADE_KINDS / AMG_COLUMN_ACCOLADE_KINDS split.
-private val AMG_COLUMN_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> = accoladeLabels(
     AccoladeKind.TYMHM,
     AccoladeKind.SITF,
     AccoladeKind.YMIO,
+)
+
+private val TPS_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> = accoladeLabels(
+    AccoladeKind.AOTY,
+    AccoladeKind.HONORABLE_MENTION,
     AccoladeKind.LIT,
     AccoladeKind.RFU,
 )
-
-private val AMG_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> =
-    AWARD_ACCOLADE_LABELS + AMG_COLUMN_ACCOLADE_LABELS
-
-private val TPS_ACCOLADE_LABELS: Map<AccoladeKind, StringResource> = AWARD_ACCOLADE_LABELS
 
 // The DR chips: the four buckets, then the "untagged" pseudo-bucket, which has no
 // DrQuality entry and is carried as the null option (ReceptionFilter.drUntagged).
