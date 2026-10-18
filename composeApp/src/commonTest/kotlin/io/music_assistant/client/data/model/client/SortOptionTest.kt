@@ -1,5 +1,7 @@
 package io.music_assistant.client.data.model.client
 
+import io.music_assistant.client.data.model.server.ServerSortOption
+import io.music_assistant.client.data.repository.toSortOffers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -71,6 +73,23 @@ class SortOptionTest {
         // Upstream dropped ORIGINAL's special-casing in SortChip, so it now rides the
         // shared defaultDescending path and must stay ascending-first.
         assertFalse(SortField.ORIGINAL.defaultDescending)
+    }
+
+    @Test fun serverOffersKeepForkAlbumSorts() {
+        // Server 2.11 drives the album menu via music/sort_options; an unknown key is dropped.
+        val offers = listOf("dr", "amg_rating", "tps_rating", "listen_later_added_at")
+            .map { ServerSortOption(it, defaultDirection = "desc") }
+            .toSortOffers()
+        assertEquals(
+            listOf(SortField.DR, SortField.AMG_RATING, SortField.TPS_RATING, SortField.LISTEN_LATER_ADDED_AT),
+            offers.map { it.field },
+        )
+        assertTrue(offers.all { it.defaultDescending })
+    }
+
+    @Test fun staticAlbumFallbackStartsReceptionSortsDescending() {
+        val offers = SortConfig.fieldsFor(MediaType.ALBUM).map { SortOffer(it, it.defaultDescending) }
+        assertTrue(offers.first { it.field == SortField.DR }.defaultDescending)
     }
 
     @Test

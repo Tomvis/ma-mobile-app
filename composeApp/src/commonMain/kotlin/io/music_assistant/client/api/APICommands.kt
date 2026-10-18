@@ -96,6 +96,7 @@ object APICommands {
     // Browse
     const val MUSIC_BROWSE = "music/browse"
     const val MUSIC_SOUND_EFFECTS = "music/sound_effects"
+    const val MUSIC_SORT_OPTIONS = "music/sort_options"
 
     // Search and recommendations
     const val MUSIC_SEARCH = "music/search"
@@ -113,6 +114,7 @@ object APICommands {
     // Auth commands
     const val AUTH_PROVIDERS = "auth/providers"
     const val AUTH_AUTHORIZATION_URL = "auth/authorization_url"
+    const val AUTH_EXCHANGE = "auth/exchange"
     const val AUTH_LOGIN = "auth/login"
     const val AUTH_LOGOUT = "auth/logout"
     const val AUTH_ME = "auth/me"

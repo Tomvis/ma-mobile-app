@@ -3,8 +3,12 @@ package io.music_assistant.client.ui.compose.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.music_assistant.client.api.Request
+import io.music_assistant.client.data.model.client.SortField
+import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.data.model.server.ListSort
+import io.music_assistant.client.data.model.server.SortWire
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.favoriteAfter
@@ -87,7 +91,8 @@ class ListenLaterViewModel(
             val result = mediaItemRepository.fetchMediaItems(
                 Request.Album.listLibrary(
                     listenLater = true,
-                    orderBy = "listen_later_added_at_desc",
+                    // Listen Later is fork-server only, so always 2.11+ (sort_field wire).
+                    sort = ListSort(SortOption(SortField.LISTEN_LATER_ADDED_AT, descending = true), SortWire.SORT_FIELD),
                 ),
             )
             result.getOrNull()

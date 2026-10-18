@@ -9,6 +9,8 @@ import io.music_assistant.client.data.model.client.ReceptionFilter
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.MarkableItem
 import io.music_assistant.client.data.model.server.DspConfig
+import io.music_assistant.client.data.model.server.ListSort
+import io.music_assistant.client.data.model.server.SortWire
 import io.music_assistant.client.utils.myJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -35,6 +37,17 @@ private fun JsonObjectBuilder.putListFilters(
         ?.let { put("provider", JsonArray(it.map { p -> JsonPrimitive(p) })) }
     genres?.takeIf { it.isNotEmpty() }
         ?.let { put("genre", JsonArray(it.map { g -> JsonPrimitive(g) })) }
+}
+
+private fun JsonObjectBuilder.putSort(sort: ListSort?) {
+    when (sort?.wire) {
+        SortWire.ORDER_BY -> put("order_by", JsonPrimitive(sort.option.toServerString()))
+        SortWire.SORT_FIELD -> {
+            put("sort_field", JsonPrimitive(sort.option.field.serverKey))
+            put("sort_direction", JsonPrimitive(if (sort.option.descending) "desc" else "asc"))
+        }
+        null -> Unit
+    }
 }
 
 @Serializable
@@ -394,7 +407,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
         ) = Request(
@@ -404,7 +417,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, genres)
             },
         )
@@ -460,7 +473,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
         ) = Request(
@@ -470,7 +483,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, genres)
             },
         )
@@ -511,7 +524,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
         ) = Request(
@@ -521,7 +534,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, genres)
             },
         )
@@ -538,7 +551,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
             collapseCollections: Boolean = false,
@@ -549,7 +562,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, genres)
                 // Groups series into `collection` rows. Servers before 2.10 ignore it.
                 if (collapseCollections) put("collapse_collections", JsonPrimitive(true))
@@ -575,7 +588,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             hideEmpty: Boolean? = null,
             mediaType: String? = null,
@@ -586,7 +599,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, null)
                 hideEmpty?.let { put("hide_empty", JsonPrimitive(it)) }
                 mediaType?.let { put("media_type", JsonPrimitive(it)) }
@@ -620,7 +633,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             albumArtistsOnly: Boolean = false,
             providers: List<String>? = null,
             genres: List<Int>? = null,
@@ -631,7 +644,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 put("album_artists_only", JsonPrimitive(albumArtistsOnly))
                 putListFilters(providers, genres)
             },
@@ -698,7 +711,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             albumTypes: List<String>? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
@@ -711,7 +724,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 albumTypes?.takeIf { it.isNotEmpty() }
                     ?.let { types ->
                         put(
@@ -751,7 +764,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             search: String? = null,
             limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
-            orderBy: String? = null,
+            sort: ListSort? = null,
             providers: List<String>? = null,
             genres: List<Int>? = null,
         ) = Request(
@@ -761,7 +774,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 search?.let { put("search", JsonPrimitive(it)) }
                 put("limit", JsonPrimitive(limit))
                 put("offset", JsonPrimitive(offset))
-                orderBy?.let { put("order_by", JsonPrimitive(it)) }
+                putSort(sort)
                 putListFilters(providers, genres)
             },
         )
@@ -778,6 +791,16 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
     data object SoundEffects {
         fun all() = Request(command = APICommands.MUSIC_SOUND_EFFECTS)
+    }
+
+    data object Sort {
+        /** The sort options of [listing], a server `ListingType` value. From server 2.11. */
+        fun options(listing: String) = Request(
+            command = APICommands.MUSIC_SORT_OPTIONS,
+            args = buildJsonObject {
+                put("listing", JsonPrimitive(listing))
+            },
+        )
     }
 
     data object Metadata {
@@ -936,11 +959,31 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
     data object Auth {
         fun providers() = Request(command = APICommands.AUTH_PROVIDERS)
 
-        fun authorizationUrl(providerId: String, returnUrl: String? = null) = Request(
+        /** A [codeChallenge] makes the browser return to the app, which then sends [exchange]. */
+        fun authorizationUrl(
+            providerId: String,
+            returnUrl: String? = null,
+            codeChallenge: String? = null,
+        ) = Request(
             command = APICommands.AUTH_AUTHORIZATION_URL,
             args = buildJsonObject {
                 put("provider_id", JsonPrimitive(providerId))
                 returnUrl?.let { put("return_url", JsonPrimitive(it)) }
+                codeChallenge?.let {
+                    put("code_challenge", JsonPrimitive(it))
+                    put("code_challenge_method", JsonPrimitive("S256"))
+                    put("redirect_target", JsonPrimitive("app"))
+                }
+            },
+        )
+
+        fun exchange(state: String, code: String, codeVerifier: String, deviceName: String) = Request(
+            command = APICommands.AUTH_EXCHANGE,
+            args = buildJsonObject {
+                put("state", JsonPrimitive(state))
+                put("code", JsonPrimitive(code))
+                put("code_verifier", JsonPrimitive(codeVerifier))
+                put("device_name", JsonPrimitive(deviceName))
             },
         )
 

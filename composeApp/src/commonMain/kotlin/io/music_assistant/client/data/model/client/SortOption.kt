@@ -6,33 +6,56 @@ import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.Track
 
+/**
+ * [serverKey] is the server 2.11 `sort_field` value, [legacyKey] the `order_by` key of older servers.
+ * The random orders are absent on purpose: a paged list in a random order repeats items.
+ */
 enum class SortField(
     val serverKey: String,
     val displayName: String,
+    val legacyKey: String = serverKey,
+    // Fork: the static-table direction of a new pick (server 2.11 sends its own default_direction).
     val defaultDescending: Boolean = false,
 ) {
     ORIGINAL("original", "Original"),
     NAME("sort_name", "Name"),
+    EXACT_NAME("name", "Exact name"),
     DURATION("duration", "Duration"),
     DATE_ADDED("timestamp_added", "Date added"),
     DATE_MODIFIED("timestamp_modified", "Date modified"),
+    DATE_FAVORITED("favorite_timestamp", "Date favorited"),
     LAST_PLAYED("last_played", "Last played"),
     PLAY_COUNT("play_count", "Play count"),
     YEAR("year", "Year"),
     POSITION("position", "Position"),
-    ARTIST_NAME("album_artist_name", "Artist"),
-    RELEASE_DATE("release_date", "Release date"),
+    ARTIST_NAME("artist_name", "Artist", legacyKey = "album_artist_name"),
     DR("dr", "DR", defaultDescending = true),
     AMG_RATING("amg_rating", "AMG", defaultDescending = true),
     TPS_RATING("tps_rating", "TPS", defaultDescending = true),
+    LISTEN_LATER_ADDED_AT("listen_later_added_at", "Date saved for later", defaultDescending = true),
+
+    // Client-only: podcast episodes sort on the client.
+    RELEASE_DATE("release_date", "Release date"),
+    ;
+
+    companion object {
+        fun fromServerKey(key: String): SortField? = entries.firstOrNull { it.serverKey == key }
+    }
 }
 
 data class SortOption(
     val field: SortField,
     val descending: Boolean = false,
 ) {
-    fun toServerString(): String = if (descending) "${field.serverKey}_desc" else field.serverKey
+    fun toServerString(): String = if (descending) "${field.legacyKey}_desc" else field.legacyKey
 }
+
+/** A field that a sort chip offers, and the direction that a new pick of it starts in. */
+data class SortOffer(
+    val field: SortField,
+    val defaultDescending: Boolean = false,
+    val supportsDirection: Boolean = true,
+)
 
 object SortConfig {
     fun fieldsFor(mediaType: MediaType): List<SortField> = when (mediaType) {

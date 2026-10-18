@@ -9,6 +9,7 @@ class ListenLaterActionResolverTest {
     @Test fun savedAlbumOffersRemove() {
         val actions = resolveDetailOverflowActions(
             item = AppMediaItemFixtures.album(listenLater = true),
+            canEditLibrary = true,
             librarySupported = true,
             canAddToPlaylist = false,
         )
@@ -19,6 +20,7 @@ class ListenLaterActionResolverTest {
     @Test fun unsavedAlbumOffersSave() {
         val actions = resolveDetailOverflowActions(
             item = AppMediaItemFixtures.album(listenLater = false),
+            canEditLibrary = true,
             librarySupported = true,
             canAddToPlaylist = false,
         )
@@ -29,10 +31,23 @@ class ListenLaterActionResolverTest {
     @Test fun nonAlbumOffersNeither() {
         val actions = resolveLongClickActions(
             item = AppMediaItemFixtures.artist(),
+            canEditLibrary = true,
             librarySupported = true,
             canAddToPlaylist = false,
             canRemoveFromPlaylist = false,
             progressSupported = false,
+        )
+        assertFalse(ItemAction.SaveForLater in actions)
+        assertFalse(ItemAction.RemoveFromLater in actions)
+    }
+
+    @Test fun readOnlyUserOffersNeither() {
+        // listen_later_add/remove need library.write on the fork server.
+        val actions = resolveDetailOverflowActions(
+            item = AppMediaItemFixtures.album(listenLater = false),
+            canEditLibrary = false,
+            librarySupported = true,
+            canAddToPlaylist = false,
         )
         assertFalse(ItemAction.SaveForLater in actions)
         assertFalse(ItemAction.RemoveFromLater in actions)

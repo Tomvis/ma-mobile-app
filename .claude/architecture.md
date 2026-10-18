@@ -101,6 +101,22 @@ actual class PlatformFeature {
   `carriesFavorite` false must not change the heart of a row. Replace a row with
   `item.withFavorite(change.favoriteAfter(row.favorite))`. `MainDataSource` gets the added and updated
   tracks from `itemChanges` for the same reason.
+- **Scopes**: `MainDataSource.grantedScopes` (`GrantedScopes`) holds the scopes of the signed-in user. The
+  app reads `auth/scopes` once for each new session and finds the role of the user in the table. Gate a
+  write action on a scope. Do not gate it on the role name, because server 2.11 has custom roles.
+  The value is `NONE` before the table arrives and after a failed fetch, so the gate fails closed.
+  Compose reads `LocalGrantedScopes`, which `App` provides. `canEditLibrary` (`library.write`) gates
+  favorites, library membership, playlist edits and the played state. `canConfigurePlayers`
+  (`config.players.write`) gates DSP and the car DSP action. Every role has `players.control`, so
+  grouping has no gate.
+- **Library sort**: get the sort choices of a library list from `LibrarySortRepository.menu(mediaType)`, on the
+  phone and in Android Auto. From server 2.11 (`sortWireFor`), the menu holds the fields of `music/sort_options`
+  and the request sends `sort_field` and `sort_direction`. An older server gets the static `SortConfig` table and
+  `order_by`. The `SortConfig` default stays the list default while the server offers its field, so podcasts
+  stay newest first. If the server does not offer it, the first server option is the default. A 2.11 server
+  rejects a field that the list does not offer, so resolve the stored choice with
+  `LibrarySortMenu.resolve` before the request. Send a sort only as a `ListSort`. The sub-item lists (album
+  tracks, playlist tracks, episodes, artist lists) keep `SortConfig` and sort on the client.
 - **In-list filter**: `List.clientFiltered(query)` (`model/client/QueryFilter.kt`) filters loaded
   items on the client. Derive the visible list as raw → filter → sort in one place.
 - **Announcements**: `AnnouncementRepository` (`data/announcement/`) runs both kinds in an app scope,
@@ -213,7 +229,7 @@ The built-in player is the `:sendspin` Gradle module (`io.music_assistant.sendsp
 - `player/local/` holds the platform sinks and decoders. Android: `AudioTrackSink` and `AndroidDecoderFactory`. iOS: `AudioQueueSink` and pass-through `IosDecoderFactory` (the native player decodes).
 - The control plane stays on the MA REST API. Sendspin carries audio only (role `player@v1`).
 - Only the Noise-encrypted protocol is supported. `supportsEncryptedSendspin(schemaVersion)` requires MA schema 45 or newer. A known lower schema produces `Endpoint.Unsupported`, and the player fails without opening a transport. A missing schema is inconclusive: endpoint selection permits a handshake rather than rejecting the server. An explicit unsupported wire version, and a `server/error` for an unsupported version or suite, fail terminally; network failures and handshake timeouts still retry.
-- The module speaks two wire dialects, `WireVersion` (`api`). `LEGACY_9` is aiosendspin 9.x (server 2.10). `SPEC_1_0` is Sendspin spec 1.0.0-rc1, aiosendspin 10.x (server 2.11). `sendspinWireFor(schemaVersion)` selects the wire from `SERVER_2_11_SCHEMA`, and an unknown schema gets `LEGACY_9`. `LocalPlayerEndpoints` puts the wire on the `Endpoint`, so a wire change restarts the connection. A 10.x server accepts the 9.x wire only while its hidden setting `allow_legacy_clients` is on, and it logs a "non-compliant client" warning for it. The differences on `SPEC_1_0`: Noise message 1 carries `psk_category`, and the client matches the PSK by id and category. On a miss in the initial handshake, the client completes with the Sentinel PSK, so the server can offer re-pairing. `client/hello` has no `trust_level`, no `supported_commands`, and `supported_pair_methods` is an object keyed by method. `client/state` carries `output_delay_ms`, `required_lead_time_ms`, `min_buffer_ms` and `supported_commands`. The player sends it after the first clock estimate and again when the delay changes, never periodically. An audio chunk header has 4 more bytes, `send_ahead`, which the client skips. Fragments use type 1 with a flags byte. A re-handshake has no hello exchange, and an activate without `active_roles` keeps the roles. The Pairing PSK flow sends `client/pair-init` with the pairing index before `client/pair-finalize`. `SendspinJson` omits null fields on both wires. `SendspinDeps.softwareVersion` is the app version that the server names in its logs.
+- The module speaks two wire dialects, `WireVersion` (`api`). `LEGACY_9` is aiosendspin 9.x (server 2.10.6 and older). `SPEC_1_0` is Sendspin spec 1.0.0-rc1, aiosendspin 10.x (server 2.10.7 and 2.11). `sendspinWireFor(schemaVersion, serverVersion)` selects `SPEC_1_0` from `SERVER_2_11_SCHEMA`, or from a 2.10 `server_version` with patch 7 or higher, because 2.10.7 keeps the 2.10 schema. All other servers get `LEGACY_9`, which includes an unknown server and a source build (`0.0.0`). The handshake does not give the server version: `server/init` has `version` 1 on both wires. `LocalPlayerEndpoints` puts the wire on the `Endpoint`, so a wire change restarts the connection. A 10.x server accepts the 9.x wire only while its hidden setting `allow_legacy_clients` is on, and it logs a "non-compliant client" warning for it. The differences on `SPEC_1_0`: Noise message 1 carries `psk_category`, and the client matches the PSK by id and category. On a miss in the initial handshake, the client completes with the Sentinel PSK, so the server can offer re-pairing. `client/hello` has no `trust_level`, no `supported_commands`, and `supported_pair_methods` is an object keyed by method. `client/state` carries `output_delay_ms`, `required_lead_time_ms`, `min_buffer_ms` and `supported_commands`. The player sends it after the first clock estimate and again when the delay changes, never periodically. An audio chunk header has 4 more bytes, `send_ahead`, which the client skips. Fragments use type 1 with a flags byte. A re-handshake has no hello exchange, and an activate without `active_roles` keeps the roles. The Pairing PSK flow sends `client/pair-init` with the pairing index before `client/pair-finalize`. `SendspinJson` omits null fields on both wires. `SendspinDeps.softwareVersion` is the app version that the server names in its logs.
 
 ### Android Services Integration
 
@@ -251,6 +267,9 @@ See `.claude/sendspin-integration-design.md` and `.claude/sendspin-android-servi
 ## Misc rules
 
 - Don't ever use non-null assertions in live code (!!). Always handle nulls safely.
+- If code reads the `value` of a derived `StateFlow` after it writes the source, derive it with `mapState`
+  (`utils/StateFlowView.kt`). Do not use `map { }.stateIn(scope)` for it, because that value updates on
+  another coroutine and the read can get the old value.
 - Use Kotlin-like idioms (e.g., prefer `let`, `also`, `apply` for scoping).
 - Instead of `if-else` chains, prefer `when` expressions for better readability.
 - Instead of `if-else` for nullable variable, use safe calls and the Elvis operator, or `?.let{} ?: run {}` expression.
