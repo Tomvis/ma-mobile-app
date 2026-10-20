@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -105,7 +106,6 @@ import io.music_assistant.client.ui.compose.search.SearchScreenState
 import io.music_assistant.client.ui.compose.search.SearchViewModel
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
-import io.music_assistant.client.utils.WindowClass
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
@@ -114,13 +114,13 @@ import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.nav_home
 import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
+import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_remote_volume_hint
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlin.collections.plusAssign
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -297,43 +297,38 @@ fun MainNavigationRoot(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val isWideScreen = WindowClass.isWide()
+        val navigationItems = navigationItems(
+            multiBackStack = multiBackStack,
+            homeScreenState = homeScreenState,
+            libraryScreenState = libraryScreenState,
+            searchScreenState = searchScreenState,
+            goToSettings = goToSettings,
+        )
 
-        val navigationItems = buildList {
-            addAll(
-                navigationItems(
-                    multiBackStack = multiBackStack,
-                    homeScreenState = homeScreenState,
-                    libraryScreenState = libraryScreenState,
-                    searchScreenState = searchScreenState,
-                ),
-            )
-
-            if (!isWideScreen) {
-                playersState.let { state ->
-                    if (state is HomeScreenViewModel.PlayersState.Data) {
-                        val selectedPlayer = state.selectedPlayer
-                        if (selectedPlayer != null) {
-                            add(
-                                NavigationItem(
-                                    selected = false,
-                                    onClick = { showPlayerSelection = true },
-                                    icon = vectorResource(selectedPlayer.iconRes()),
-                                    label = selectedPlayer.label(),
-                                    marqueeLabel = true,
-                                    contentDescription = selectedPlayer.contentDescription(),
-                                ),
-                            )
-                        }
-                    }
+        val playSelectionItem: NavigationItem? = playersState.let { state ->
+            if (state is HomeScreenViewModel.PlayersState.Data) {
+                val selectedPlayer = state.selectedPlayer
+                if (selectedPlayer != null) {
+                    NavigationItem(
+                        selected = false,
+                        onClick = { showPlayerSelection = true },
+                        icon = vectorResource(selectedPlayer.iconRes()),
+                        label = selectedPlayer.label(),
+                        marqueeLabel = true,
+                        contentDescription = selectedPlayer.contentDescription(),
+                    )
+                } else {
+                    null
                 }
+            } else {
+                null
             }
         }
 
         AdaptiveNavigationBarLayout(
             showNavigation = !playerExpanded,
-            rail = isWideScreen,
             navigationItems = navigationItems,
+            trailingItem = playSelectionItem,
         ) { scaffoldContentPadding ->
             FloatingBarLayout(
                 modifier = Modifier.padding(scaffoldContentPadding),
@@ -424,6 +419,7 @@ private fun navigationItems(
     homeScreenState: MutableState<HomeScreenState?>,
     libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
+    goToSettings: () -> Unit,
 ): List<NavigationItem> {
     val navigationItems = mutableListOf(
         multiBackStack.createNavigationItem(
@@ -443,6 +439,12 @@ private fun navigationItems(
             icon = Icons.Default.Search,
             label = stringResource(Res.string.nav_search),
             screenState = searchScreenState.value,
+        ),
+        NavigationItem(
+            selected = false,
+            onClick = goToSettings,
+            Icons.Default.Settings,
+            label = stringResource(Res.string.nav_settings),
         ),
     )
 

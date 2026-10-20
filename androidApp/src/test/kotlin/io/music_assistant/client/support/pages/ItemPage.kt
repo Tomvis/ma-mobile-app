@@ -30,7 +30,6 @@ import musicassistantclient.composeapp.generated.resources.item_tab_versions
 import musicassistantclient.composeapp.generated.resources.media_type_albums
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
 import musicassistantclient.composeapp.generated.resources.nav_home
-import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
 
 class ItemPage(
@@ -58,7 +57,6 @@ class ItemPage(
             items = listOf(
                 Res.string.nav_home.get(),
                 Res.string.nav_search.get(),
-                Res.string.nav_library.get(),
             ),
             selected = navigationItem,
         )

@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onFirst
 import io.music_assistant.client.support.get
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.nav_home
-import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
 
 open class ItemListPage(private val title: String, private val navigationItem: String, composeTestRule: ComposeTestRule) : ComposePage(
@@ -18,7 +17,6 @@ open class ItemListPage(private val title: String, private val navigationItem: S
         assertNavBar(
             items = listOf(
                 Res.string.nav_home.get(),
-                Res.string.nav_library.get(),
                 Res.string.nav_search.get(),
             ),
             selected = navigationItem,

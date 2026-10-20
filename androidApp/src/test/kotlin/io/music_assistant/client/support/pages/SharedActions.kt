@@ -21,6 +21,8 @@ import io.music_assistant.client.support.get
 import io.music_assistant.client.support.isTab
 import io.music_assistant.client.support.withinTag
 import io.music_assistant.client.ui.compose.home.FloatingBarSemantics
+import io.music_assistant.client.ui.compose.nav.NavigationBarSemantics
+import io.music_assistant.client.ui.compose.nav.NavigationDrawerSemantics
 import io.music_assistant.client.ui.compose.support.inScrollable
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_pause
@@ -36,6 +38,7 @@ import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.library_empty
 import musicassistantclient.composeapp.generated.resources.nav_home
 import musicassistantclient.composeapp.generated.resources.nav_library
+import musicassistantclient.composeapp.generated.resources.nav_menu
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_nothing
@@ -76,18 +79,23 @@ fun ComposePage.clickItemNavigationOption(
     return ItemPage(target.name, type, navigationItem, composeTestRule).assertOnPage()
 }
 
-fun ComposePage.assertNavBar(items: List<String>, selected: String) {
+fun ComposePage.assertNavBar(items: List<String>, selected: String?) {
     items.forEach {
         if (it == selected) {
-            composeTestRule.onNode(isTab(it)).assertIsSelected()
+            composeTestRule
+                .onNode(withinTag(NavigationBarSemantics.TAG).and(isTab(it))).assertIsSelected()
         } else {
-            composeTestRule.onNode(isTab(it)).assertIsNotSelected()
+            composeTestRule
+                .onNode(withinTag(NavigationBarSemantics.TAG).and(isTab(it))).assertIsNotSelected()
         }
     }
 }
 
 fun ComposePage.clickNavBarItem(item: String) {
-    composeTestRule.onNode(isTab(item)).assertIsDisplayed().performClick()
+    composeTestRule
+        .onNode(withinTag(NavigationBarSemantics.TAG).and(isTab(item)))
+        .assertIsDisplayed()
+        .performClick()
 }
 
 fun ComposePage.clickSearch(): SearchPage {
@@ -106,8 +114,7 @@ fun <T : Page> ComposePage.clickHome(destination: T): T {
 }
 
 fun ComposePage.clickLibrary(): LibraryPage {
-    clickNavBarItem(Res.string.nav_library.get())
-    return LibraryPage(composeTestRule).assertOnPage()
+    return clickLibrary(LibraryPage(composeTestRule))
 }
 
 fun <T : Page> ComposePage.clickLibrary(destination: T): T {
@@ -115,8 +122,18 @@ fun <T : Page> ComposePage.clickLibrary(destination: T): T {
     return destination.assertOnPage()
 }
 
+private fun <T : ComposePage> T.openNavDrawer(): T {
+    clickNavBarItem(Res.string.nav_menu.get())
+    return this
+}
+
+private fun ComposePage.clickNavDrawerItem(item: String) {
+    composeTestRule.onNode(withinTag(NavigationDrawerSemantics.TAG).and(isTab(item))).performClick()
+}
+
 fun ComposePage.clickSettings(): SettingsPage {
-    composeTestRule.onNodeWithContentDescription(Res.string.nav_settings.get()).performClick()
+    openNavDrawer()
+    clickNavDrawerItem(Res.string.nav_settings.get())
     return SettingsPage(composeTestRule).assertOnPage()
 }
 

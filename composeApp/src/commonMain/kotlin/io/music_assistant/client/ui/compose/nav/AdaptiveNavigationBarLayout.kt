@@ -17,22 +17,30 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
 import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -46,6 +54,10 @@ import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.utils.WindowClass
+import kotlinx.coroutines.launch
+import musicassistantclient.composeapp.generated.resources.Res
+import musicassistantclient.composeapp.generated.resources.nav_menu
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Shows a [NavigationBar] based on [navigationItems] on tall, narrow windows and a
@@ -54,104 +66,169 @@ import io.music_assistant.client.utils.WindowClass
 @Composable
 fun AdaptiveNavigationBarLayout(
     navigationItems: List<NavigationItem>,
+    trailingItem: NavigationItem? = null,
     showNavigation: Boolean = true,
-    rail: Boolean = false,
+    drawerOpen: Boolean = false,
     navigationBarHeight: Dp = 64.dp,
+    maxNavigationBarItems: Int = 3,
     content: @Composable BoxScope.(contentPadding: PaddingValues) -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (rail) {
-            Row(Modifier.fillMaxWidth()) {
-                if (showNavigation) {
-                    WideNavigationRail(
-                        state = rememberWideNavigationRailState(initialValue = WideNavigationRailValue.Expanded),
-                    ) {
-                        navigationItems.forEach {
-                            WideNavigationRailItem(
-                                railExpanded = true,
-                                selected = it.selected,
-                                onClick = it.onClick,
-                                icon = {
-                                    Icon(it.icon, contentDescription = it.label)
-                                },
-                                label = {
-                                    Text(it.label)
-                                },
-                            )
-                        }
+    if (WindowClass.isWide()) {
+        Row(Modifier.fillMaxWidth()) {
+            if (showNavigation) {
+                WideNavigationRail(
+                    state = rememberWideNavigationRailState(initialValue = WideNavigationRailValue.Expanded),
+                ) {
+                    navigationItems.forEach {
+                        WideNavigationRailItem(
+                            railExpanded = true,
+                            selected = it.selected,
+                            onClick = it.onClick,
+                            icon = {
+                                Icon(it.icon, contentDescription = it.label)
+                            },
+                            label = {
+                                Text(it.label)
+                            },
+                        )
                     }
                 }
-
-                Box {
-                    content(PaddingValues())
-                }
             }
-        } else {
-            // Reserve the real system navigation-bar inset so the chrome reflows when it is
-            // shown/hidden (edge-to-edge). Zero when hidden or on devices without a bottom bar.
-            val bottomInset = WindowInsets.navigationBars
-                .only(WindowInsetsSides.Bottom)
-                .asPaddingValues()
-                .calculateBottomPadding()
 
-            content(
+            Box {
+                content(PaddingValues())
+            }
+        }
+    } else {
+        val drawerState = rememberDrawerState(
+            initialValue = if (drawerOpen) {
+                DrawerValue.Open
+            } else {
+                DrawerValue.Closed
+            },
+        )
+        val scope = rememberCoroutineScope()
+
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
+                    navigationItems.drop(maxNavigationBarItems).forEach {
+                        NavigationDrawerItem(
+                            label = {
+                                Text(it.label)
+                            },
+                            icon = {
+                                Icon(it.icon, contentDescription = null)
+                            },
+                            selected = false,
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    it.onClick()
+                                }
+                            },
+                        )
+                    }
+                }
+            },
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Reserve the real system navigation-bar inset so the chrome reflows when it is
+                // shown/hidden (edge-to-edge). Zero when hidden or on devices without a bottom bar.
+                val bottomInset = WindowInsets.navigationBars
+                    .only(WindowInsetsSides.Bottom)
+                    .asPaddingValues()
+                    .calculateBottomPadding()
+
+                content(
+                    if (showNavigation) {
+                        PaddingValues(bottom = navigationBarHeight + bottomInset)
+                    } else {
+                        PaddingValues()
+                    },
+                )
+
                 if (showNavigation) {
-                    PaddingValues(bottom = navigationBarHeight + bottomInset)
-                } else {
-                    PaddingValues()
-                },
-            )
-
-            if (showNavigation) {
-                // Two concerns are split so icon placement doesn't depend on M3's inset handling:
-                //  - the wrapper Box (navigationBarHeight + bottomInset tall) paints the bar background
-                //    down behind the system nav / home indicator, so no white bleeds through edge-to-edge;
-                //  - the transparent NavigationBar is pinned to the top at exactly navigationBarHeight
-                //    (M3's intrinsic min is ~80dp, so the explicit height is required to go smaller), with
-                //    zeroed windowInsets so its icons stay centered in that height instead of being pushed
-                //    up over a lopsided empty band (which showed as an iOS gap / Android 3-button crimp).
-                Box(
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(navigationBarHeight + bottomInset)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                ) {
-                    NavigationBar(
-                        modifier = Modifier.align(Alignment.TopCenter).height(navigationBarHeight),
-                        containerColor = Color.Transparent,
-                        windowInsets = WindowInsets(0, 0, 0, 0),
+                    // Two concerns are split so icon placement doesn't depend on M3's inset handling:
+                    //  - the wrapper Box (navigationBarHeight + bottomInset tall) paints the bar background
+                    //    down behind the system nav / home indicator, so no white bleeds through edge-to-edge;
+                    //  - the transparent NavigationBar is pinned to the top at exactly navigationBarHeight
+                    //    (M3's intrinsic min is ~80dp, so the explicit height is required to go smaller), with
+                    //    zeroed windowInsets so its icons stay centered in that height instead of being pushed
+                    //    up over a lopsided empty band (which showed as an iOS gap / Android 3-button crimp).
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(navigationBarHeight + bottomInset)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     ) {
-                        navigationItems.forEach {
+                        NavigationBar(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .height(navigationBarHeight)
+                                .testTag(NavigationBarSemantics.TAG),
+                            containerColor = Color.Transparent,
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                        ) {
+                            val menuLabel = stringResource(Res.string.nav_menu)
                             NavigationBarItem(
                                 modifier = Modifier.clearAndSetSemantics {
                                     role = Role.Tab
-                                    selected = it.selected
-                                    contentDescription = it.contentDescription ?: it.label
+                                    selected = false
+                                    contentDescription = menuLabel
                                 },
-                                selected = it.selected,
-                                onClick = it.onClick,
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.open() }
+                                },
                                 icon = {
-                                    Icon(it.icon, contentDescription = null)
+                                    Icon(Icons.Default.Menu, contentDescription = null)
                                 },
                                 label = {
-                                    val modifier = if (it.marqueeLabel) {
-                                        Modifier
-                                            .padding(horizontal = 8.dp)
-                                            .fillMaxWidth()
-                                            .fadingEdges(12.dp)
-                                            .basicMarquee()
-                                    } else {
-                                        Modifier
-                                    }
-
-                                    Text(
-                                        it.label,
-                                        maxLines = 1,
-                                        textAlign = TextAlign.Center,
-                                        modifier = modifier,
-                                    )
+                                    Text(menuLabel)
                                 },
                             )
+
+                            val barItems = buildList {
+                                addAll(navigationItems.take(maxNavigationBarItems))
+                                if (trailingItem != null) {
+                                    add(trailingItem)
+                                }
+                            }
+
+                            barItems.forEach {
+                                NavigationBarItem(
+                                    modifier = Modifier.clearAndSetSemantics {
+                                        role = Role.Tab
+                                        selected = it.selected
+                                        contentDescription = it.contentDescription ?: it.label
+                                    },
+                                    selected = it.selected,
+                                    onClick = it.onClick,
+                                    icon = {
+                                        Icon(it.icon, contentDescription = null)
+                                    },
+                                    label = {
+                                        val modifier = if (it.marqueeLabel) {
+                                            Modifier
+                                                .padding(horizontal = 8.dp)
+                                                .fillMaxWidth()
+                                                .fadingEdges(12.dp)
+                                                .basicMarquee()
+                                        } else {
+                                            Modifier
+                                        }
+
+                                        Text(
+                                            it.label,
+                                            maxLines = 1,
+                                            textAlign = TextAlign.Center,
+                                            modifier = modifier,
+                                        )
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -189,11 +266,19 @@ fun <T : NavKey> MultiBackStack<T>.createNavigationItem(
     )
 }
 
+object NavigationBarSemantics {
+    const val TAG = "NavBar"
+}
+
+object NavigationDrawerSemantics {
+    const val TAG = "NavDrawer"
+}
+
 @Preview
 @Composable
-fun PreviewAdaptiveNavigationBarLayout(rail: Boolean = false) {
+fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
     AdaptiveNavigationBarLayout(
-        rail = rail,
+        drawerOpen = drawerOpen,
         navigationItems = listOf(
             NavigationItem(
                 selected = true,
@@ -216,11 +301,17 @@ fun PreviewAdaptiveNavigationBarLayout(rail: Boolean = false) {
     }
 }
 
+@Preview
+@Composable
+fun PreviewAdaptiveNavigationBarLayoutDrawerOpen() {
+    PreviewAdaptiveNavigationBarLayout(drawerOpen = true)
+}
+
 @Preview(
     widthDp = WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
     heightDp = WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND,
 )
 @Composable
 fun PreviewAdaptiveNavigationBarLayoutExpanded() {
-    PreviewAdaptiveNavigationBarLayout(rail = true)
+    PreviewAdaptiveNavigationBarLayout()
 }

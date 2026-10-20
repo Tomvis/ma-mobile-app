@@ -272,6 +272,7 @@
   <string name="media_unknown_artist">Unknown Artist</string>
   <string name="media_unknown_track">Unknown Track</string>
   <string name="menu_default_label">Default</string>
+  <string name="nav_menu">Menu</string>
   <string name="nav_browse">Browse</string>
   <string name="nav_home">Home</string>
   <string name="nav_library">Library</string>
