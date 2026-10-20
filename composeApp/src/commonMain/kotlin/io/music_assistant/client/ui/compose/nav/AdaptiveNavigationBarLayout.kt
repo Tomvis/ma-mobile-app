@@ -191,8 +191,9 @@ fun <T : NavKey> MultiBackStack<T>.createNavigationItem(
 
 @Preview
 @Composable
-fun PreviewAdaptiveNavigationBarLayout() {
+fun PreviewAdaptiveNavigationBarLayout(rail: Boolean = false) {
     AdaptiveNavigationBarLayout(
+        rail = rail,
         navigationItems = listOf(
             NavigationItem(
                 selected = true,
@@ -221,5 +222,5 @@ fun PreviewAdaptiveNavigationBarLayout() {
 )
 @Composable
 fun PreviewAdaptiveNavigationBarLayoutExpanded() {
-    PreviewAdaptiveNavigationBarLayout()
+    PreviewAdaptiveNavigationBarLayout(rail = true)
 }
