@@ -52,15 +52,14 @@ import io.music_assistant.client.utils.WindowClass
 fun AdaptiveNavigationBarLayout(
     navigationItems: List<NavigationItem>,
     showNavigation: Boolean = true,
+    rail: Boolean = false,
     navigationBarHeight: Dp = 64.dp,
     navigationRailWidth: Dp = 80.dp,
     content: @Composable BoxScope.(contentPadding: PaddingValues) -> Unit,
 ) {
-    val isWideScreen = WindowClass.isWide()
-
     Box(modifier = Modifier.fillMaxSize()) {
-        val showRail = showNavigation && isWideScreen
-        val showBar = showNavigation && !isWideScreen
+        val showRail = showNavigation && rail
+        val showBar = showNavigation && !rail
 
         // Reserve the real system navigation-bar inset so the chrome reflows when it is
         // shown/hidden (edge-to-edge). Zero when hidden or on devices without a bottom bar.
