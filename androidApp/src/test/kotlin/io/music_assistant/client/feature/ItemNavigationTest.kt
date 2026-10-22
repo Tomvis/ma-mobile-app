@@ -120,7 +120,7 @@ class ItemNavigationTest {
         launchLoggedInApp(composeTestRule, serviceClient)
             .playMedia(track)
             .expandPlayer(player.displayName, playing = true, item = track.name)
-            .goToArtist(artist.name, navigationItem = "Home")
+            .goToArtist(artist.name, navigationItem = Res.string.nav_home.get())
     }
 
     @Test
@@ -135,7 +135,7 @@ class ItemNavigationTest {
         launchLoggedInApp(composeTestRule, serviceClient)
             .playMedia(track)
             .expandPlayer(player.displayName, playing = true, item = track.name)
-            .goToAlbum(album.name, navigationItem = "Home")
+            .goToAlbum(album.name, navigationItem = Res.string.nav_home.get())
     }
 
     @Test
