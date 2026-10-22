@@ -483,7 +483,7 @@ fun PreviewCategoryRowEmpty() {
                 TODO("Not yet implemented")
             }
 
-            override fun onFavoriteClick(item: AppMediaItem) {
+            override fun onFavoriteChange(item: AppMediaItem, favorite: Boolean?) {
                 TODO("Not yet implemented")
             }
 
@@ -527,7 +527,7 @@ fun PreviewCategoryLoading() {
                 TODO("Not yet implemented")
             }
 
-            override fun onFavoriteClick(item: AppMediaItem) {
+            override fun onFavoriteChange(item: AppMediaItem, favorite: Boolean?) {
                 TODO("Not yet implemented")
             }
 
@@ -571,7 +571,7 @@ fun PreviewCategoryNoData() {
                 TODO("Not yet implemented")
             }
 
-            override fun onFavoriteClick(item: AppMediaItem) {
+            override fun onFavoriteChange(item: AppMediaItem, favorite: Boolean?) {
                 TODO("Not yet implemented")
             }
 

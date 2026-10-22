@@ -10,6 +10,7 @@ class ListenLaterActionResolverTest {
         val actions = resolveDetailOverflowActions(
             item = AppMediaItemFixtures.album(listenLater = true),
             canEditLibrary = true,
+            dislikeSupported = false,
             librarySupported = true,
             canAddToPlaylist = false,
         )
@@ -21,6 +22,7 @@ class ListenLaterActionResolverTest {
         val actions = resolveDetailOverflowActions(
             item = AppMediaItemFixtures.album(listenLater = false),
             canEditLibrary = true,
+            dislikeSupported = false,
             librarySupported = true,
             canAddToPlaylist = false,
         )
@@ -32,6 +34,7 @@ class ListenLaterActionResolverTest {
         val actions = resolveLongClickActions(
             item = AppMediaItemFixtures.artist(),
             canEditLibrary = true,
+            dislikeSupported = false,
             librarySupported = true,
             canAddToPlaylist = false,
             canRemoveFromPlaylist = false,
@@ -46,6 +49,7 @@ class ListenLaterActionResolverTest {
         val actions = resolveDetailOverflowActions(
             item = AppMediaItemFixtures.album(listenLater = false),
             canEditLibrary = false,
+            dislikeSupported = false,
             librarySupported = true,
             canAddToPlaylist = false,
         )

@@ -163,7 +163,7 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Artist audiobooks row | yes | yes | no | no | no | Missing | `artist_audiobooks` |
 | Album page | yes | yes | yes | drill | drill | Parity | Year shown in the header |
 | Album versions, review, more from artist | yes | yes | no | no | no | Missing | `album_versions` |
-| Track page | yes | yes | no | n/a | n/a | Missing | lyrics, albums, versions, similar tracks |
+| Track page | yes | yes | yes | n/a | n/a | Parity | Albums, versions and similar tracks tabs. Similar shows only if a provider has `similar_tracks`. Lyrics in the overflow menu. Open with "Go to track" or the player title |
 | Playlist page | yes | yes | yes | drill | drill | Parity | Force refresh in the header |
 | Playlist description and featured artists | part | yes | no | no | no | Missing | |
 | Podcast page | yes | yes | yes | drill | drill | Parity | Episode sort by name, date or duration |
@@ -203,7 +203,7 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Feature | Web 2.10 | Web 2.11 | Phone | AA | CP | Class | Note |
 |---|---|---|---|---|---|---|---|
 | Play, pause, next, previous, seek | yes | yes | yes | yes | yes | Parity | |
-| Stop | yes | yes | no | no | no | Missing | Web shows Stop if the player cannot pause |
+| Stop | yes | yes | yes | no | no | Parity | Stop replaces Pause for a radio stream and for an input source without pause support |
 | Skip back and forward for long content | yes | yes | yes | yes | chapters | Parity | 2.11 web uses `player_queues/skip`. App seeks by delta |
 | Shuffle, repeat, crossfade, autoplay | yes | yes | yes | part | part | Parity | Cars show shuffle and repeat |
 | Autoplay locked by repeat indicator | no | yes | no | n/a | n/a | Missing | |
@@ -216,7 +216,7 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Waveform on the seek bar | yes | yes | no | no | no | Missing | `audio_analysis/wave_form` |
 | Visualizer | yes | yes | no | n/a | n/a | Not viable | WebGL and Web Audio in the browser |
 | Stream and quality details | yes | yes | yes | no | no | Parity | |
-| "Played from" container | no | yes | no | no | no | Missing | `QueueItem.origin` |
+| "Played from" container | no | yes | yes | no | no | Parity | `QueueItem.origin` |
 | Ambient sound overlay | yes | yes | yes | no | no | Parity | |
 | Announcements, text and voice | yes | yes | yes | no | no | Parity | Schema 46 and 48 |
 | Transfer queue, clear queue | yes | yes | yes | no | no | Parity | |
@@ -271,7 +271,7 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Chapters and chapter progress | yes | yes | yes | n/a | buttons | Parity | Preference `audiobook_chapter_progress` |
 | Mark played and unplayed | yes | yes | yes | no | no | Parity | |
 | Play episodes from here to the latest | yes | yes | no | no | no | Missing | |
-| Episode and season numbers | no | yes | no | no | no | Missing | `PodcastEpisode.episode_number`, `season` |
+| Episode and season numbers | no | yes | yes | yes | yes | Parity | `PodcastEpisode.episode_number`, `season` |
 | Transcript | no | yes | no | no | no | Missing | |
 | Next unplayed book in a series | yes | yes | yes | yes | yes | Parity | Server starts the first unfinished book |
 
@@ -380,6 +380,15 @@ Impact: parsing works on both versions. The app cannot show or set a dislike.
 
 Required change: keep the two-call path for 2.10. On 2.11, call `favorites/set_item` and add a
 dislike option to the favorite menu. Gate on the schema or on a feature probe.
+
+Status: done (issue #1187). `supportsDislike` uses `SERVER_2_11_SCHEMA`. On 2.11, each favorite
+menu has two pairs of entries, like the web frontend: "Favorite" or "Unfavorite", and "Dislike" or
+"Remove dislike". The heart of the full player opens the same menu, and a dislike shows a dislike
+icon in the place of the heart. A dislike sends `favorites/set_item` with false. A like and a clear
+keep `add_item` and `remove_item`, like the web frontend. On 2.10, the heart stays a toggle, and
+the app reads false as "not a favorite". Android Auto and CarPlay keep the like toggle. A Siri
+dislike sets a dislike on 2.11 and removes the favorite on 2.10. The app does not offer the
+`favorite=False` list filter.
 
 ### 5.3 The `favorite_updated` event replaces `favorite` in item events
 
@@ -556,6 +565,15 @@ URL on the PKCE path. See `.claude/settings-screen.md`.
 - New fields the app can show: `QueueItem.origin`, `Radio.is_endless`,
   `PodcastEpisode.episode_number` and `season`, `Playlist.access`, `PlayLogEntry.seek_position`,
   `AudioMetadata.camelot_key`.
+- `PodcastEpisode.episode_number` and `season` (schema 85) and `QueueItem.origin` (schema 90).
+  Status: done (issue #1188). An episode subtitle starts with "S2 E5", or with "E5" if the
+  episode has no season. The phone, Android Auto and CarPlay show it. The stream details dialog
+  shows "Playing from" with the container of `origin`. The text opens the details screen of the
+  container if the app has one. A folder shows as text only. An older server does not send the
+  fields, so the app shows nothing. These fields need no schema gate.
+- `Radio.is_endless` (schema 88) and the finite station tracklist moved to issue #1190. Only
+  AI Radio shows are finite. `radio_tracks` returns a new shuffled snapshot on each call, so the
+  list does not match the order that plays.
 - The frontend 2.11 refuses servers below schema 86. The app has no minimum of its own. The app
   constant `LOCAL_SCHEMA_VERSION` is 65 (`app/data/model/server/ServerInfo.kt:7`), because the app
   was checked against server 2.10.6 and 2.10.7. Both report 65, so they show no dialog. The nightly
@@ -601,7 +619,7 @@ the app:
 
 | Feature | API | Feasibility | Mobile constraint and sketch |
 |---|---|---|---|
-| Track detail screen | `tracks/get_track`, `track_albums`, `track_versions`, `similar_tracks`, `metadata/get_track_lyrics` | Easy | Add a `Track` case to `ItemDetailsScreen` with tabs for albums, versions and similar tracks |
+| Track detail screen | `tracks/get_track`, `track_albums`, `track_versions`, `similar_tracks`, `metadata/get_track_lyrics` | Easy | Done (issue #1189). A `Track` case in `ItemDetailsScreen` with tabs for albums, versions and similar tracks |
 | Radio detail screen | `radios/get_radio`, `radio_versions`, `radio_tracks` (2.11) | Easy | Same pattern. Show the tracklist for finite stations on 2.11 |
 | Podcast episode screen with transcript | `podcasts/podcast_episode`, `podcast_episode_transcript` (2.11) | Medium | Episode page with steppers. Feed the cues into `LyricsSheet` timing |
 | Artist appears on, singles, discography | `artist_appears_on`, `discography` (2.11) | Medium | Two more artist sections. Discography items carry provider `musicbrainz`. Show them dimmed and offer "Add to library" only |
@@ -611,7 +629,6 @@ the app:
 | Dislike | `favorites/set_item` (2.11) | Easy | Three-state heart menu. Hide on 2.10 |
 | Save queue as playlist | `player_queues/save_as_playlist` | Easy | Menu item in the player overflow |
 | Queue move to next, move to end, item radio | `move_item`, `move_item_end` | Easy | Three more long-press actions in `CollapsibleQueue` |
-| Stop | `players/cmd/stop` | Easy | Show Stop if the player lacks `PlayerFeature.PAUSE` |
 | Replace next, play shuffled, play from beginning | `play_media` options | Easy | More `QueueOption` cases in `ItemActionResolver` |
 | Playlist rename, image, delete | `playlists/update`, `library/remove_item` | Easy | Needs `library.write`. Hide if the scope is absent |
 | Playlist sharing and collaboration | `playlists/set_access`, `config/providers/share_candidates` (2.11) | Medium | A dialog with a user picker. Needs the `Playlist.access` DTO |
@@ -682,7 +699,7 @@ Home Assistant panel history, onboarding, expert mode, and the guided tour.
 3. Read `auth/scopes` once and gate the write actions.
 4. Bump `LOCAL_SCHEMA_VERSION` to the 2.11.0 release schema. Add the unsupported install banner.
 5. Decide the Sendspin wire strategy for 2.11 and schedule the module update.
-6. Quick wins from section 7: track and radio screens, stop, save queue as playlist, queue
+6. Quick wins from section 7: track and radio screens, save queue as playlist, queue
    actions, dislike, playlist rename and delete, refresh item, genre search.
 7. Server-driven sort options on 2.11.
 8. Medium items by user demand: episode page with transcript, artist discography, profile and

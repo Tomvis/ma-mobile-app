@@ -7,11 +7,14 @@
   <string name="action_browse">Browse</string>
   <string name="action_choose_artist">Choose artist</string>
   <string name="action_customize">Customize…</string>
+  <string name="action_dislike">Dislike</string>
   <string name="action_favorite">Favorite</string>
   <string name="action_go_to_album">Go to album</string>
   <string name="action_go_to_artist">Go to artist</string>
+  <string name="action_go_to_track">Go to track</string>
   <string name="action_insert_next">Add next</string>
   <string name="action_insert_next_and_play">Add next and play</string>
+  <string name="action_lyrics">Lyrics</string>
   <string name="action_mark_played">Mark as played</string>
   <string name="action_mark_unplayed">Mark as unplayed</string>
   <string name="action_ok">OK</string>
@@ -24,6 +27,7 @@
   <string name="action_play_now">Play now</string>
   <string name="action_play_playlist_from_here">Play playlist from here</string>
   <string name="action_remove">Remove</string>
+  <string name="action_remove_dislike">Remove dislike</string>
   <string name="action_remove_from_later">Remove from Listen Later</string>
   <string name="action_remove_from_library">Remove from library</string>
   <string name="action_remove_from_playlist">Remove from playlist</string>
@@ -31,6 +35,7 @@
   <string name="action_similar_artists">Similar artists</string>
   <string name="action_start_endless_mix">Start endless mix</string>
   <string name="action_start_radio">Start radio</string>
+  <string name="action_stop">Stop</string>
   <string name="action_unfavorite">Unfavorite</string>
   <string name="action_view_all">View all</string>
   <string name="ai_radio_dj">Enable AI Radio DJ</string>
@@ -120,6 +125,7 @@
   <string name="cd_current_player">Current player: %1$s</string>
   <string name="cd_customize_tabs">Customize categories</string>
   <string name="cd_delete_crash_logs">Delete crash logs</string>
+  <string name="cd_disliked">Disliked</string>
   <string name="cd_favorite">Favorite</string>
   <string name="cd_filter">Filters</string>
   <string name="cd_find_in_list">Search in list</string>
@@ -184,6 +190,8 @@
   <string name="dsp_error">Failed to load DSP configuration</string>
   <string name="dsp_presets">Presets</string>
   <string name="dsp_title">DSP settings</string>
+  <string name="episode_number">E%1$d</string>
+  <string name="episode_number_season">S%1$d E%2$d</string>
   <string name="filter_album_artists_only">Album artists only</string>
   <string name="filter_album_types">Album types</string>
   <string name="filter_favorites">Favorites</string>
@@ -215,6 +223,8 @@
   <string name="item_subtitle_series">Series</string>
   <string name="item_subtitle_sound_effect">AI host</string>
   <string name="item_subtitle_unknown">Unknown</string>
+  <string name="item_tab_similar_tracks">Similar tracks</string>
+  <string name="item_tab_versions">Versions</string>
   <string name="kind_album">Albums</string>
   <string name="kind_artist">Artists</string>
   <string name="kind_audiobook">Audiobooks</string>
@@ -293,7 +303,9 @@
   <string name="playlist_name_label">Playlist name</string>
   <string name="playlist_no_editable">No editable playlists available</string>
   <string name="quality_dialog_input">Input</string>
+  <string name="quality_dialog_open_origin">Open %1$s</string>
   <string name="quality_dialog_output">Output</string>
+  <string name="quality_dialog_played_from">Playing from %1$s</string>
   <string name="quality_dialog_title">Audio chain</string>
   <string name="queue_autoplay_disable">Disable Autoplay</string>
   <string name="queue_autoplay_enable">Enable Autoplay</string>

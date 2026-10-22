@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Lyrics
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -60,8 +61,10 @@ import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
 import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.MediaCollection
+import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.imageloader.rememberArtworkRequest
 import io.music_assistant.client.ui.INACTIVE_ALPHA
+import io.music_assistant.client.ui.compose.common.LocalDislikeSupported
 import io.music_assistant.client.ui.compose.common.LocalGrantedScopes
 import io.music_assistant.client.ui.compose.common.OverflowMenuButton
 import io.music_assistant.client.ui.compose.common.OverflowMenuOption
@@ -89,6 +92,7 @@ import io.music_assistant.client.ui.inactive
 import io.music_assistant.client.utils.WindowClass
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_go_to_artist
+import musicassistantclient.composeapp.generated.resources.action_lyrics
 import musicassistantclient.composeapp.generated.resources.action_similar_artists
 import musicassistantclient.composeapp.generated.resources.cd_close
 import musicassistantclient.composeapp.generated.resources.cd_find_in_list
@@ -173,6 +177,7 @@ internal fun ItemTopBar(
     playlistActions: PlaylistActions?,
     navigateToItem: (AppMediaItem) -> Unit,
     onSimilarArtistsClick: () -> Unit,
+    onLyricsClick: (() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null,
     query: String?,
     onQueryChanged: ((String?) -> Unit)?,
@@ -242,6 +247,7 @@ internal fun ItemTopBar(
                         playlistActions = playlistActions,
                         navigateToItem = navigateToItem,
                         onSimilarArtistsClick = onSimilarArtistsClick,
+                        onLyricsClick = onLyricsClick,
                     )
                 }
             },
@@ -256,6 +262,7 @@ private fun ItemOverflow(
     playlistActions: PlaylistActions?,
     navigateToItem: (AppMediaItem) -> Unit,
     onSimilarArtistsClick: () -> Unit,
+    onLyricsClick: (() -> Unit)?,
 ) {
     var showPlaylistDialog by rememberSaveable { mutableStateOf(false) }
     var showRemoveConfirmation by remember { mutableStateOf(false) }
@@ -273,10 +280,20 @@ private fun ItemOverflow(
     } else {
         emptyList()
     }
+    val lyrics = listOfNotNull(
+        onLyricsClick?.let {
+            OverflowMenuOption(
+                title = stringResource(Res.string.action_lyrics),
+                icon = Icons.Outlined.Lyrics,
+                onClick = it,
+            )
+        },
+    )
 
     val canonical = resolveDetailOverflowActions(
         item = item,
         canEditLibrary = LocalGrantedScopes.current.canEditLibrary,
+        dislikeSupported = LocalDislikeSupported.current,
         librarySupported = libraryActions != null && item !is Genre && item !is MediaCollection,
         canAddToPlaylist = playlistActions != null && item !is MediaCollection,
     ).map { action ->
@@ -285,9 +302,7 @@ private fun ItemOverflow(
                 ItemAction.AddToLibrary -> libraryActions?.onLibraryClick(item)
                 ItemAction.RemoveFromLibrary -> showRemoveConfirmation = true
 
-                ItemAction.Favorite,
-                ItemAction.Unfavorite,
-                    -> libraryActions?.onFavoriteClick(item)
+                is ItemAction.SetFavorite -> libraryActions?.onFavoriteChange(item, it.favorite)
 
                 ItemAction.SaveForLater,
                 ItemAction.RemoveFromLater,
@@ -300,8 +315,8 @@ private fun ItemOverflow(
         }
     }
     OverflowMenuButton(
-        options = canonical + item.navigationOptions(navigateToItem) + similarArtists +
-            dynamicColorsMenuOption(),
+        options = canonical + item.navigationOptions(navigateToItem, containerItem = item) + similarArtists +
+            lyrics + dynamicColorsMenuOption(),
     ) { onClick ->
         IconButton(onClick = onClick) {
             Icon(
@@ -372,9 +387,13 @@ private fun ItemText(
             }
         }
 
-        // An album's subtitle is its artist list; tapping it does the overflow's "Go to artist".
+        // An album's or a track's subtitle is its artist list; tapping it does the overflow's "Go to artist".
         val onSubtitleClick = rememberArtistNavigation(
-            artists = (item as? Album)?.artists.orEmpty(),
+            artists = when (item) {
+                is Album -> item.artists
+                is Track -> item.artists
+                else -> emptyList()
+            },
             navigateToItem = navigateToItem,
         )
         item.localizedSubtitle()?.let {

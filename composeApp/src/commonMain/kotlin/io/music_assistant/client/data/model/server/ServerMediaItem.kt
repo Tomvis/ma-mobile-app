@@ -53,6 +53,9 @@ data class ServerMediaItem(
     @SerialName("track_number") val trackNumber: Int? = null,
     // podcast episode only
     @SerialName("podcast") val podcast: ServerMediaItem? = null,
+    // The publisher's numbering; server 2.11 (schema 85) and newer, null when not numbered.
+    @SerialName("episode_number") val episodeNumber: Int? = null,
+    @SerialName("season") val season: Int? = null,
     // Audiobook only
     // Server sends plain strings (legacy) or Artist/ItemMapping objects
     // either shape decodes to the display name.
@@ -68,6 +71,8 @@ data class ServerMediaItem(
     @SerialName("items") val items: List<ServerMediaItem>? = null,
     // BrowseFolder only: the server browse path to descend into (distinct from `uri`).
     @SerialName("path") val path: String? = null,
+    // AudioSource only
+    @SerialName("can_play_pause") val canPlayPause: Boolean? = null,
 ) {
     companion object {
         const val LIBRARY_PROVIDER = "library"
