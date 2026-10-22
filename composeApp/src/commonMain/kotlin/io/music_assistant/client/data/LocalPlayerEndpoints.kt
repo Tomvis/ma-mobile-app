@@ -24,7 +24,9 @@ import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withTimeout
@@ -52,13 +54,9 @@ class LocalPlayerEndpoints(
 
     val endpoint: StateFlow<Endpoint?> = combine(
         apiClient.sessionState,
-        settings.sendspinUseCustomConnection,
-        settings.sendspinHost,
-        settings.sendspinPort,
-        settings.sendspinPath,
-        settings.sendspinUseTls,
-    ) { values -> values }
-        .runningFold(null as Endpoint?) { previous, values -> next(previous, values[0] as SessionState) }
+        settings.sendspinPlayerSettings.map { it.connectionOverride }.distinctUntilChanged(),
+    ) { state, _ -> state }
+        .runningFold(null as Endpoint?) { previous, state -> next(previous, state) }
         .stateIn(scope, SharingStarted.Eagerly, null)
 
     /** Pure reducer; a Connected session is Clear (terminal auth), Replace (proven), or Keep (auth pending). */
@@ -104,10 +102,11 @@ class LocalPlayerEndpoints(
     }
 
     private fun webSocketUrl(state: SessionState.Connected.Direct): String {
-        if (settings.sendspinUseCustomConnection.value) {
-            val scheme = if (settings.sendspinUseTls.value) "wss" else "ws"
-            val host = settings.sendspinHost.value.takeIf { it.isNotEmpty() } ?: state.connectionInfo.host
-            return "$scheme://$host:${settings.sendspinPort.value}${settings.sendspinPath.value}"
+        val override = settings.sendspinPlayerSettings.value.connectionOverride
+        if (override.enabled) {
+            val scheme = if (override.tls) "wss" else "ws"
+            val host = override.host.takeIf { it.isNotEmpty() } ?: state.connectionInfo.host
+            return "$scheme://$host:${override.port}${override.path}"
         }
         // Same reverse proxy as the control socket, so the same base path.
         return "${state.connectionInfo.wsUrl}/sendspin"
