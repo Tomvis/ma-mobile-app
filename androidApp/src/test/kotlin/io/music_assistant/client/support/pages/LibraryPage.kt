@@ -29,7 +29,7 @@ class LibraryPage(composeTestRule: ComposeTestRule) :
                 Res.string.nav_home.get(),
                 Res.string.nav_search.get(),
             ),
-            selected = null,
+            selected = Res.string.nav_home.get(),
         )
     }
 

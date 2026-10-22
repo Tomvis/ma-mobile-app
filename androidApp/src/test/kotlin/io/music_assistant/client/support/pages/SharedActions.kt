@@ -118,7 +118,8 @@ fun ComposePage.clickLibrary(): LibraryPage {
 }
 
 fun <T : Page> ComposePage.clickLibrary(destination: T): T {
-    clickNavBarItem(Res.string.nav_library.get())
+    openNavDrawer()
+    clickNavDrawerItem(Res.string.nav_library.get())
     return destination.assertOnPage()
 }
 

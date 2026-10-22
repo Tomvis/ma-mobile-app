@@ -188,7 +188,6 @@ fun MainNavigationRoot(
 
     val backStacks = listOf(
         rememberMainNavBackStack(MainNav.Landing),
-        rememberMainNavBackStack(MainNav.Library),
         rememberMainNavBackStack(MainNav.Search),
     )
     val multiBackStack = remember { MultiBackStack(backStacks) }
@@ -300,9 +299,12 @@ fun MainNavigationRoot(
         val navigationItems = navigationItems(
             multiBackStack = multiBackStack,
             homeScreenState = homeScreenState,
-            libraryScreenState = libraryScreenState,
             searchScreenState = searchScreenState,
             goToSettings = goToSettings,
+            goToLibrary = {
+                multiBackStack.currentBackStack = 0
+                multiBackStack.add(MainNav.Library)
+            },
         )
 
         val playSelectionItem: NavigationItem? = playersState.let { state ->
@@ -417,8 +419,8 @@ fun MainNavigationRoot(
 private fun navigationItems(
     multiBackStack: MultiBackStack<NavKey>,
     homeScreenState: MutableState<HomeScreenState?>,
-    libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
+    goToLibrary: () -> Unit,
     goToSettings: () -> Unit,
 ): List<NavigationItem> {
     val navigationItems = mutableListOf(
@@ -430,15 +432,15 @@ private fun navigationItems(
         ),
         multiBackStack.createNavigationItem(
             backStack = 1,
-            icon = Icons.Default.LibraryMusic,
-            label = stringResource(Res.string.nav_library),
-            screenState = libraryScreenState.value,
-        ),
-        multiBackStack.createNavigationItem(
-            backStack = 2,
             icon = Icons.Default.Search,
             label = stringResource(Res.string.nav_search),
             screenState = searchScreenState.value,
+        ),
+        NavigationItem(
+            selected = false,
+            onClick = goToLibrary,
+            icon = Icons.Default.LibraryMusic,
+            label = stringResource(Res.string.nav_library),
         ),
         NavigationItem(
             selected = false,
@@ -570,7 +572,7 @@ private fun mainNavEntryProvider(
                 onBack = { multiBackStack.removeLastOrNull() },
                 onGlobalSearch = { query ->
                     pendingSearch = GlobalSearchRequest(query, it.mediaType)
-                    multiBackStack.currentBackStack = 2
+                    multiBackStack.currentBackStack = 1
                     multiBackStack.resetCurrentBackStack()
                 },
                 onNavigateClick = { item ->

@@ -70,7 +70,7 @@ fun AdaptiveNavigationBarLayout(
     showNavigation: Boolean = true,
     drawerOpen: Boolean = false,
     navigationBarHeight: Dp = 64.dp,
-    maxNavigationBarItems: Int = 3,
+    maxNavigationBarItems: Int = 2,
     content: @Composable BoxScope.(contentPadding: PaddingValues) -> Unit,
 ) {
     if (WindowClass.isWide()) {
