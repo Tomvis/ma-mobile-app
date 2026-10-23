@@ -124,8 +124,9 @@ class PlayerTest {
         val track = ServerMediaItemFixtures.track(album = album)
         serviceClient.addItems(track)
 
-        val player1 = ServerPlayerFixtures.player()
-        val player2 = ServerPlayerFixtures.player()
+        // By default, players are sorted alphabetically
+        val player1 = ServerPlayerFixtures.player(name = "A")
+        val player2 = ServerPlayerFixtures.player(name = "B")
         serviceClient.addPlayers(player1, player2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
