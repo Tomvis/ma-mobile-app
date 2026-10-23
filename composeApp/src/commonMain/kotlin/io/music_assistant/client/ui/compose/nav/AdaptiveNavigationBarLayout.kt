@@ -70,10 +70,10 @@ fun AdaptiveNavigationBarLayout(
     navigationItems: List<NavigationItem>,
     trailingItem: NavigationItem? = null,
     showNavigation: Boolean = true,
-    drawerOpen: Boolean = false,
+    drawInitiallyOpen: Boolean = false,
     navigationBarHeight: Dp = 64.dp,
     maxNavigationBarItems: Int = 2,
-    content: @Composable BoxScope.(contentPadding: PaddingValues) -> Unit,
+    content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
 ) {
     if (WindowClass.isWide()) {
         Row(Modifier.fillMaxWidth()) {
@@ -102,18 +102,24 @@ fun AdaptiveNavigationBarLayout(
             }
 
             Box {
-                content(PaddingValues())
+                content(PaddingValues(), false)
             }
         }
     } else {
+        val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(
-            initialValue = if (drawerOpen) {
+            initialValue = if (drawInitiallyOpen) {
                 DrawerValue.Open
             } else {
                 DrawerValue.Closed
             },
         )
-        val scope = rememberCoroutineScope()
+
+        BackHandler(enabled = drawerState.isOpen) {
+            scope.launch {
+                drawerState.close()
+            }
+        }
 
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -157,6 +163,7 @@ fun AdaptiveNavigationBarLayout(
                     } else {
                         PaddingValues()
                     },
+                    drawerState.isOpen,
                 )
 
                 if (showNavigation) {
@@ -285,7 +292,7 @@ object NavigationDrawerSemantics {
 @Composable
 fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
     AdaptiveNavigationBarLayout(
-        drawerOpen = drawerOpen,
+        drawInitiallyOpen = drawerOpen,
         navigationItems = listOf(
             NavigationItem(
                 selected = true,
@@ -300,7 +307,7 @@ fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
                 label = "Settings",
             ),
         ),
-    ) { contentPadding ->
+    ) { contentPadding, drawerOpen ->
         Text(
             modifier = Modifier.padding(contentPadding),
             text = "Content",

@@ -337,7 +337,7 @@ fun MainNavigationRoot(
             showNavigation = !playerExpanded,
             navigationItems = navigationItems,
             trailingItem = playSelectionItem,
-        ) { scaffoldContentPadding ->
+        ) { scaffoldContentPadding, drawerOpen ->
             FloatingBarLayout(
                 modifier = Modifier.padding(scaffoldContentPadding),
                 floatingBar = {
@@ -415,7 +415,7 @@ fun MainNavigationRoot(
                     onBack = {
                         multiBackStack.removeLastOrNull()
                     },
-                    backEnabled = !playerExpanded,
+                    backEnabled = !playerExpanded && !drawerOpen,
                 )
             }
         }
