@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
@@ -90,8 +89,8 @@ import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.LibraryListScreen
 import io.music_assistant.client.ui.compose.library.LibraryListViewModel
-import io.music_assistant.client.ui.compose.library.LibraryScreen
-import io.music_assistant.client.ui.compose.library.LibraryScreenState
+import io.music_assistant.client.ui.compose.library.icon
+import io.music_assistant.client.ui.compose.library.stringResource
 import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationBarLayout
 import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.ConditionalBackNavDisplay
@@ -112,7 +111,6 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.nav_home
-import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_remote_volume_hint
@@ -132,6 +130,7 @@ fun MainNavigationRoot(
     dspSettingsViewModel: DspSettingsViewModel = koinViewModel(),
     providerViewModel: ProviderViewModel = koinViewModel(),
     queueDjViewModel: QueueDjViewModel = koinViewModel(),
+    libraryCategoriesViewModel: LibraryCategoriesViewModel = koinViewModel(),
     goToSettings: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -242,7 +241,6 @@ fun MainNavigationRoot(
     // a tab switch disposes the entry, so re-entry starts fresh instead of stranding
     // a collapsed top bar.
     val homeScreenState = remember { mutableStateOf<HomeScreenState?>(null) }
-    val libraryScreenState = remember { mutableStateOf<LibraryScreenState?>(null) }
     val searchScreenState = remember { mutableStateOf<SearchScreenState?>(null) }
 
     val remoteVolumeHint = stringResource(Res.string.players_remote_volume_hint)
@@ -262,8 +260,7 @@ fun MainNavigationRoot(
 
     // A root screen in edit mode hides the collapsed bar so it does not cover drag targets.
     // An expanded player (for example from a deep link) always stays visible.
-    val rootScreenEditing = homeScreenState.value?.editMode == true ||
-        libraryScreenState.value?.editMode == true
+    val rootScreenEditing = homeScreenState.value?.editMode == true
 
     var showPlayerSelection by remember { mutableStateOf(false) }
     playersState.let {
@@ -284,7 +281,7 @@ fun MainNavigationRoot(
                             }
                         },
                         onReorder = homeScreenViewModel::onPlayersSortChanged,
-                        onPlayerAction =  homeScreenViewModel::playerAction,
+                        onPlayerAction = homeScreenViewModel::playerAction,
                         hideUnavailable = rememberHideUnavailablePlayers(),
                         onToggleHideUnavailable = rememberToggleHideUnavailablePlayers(),
                         onAdjustPlaybackDelay = homeScreenViewModel::adjustSendspinStaticDelayMs,
@@ -296,15 +293,24 @@ fun MainNavigationRoot(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        val libraryCategories by libraryCategoriesViewModel.state.collectAsStateWithLifecycle()
         val navigationItems = navigationItems(
             multiBackStack = multiBackStack,
             homeScreenState = homeScreenState,
             searchScreenState = searchScreenState,
-            goToSettings = goToSettings,
-            goToLibrary = {
-                multiBackStack.currentBackStack = 0
-                multiBackStack.add(MainNav.Library)
+            categories = libraryCategories.categories.filter { it.enabled }.map { it.libraryCategory },
+            goToLibraryCategory = { category ->
+                when (category) {
+                    LibraryCategory.BROWSE ->
+                        multiBackStack.add(MainNav.Browse(path = null, title = null))
+
+                    LibraryCategory.AI_RADIO -> multiBackStack.add(MainNav.AiRadio)
+
+                    else ->
+                        category.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
+                }
             },
+            goToSettings = goToSettings,
         )
 
         val playSelectionItem: NavigationItem? = playersState.let { state ->
@@ -386,7 +392,6 @@ fun MainNavigationRoot(
                     viewModeViewModel,
                     providerViewModel,
                     homeScreenState,
-                    libraryScreenState,
                     searchScreenState,
                     goToSettings,
                 )
@@ -403,7 +408,10 @@ fun MainNavigationRoot(
                         entries = multiBackStack.toEntries(entryProvider),
                     ),
                     transitionSpec = tabAwareTransitionSpec(tabRootKeys, defaultTransitionSpec()),
-                    popTransitionSpec = tabAwareTransitionSpec(tabRootKeys, defaultPopTransitionSpec()),
+                    popTransitionSpec = tabAwareTransitionSpec(
+                        tabRootKeys,
+                        defaultPopTransitionSpec(),
+                    ),
                     onBack = {
                         multiBackStack.removeLastOrNull()
                     },
@@ -420,35 +428,49 @@ private fun navigationItems(
     multiBackStack: MultiBackStack<NavKey>,
     homeScreenState: MutableState<HomeScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
-    goToLibrary: () -> Unit,
+    categories: List<LibraryCategory>,
+    goToLibraryCategory: (LibraryCategory) -> Unit,
     goToSettings: () -> Unit,
-): List<NavigationItem> {
-    val navigationItems = mutableListOf(
-        multiBackStack.createNavigationItem(
-            backStack = 0,
-            icon = Icons.Default.Home,
-            label = stringResource(Res.string.nav_home),
-            screenState = homeScreenState.value,
-        ),
-        multiBackStack.createNavigationItem(
-            backStack = 1,
-            icon = Icons.Default.Search,
-            label = stringResource(Res.string.nav_search),
-            screenState = searchScreenState.value,
-        ),
-        NavigationItem(
-            selected = false,
-            onClick = goToLibrary,
-            icon = Icons.Default.LibraryMusic,
-            label = stringResource(Res.string.nav_library),
-        ),
-        NavigationItem(
-            selected = false,
-            onClick = goToSettings,
-            Icons.Default.Settings,
-            label = stringResource(Res.string.nav_settings),
-        ),
-    )
+    ): List<NavigationItem> {
+    val navigationItems = buildList {
+        add(
+            multiBackStack.createNavigationItem(
+                backStack = 0,
+                icon = Icons.Default.Home,
+                label = stringResource(Res.string.nav_home),
+                screenState = homeScreenState.value,
+            ),
+        )
+
+        add(
+            multiBackStack.createNavigationItem(
+                backStack = 1,
+                icon = Icons.Default.Search,
+                label = stringResource(Res.string.nav_search),
+                screenState = searchScreenState.value,
+            ),
+        )
+
+        addAll(
+            categories.map {
+                NavigationItem(
+                    selected = false,
+                    onClick = { goToLibraryCategory(it) },
+                    icon = it.icon(),
+                    label = stringResource(it.stringResource()),
+                )
+            },
+        )
+
+        add(
+            NavigationItem(
+                selected = false,
+                onClick = goToSettings,
+                icon = Icons.Default.Settings,
+                label = stringResource(Res.string.nav_settings),
+            ),
+        )
+    }
 
     return navigationItems
 }
@@ -482,7 +504,6 @@ private fun mainNavEntryProvider(
     viewModeViewModel: ViewModeViewModel,
     providerViewModel: ProviderViewModel,
     homeScreenState: MutableState<HomeScreenState?>,
-    libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
     goToSettings: () -> Unit,
 ): (NavKey) -> NavEntry<NavKey> {
@@ -524,30 +545,6 @@ private fun mainNavEntryProvider(
                 actionsViewModel = actionsViewModel,
                 state = screenState,
                 onOpenSettings = goToSettings,
-            )
-        }
-
-        entry<MainNav.Library> {
-            val libraryCategoriesViewModel = koinViewModel<LibraryCategoriesViewModel>()
-            val screenState = rememberPublishedScreenState(libraryScreenState) {
-                LibraryScreenState.create()
-            }
-
-            LibraryScreen(
-                libraryCategoriesViewModel,
-                contentPadding = contentPadding,
-                state = screenState,
-                onCategoryClick = { category ->
-                    when (category) {
-                        LibraryCategory.BROWSE ->
-                            multiBackStack.add(MainNav.Browse(path = null, title = null))
-
-                        LibraryCategory.AI_RADIO -> multiBackStack.add(MainNav.AiRadio)
-
-                        else ->
-                            category.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
-                    }
-                },
             )
         }
 
@@ -621,7 +618,10 @@ private fun mainNavEntryProvider(
                             } else {
                                 // BrowseFolder carries an explicit `path`; `uri` is only a fallback.
                                 multiBackStack.add(
-                                    MainNav.Browse(path = item.path ?: item.uri, title = item.displayName),
+                                    MainNav.Browse(
+                                        path = item.path ?: item.uri,
+                                        title = item.displayName,
+                                    ),
                                 )
                             }
 
@@ -632,7 +632,7 @@ private fun mainNavEntryProvider(
                         is Audiobook,
                         is MediaCollection,
                         is Genre,
-                        is Track,
+                            is Track,
                         -> multiBackStack.add(
                             MainNav.ItemDetails(
                                 itemId = item.itemId,

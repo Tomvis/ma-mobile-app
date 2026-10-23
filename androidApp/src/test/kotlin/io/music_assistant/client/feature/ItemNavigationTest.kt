@@ -105,7 +105,7 @@ class ItemNavigationTest {
         launchLoggedInApp(composeTestRule, serviceClient)
             .playMedia(track)
             .expandPlayer(player.displayName, playing = true, item = track.name)
-            .goToTrack(track.name, navigationItem = "Home")
+            .goToTrack(track.name, navigationItem = Res.string.nav_home.get())
     }
 
     @Test

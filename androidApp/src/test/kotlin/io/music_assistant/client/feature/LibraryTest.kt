@@ -8,11 +8,17 @@ import io.music_assistant.client.support.Qualifiers
 import io.music_assistant.client.support.ServerMediaItemFixtures
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.launchLoggedInApp
-import io.music_assistant.client.support.pages.assertFloatingBar
 import io.music_assistant.client.support.pages.assertMediaDisplayed
 import io.music_assistant.client.support.pages.assertMediaNotDisplayed
 import io.music_assistant.client.support.pages.assertNoItems
-import io.music_assistant.client.support.pages.clickLibrary
+import io.music_assistant.client.support.pages.clickAlbums
+import io.music_assistant.client.support.pages.clickArtists
+import io.music_assistant.client.support.pages.clickAudiobooks
+import io.music_assistant.client.support.pages.clickGenres
+import io.music_assistant.client.support.pages.clickPlaylists
+import io.music_assistant.client.support.pages.clickPodcasts
+import io.music_assistant.client.support.pages.clickRadio
+import io.music_assistant.client.support.pages.clickTracks
 import io.music_assistant.client.support.pages.enableFilter
 import io.music_assistant.client.support.rules.createTestRuleChain
 import musicassistantclient.composeapp.generated.resources.Res
@@ -42,7 +48,6 @@ class LibraryTest {
         serviceClient.addToLibrary(album1, album2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAlbums()
             .assertMediaDisplayed(album1)
             .assertMediaDisplayed(album2)
@@ -56,7 +61,6 @@ class LibraryTest {
         serviceClient.addToLibrary(artist1, artist2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickArtists()
             .assertMediaDisplayed(artist1)
             .assertMediaDisplayed(artist2)
@@ -70,7 +74,6 @@ class LibraryTest {
         serviceClient.addToLibrary(playlist1, playlist2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickPlaylists()
             .assertMediaDisplayed(playlist1)
             .assertMediaDisplayed(playlist2)
@@ -84,7 +87,6 @@ class LibraryTest {
         serviceClient.addToLibrary(track1, track2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickTracks()
             .assertMediaDisplayed(track1)
             .assertMediaDisplayed(track2)
@@ -98,7 +100,6 @@ class LibraryTest {
         serviceClient.addToLibrary(audiobook1, audiobook2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAudiobooks()
             .assertMediaDisplayed(audiobook1)
             .assertMediaDisplayed(audiobook2)
@@ -112,7 +113,6 @@ class LibraryTest {
         serviceClient.addToLibrary(podcast1, podcast2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickPodcasts()
             .assertMediaDisplayed(podcast1)
             .assertMediaDisplayed(podcast2)
@@ -126,7 +126,6 @@ class LibraryTest {
         serviceClient.addToLibrary(radio1, radio2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickRadio()
             .assertMediaDisplayed(radio1)
             .assertMediaDisplayed(radio2)
@@ -140,7 +139,6 @@ class LibraryTest {
         serviceClient.addToLibrary(genre1, genre2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickGenres()
             .assertMediaDisplayed(genre1)
             .assertMediaDisplayed(genre2)
@@ -154,7 +152,6 @@ class LibraryTest {
         serviceClient.addToLibrary(album1, album2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAlbums()
             .enableFilter {
                 it.enableSwitch(Res.string.filter_favorites.get())
@@ -171,7 +168,6 @@ class LibraryTest {
         serviceClient.addToLibrary(album1, album2)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAlbums()
             .openSearch()
             .search("lobe")
@@ -186,23 +182,11 @@ class LibraryTest {
         serviceClient.addItems(album)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAlbums()
             .openSearch()
             .search("balloon")
             .assertNoItems()
             .clickSearchEverywhere("balloon")
             .assertMediaDisplayed(album)
-    }
-
-    @Test
-    fun `customizing tabs hides the floating player bar`() {
-        launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
-            .assertFloatingBar(showing = true)
-            .customizeTabs()
-            .assertFloatingBar(showing = false)
-            .doneCustomizing()
-            .assertFloatingBar(showing = true)
     }
 }

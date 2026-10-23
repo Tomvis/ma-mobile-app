@@ -36,8 +36,15 @@ import musicassistantclient.composeapp.generated.resources.cd_playing
 import musicassistantclient.composeapp.generated.resources.common_apply
 import musicassistantclient.composeapp.generated.resources.common_back
 import musicassistantclient.composeapp.generated.resources.library_empty
+import musicassistantclient.composeapp.generated.resources.media_type_albums
+import musicassistantclient.composeapp.generated.resources.media_type_artists
+import musicassistantclient.composeapp.generated.resources.media_type_audiobooks
+import musicassistantclient.composeapp.generated.resources.media_type_genres
+import musicassistantclient.composeapp.generated.resources.media_type_playlists
+import musicassistantclient.composeapp.generated.resources.media_type_podcasts
+import musicassistantclient.composeapp.generated.resources.media_type_radio
+import musicassistantclient.composeapp.generated.resources.media_type_tracks
 import musicassistantclient.composeapp.generated.resources.nav_home
-import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_menu
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
@@ -113,14 +120,42 @@ fun <T : Page> ComposePage.clickHome(destination: T): T {
     return destination.assertOnPage()
 }
 
-fun ComposePage.clickLibrary(): LibraryPage {
-    return clickLibrary(LibraryPage(composeTestRule))
+fun ComposePage.clickAlbums(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_albums.get())
 }
 
-fun <T : Page> ComposePage.clickLibrary(destination: T): T {
+fun ComposePage.clickArtists(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_artists.get())
+}
+
+fun ComposePage.clickPlaylists(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_playlists.get())
+}
+
+fun ComposePage.clickTracks(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_tracks.get())
+}
+
+fun ComposePage.clickAudiobooks(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_audiobooks.get())
+}
+
+fun ComposePage.clickPodcasts(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_podcasts.get())
+}
+
+fun ComposePage.clickRadio(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_radio.get())
+}
+
+fun ComposePage.clickGenres(): LibraryListPage {
+    return clickLibraryType(Res.string.media_type_genres.get())
+}
+
+private fun ComposePage.clickLibraryType(type: String): LibraryListPage {
     openNavDrawer()
-    clickNavDrawerItem(Res.string.nav_library.get())
-    return destination.assertOnPage()
+    clickNavDrawerItem(type)
+    return LibraryListPage(type, composeTestRule).assertOnPage()
 }
 
 private fun <T : ComposePage> T.openNavDrawer(): T {

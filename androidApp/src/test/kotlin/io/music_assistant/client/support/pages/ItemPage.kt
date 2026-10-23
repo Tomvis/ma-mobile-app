@@ -17,6 +17,7 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.isTab
+import io.music_assistant.client.support.onNodeInContent
 import io.music_assistant.client.ui.compose.item.ItemDetailsScreenSemantics
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_go_to_artist
@@ -65,13 +66,13 @@ class ItemPage(
             MediaType.ARTIST -> Unit
             MediaType.ALBUM -> {
                 waitForTab(Res.string.media_type_tracks.get())
-                composeTestRule.onNode(isTab(Res.string.media_type_albums.get()))
+                composeTestRule.onNodeInContent(isTab(Res.string.media_type_albums.get()))
                     .assertIsNotDisplayed()
             }
 
             MediaType.TRACK -> {
                 waitForTab(Res.string.media_type_albums.get())
-                composeTestRule.onNode(isTab(Res.string.item_tab_versions.get()))
+                composeTestRule.onNodeInContent(isTab(Res.string.item_tab_versions.get()))
                     .assertIsDisplayed()
             }
 
@@ -98,7 +99,7 @@ class ItemPage(
      */
     private fun waitForTab(label: String) {
         composeTestRule.waitUntil("tab '$label' is displayed") {
-            composeTestRule.onNode(isTab(label)).isDisplayed()
+            composeTestRule.onNodeInContent(isTab(label)).isDisplayed()
         }
     }
 
@@ -131,7 +132,8 @@ class ItemPage(
             .onNodeWithContentDescription(Res.string.cd_provider_filter.get(row, current))
             .performClick()
         composeTestRule.onNode(hasAnyAncestor(isPopup()).and(hasText(current))).assertExists()
-        composeTestRule.onNode(hasAnyAncestor(isPopup()).and(hasText(provider))).assertDoesNotExist()
+        composeTestRule.onNode(hasAnyAncestor(isPopup()).and(hasText(provider)))
+            .assertDoesNotExist()
         return this
     }
 
