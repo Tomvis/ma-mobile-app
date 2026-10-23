@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -181,25 +182,17 @@ fun AdaptiveNavigationBarLayout(
                             windowInsets = WindowInsets(0, 0, 0, 0),
                         ) {
                             val menuLabel = stringResource(Res.string.nav_menu)
-                            NavigationBarItem(
-                                modifier = Modifier.clearAndSetSemantics {
-                                    role = Role.Tab
-                                    selected = false
-                                    contentDescription = menuLabel
-                                },
+                            val menuItem = NavigationItem(
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.open() }
                                 },
-                                icon = {
-                                    Icon(Icons.Default.Menu, contentDescription = null)
-                                },
-                                label = {
-                                    Text(menuLabel)
-                                },
+                                icon = Icons.Default.Menu,
+                                label = menuLabel,
                             )
 
                             val barItems = buildList {
+                                add(menuItem)
                                 addAll(navigationItems.take(maxNavigationBarItems))
                                 if (trailingItem != null) {
                                     add(trailingItem)
@@ -207,36 +200,7 @@ fun AdaptiveNavigationBarLayout(
                             }
 
                             barItems.forEach {
-                                NavigationBarItem(
-                                    modifier = Modifier.clearAndSetSemantics {
-                                        role = Role.Tab
-                                        selected = it.selected
-                                        contentDescription = it.contentDescription ?: it.label
-                                    },
-                                    selected = it.selected,
-                                    onClick = it.onClick,
-                                    icon = {
-                                        Icon(it.icon, contentDescription = null)
-                                    },
-                                    label = {
-                                        val modifier = if (it.marqueeLabel) {
-                                            Modifier
-                                                .padding(horizontal = 8.dp)
-                                                .fillMaxWidth()
-                                                .fadingEdges(12.dp)
-                                                .basicMarquee()
-                                        } else {
-                                            Modifier
-                                        }
-
-                                        Text(
-                                            it.label,
-                                            maxLines = 1,
-                                            textAlign = TextAlign.Center,
-                                            modifier = modifier,
-                                        )
-                                    },
-                                )
+                                NavigationBarItem(it)
                             }
                         }
                     }
@@ -244,6 +208,40 @@ fun AdaptiveNavigationBarLayout(
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.NavigationBarItem(item: NavigationItem) {
+    NavigationBarItem(
+        modifier = Modifier.clearAndSetSemantics {
+            role = Role.Tab
+            selected = item.selected
+            contentDescription = item.contentDescription ?: item.label
+        },
+        selected = item.selected,
+        onClick = item.onClick,
+        icon = {
+            Icon(item.icon, contentDescription = null)
+        },
+        label = {
+            val modifier = if (item.marqueeLabel) {
+                Modifier
+                    .padding(horizontal = 8.dp)
+                    .fillMaxWidth()
+                    .fadingEdges(12.dp)
+                    .basicMarquee()
+            } else {
+                Modifier
+            }
+
+            Text(
+                item.label,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+                modifier = modifier.fillMaxWidth(),
+            )
+        },
+    )
 }
 
 data class NavigationItem(
