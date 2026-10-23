@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
@@ -85,7 +86,11 @@ fun AdaptiveNavigationBarLayout(
                             selected = it.selected,
                             onClick = it.onClick,
                             icon = {
-                                Icon(it.icon, contentDescription = it.label)
+                                Icon(
+                                    it.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                )
                             },
                             label = {
                                 Text(it.label)
@@ -119,7 +124,11 @@ fun AdaptiveNavigationBarLayout(
                                 Text(it.label)
                             },
                             icon = {
-                                Icon(it.icon, contentDescription = null)
+                                Icon(
+                                    it.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                )
                             },
                             selected = false,
                             onClick = {
