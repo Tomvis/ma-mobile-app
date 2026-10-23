@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -291,6 +292,7 @@ private fun PlayerSelection(
             ) {
                 Row(
                     modifier = Modifier
+                        .height(80.dp)
                         .fillMaxWidth()
                         .clip(shape = plateShape)
                         .background(color = backgroundColor)
@@ -308,7 +310,7 @@ private fun PlayerSelection(
                             },
                             role = Role.RadioButton,
                         )
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // A dormant player the app can still act on stays selectable: pinning the
@@ -344,25 +346,27 @@ private fun PlayerSelection(
                         )
                     }
 
-                    IconButton(onClick = { onGroupRequest(item) }) {
-                        BadgedBox(
-                            badge = {
-                                val groupMembers = item.player.groupMembers?.size ?: 0
-                                val playerCount = if (groupMembers > 0) {
-                                    groupMembers
-                                } else {
-                                    1
-                                }
+                    if (!item.isLocal) {
+                        IconButton(onClick = { onGroupRequest(item) }) {
+                            BadgedBox(
+                                badge = {
+                                    val groupMembers = item.player.groupMembers?.size ?: 0
+                                    val playerCount = if (groupMembers > 0) {
+                                        groupMembers
+                                    } else {
+                                        1
+                                    }
 
-                                Badge {
-                                    Text(playerCount.toString())
-                                }
-                            },
-                        ) {
-                            Icon(
-                                vectorResource(SharedIcons.getResource(SharedIcons.SPEAKER)),
-                                contentDescription = null,
-                            )
+                                    Badge {
+                                        Text(playerCount.toString())
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    vectorResource(SharedIcons.getResource(SharedIcons.SPEAKER)),
+                                    contentDescription = null,
+                                )
+                            }
                         }
                     }
 
