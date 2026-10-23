@@ -300,14 +300,14 @@ fun MainNavigationRoot(
             searchScreenState = searchScreenState,
             categories = libraryCategories.categories.filter { it.enabled }.map { it.libraryCategory },
             goToLibraryCategory = { category ->
-                when (category) {
-                    LibraryCategory.BROWSE ->
-                        multiBackStack.add(MainNav.Browse(path = null, title = null))
+                val toAdd = when (category) {
+                    LibraryCategory.BROWSE -> MainNav.Browse(path = null, title = null)
+                    LibraryCategory.AI_RADIO -> MainNav.AiRadio
+                    else -> category.mediaType?.let { MainNav.LibraryList(it) }
+                }
 
-                    LibraryCategory.AI_RADIO -> multiBackStack.add(MainNav.AiRadio)
-
-                    else ->
-                        category.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
+                if (toAdd != null && toAdd != multiBackStack.lastOrNull()) {
+                    multiBackStack.add(toAdd)
                 }
             },
             goToSettings = goToSettings,

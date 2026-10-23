@@ -39,6 +39,10 @@ class MultiBackStack<T : NavKey>(private val backStacks: List<MutableList<T>>) {
         backStacks[currentBackStack].add(element)
     }
 
+    fun lastOrNull(): T? {
+        return backStacks[currentBackStack].lastOrNull()
+    }
+
     fun removeLastOrNull(): NavKey? {
         val backStack = backStacks[currentBackStack]
         return when {
