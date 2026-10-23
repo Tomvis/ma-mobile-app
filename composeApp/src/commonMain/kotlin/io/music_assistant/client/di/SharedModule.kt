@@ -64,6 +64,7 @@ import io.music_assistant.client.ui.compose.search.SearchViewModel
 import io.music_assistant.client.ui.compose.settings.CarActionsViewModel
 import io.music_assistant.client.ui.compose.settings.CarDspViewModel
 import io.music_assistant.client.ui.compose.settings.DefaultClickActionsViewModel
+import io.music_assistant.client.ui.compose.settings.SendspinSettingsViewModel
 import io.music_assistant.client.ui.compose.settings.SettingsViewModel
 import io.music_assistant.client.ui.theme.HomeThemeRepository
 import io.music_assistant.client.ui.theme.ThemeViewModel
@@ -198,6 +199,13 @@ fun sharedModule(
         factory { SchemaVersionWarningViewModel(get()) }
         factory { ActionsViewModel(get(), get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get(), get(), get()) }
+        factory {
+            val mainDataSource = get<MainDataSource>()
+            SendspinSettingsViewModel(
+                settings = get(),
+                isLocalPlayerPlaying = { mainDataSource.localPlayer.value?.player?.isPlaying == true },
+            )
+        }
         factory { DefaultClickActionsViewModel(get()) }
         factory { CarActionsViewModel(get(), get()) }
         factory { CarDspViewModel(get(), get()) }

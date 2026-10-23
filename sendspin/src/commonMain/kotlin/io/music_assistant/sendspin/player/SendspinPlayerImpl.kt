@@ -3,7 +3,6 @@ package io.music_assistant.sendspin.player
 import co.touchlab.kermit.Logger
 import io.ktor.client.HttpClient
 import io.music_assistant.sendspin.api.AudioCodec
-import io.music_assistant.sendspin.api.AudioFormatSpec
 import io.music_assistant.sendspin.api.AudioPhase
 import io.music_assistant.sendspin.api.ClockQuality
 import io.music_assistant.sendspin.api.Endpoint
@@ -16,6 +15,8 @@ import io.music_assistant.sendspin.api.SendspinPlayer
 import io.music_assistant.sendspin.api.StopCause
 import io.music_assistant.sendspin.api.WarningCode
 import io.music_assistant.sendspin.api.WireVersion
+import io.music_assistant.sendspin.api.advertisedFormats
+import io.music_assistant.sendspin.api.bufferCapacityBytes
 import io.music_assistant.sendspin.audio.AudioEvent
 import io.music_assistant.sendspin.audio.AudioPipeline
 import io.music_assistant.sendspin.audio.StreamAction
@@ -72,7 +73,7 @@ import kotlinx.coroutines.launch
  * └─ config.enabled collector           collectLatest: "false" cancels everything below
  *    └─ runEnabled()                    trust store, clock sync, pipeline, connector
  *       ├─ pipeline.run()               on deps.audioDispatcher; outlives every connection
- *       ├─ live-config collectors       userDelayMicros, capacityBytes, hold
+ *       ├─ live-config collectors       userDelayMicros, hold
  *       └─ ConnectionSupervisor.run()   restarted when a reconnect-class field changes
  *          └─ one attempt at a time
  *             ├─ session.run()          reader coroutine
@@ -109,7 +110,22 @@ internal class SendspinPlayerImpl(
         this.held.value = held
     }
 
-    private data class ConnectionKey(val endpoint: Endpoint, val deviceName: String, val codecs: List<AudioCodec>)
+    private data class ConnectionKey(
+        val endpoint: Endpoint,
+        val deviceName: String,
+        val codecs: List<AudioCodec>,
+        val bitDepth: Int,
+        val bufferSeconds: Int,
+    ) {
+        fun formats(supports: (AudioCodec) -> Boolean) = advertisedFormats(codecs, bitDepth, supports)
+    }
+
+    /**
+     * `buffer_capacity` reaches the server only in `client/hello`, so the local cap changes with
+     * the connection. A smaller local cap than the advertised one evicts the future chunks that
+     * the server still sends, and every evicted chunk is a gap in the timeline.
+     */
+    private fun ConnectionKey.capacityBytes() = bufferCapacityBytes(formats(deps.decoders::supports), bufferSeconds)
 
     /** An unsupported endpoint never reaches a session, so its wire is moot. */
     private val Endpoint.wire: WireVersion
@@ -151,7 +167,7 @@ internal class SendspinPlayerImpl(
             deps.decoders,
             clockSync,
             deps.clock,
-            config.value?.bufferCapacityBytes ?: 0,
+            0,
         )
         val connector = connectorFactory(deps.httpClient)
         val supervisor = ConnectionSupervisor(
@@ -167,7 +183,6 @@ internal class SendspinPlayerImpl(
         launch {
             config.filterNotNull().collect {
                 pipeline.userDelayMicros = it.userDelayMs * 1_000L
-                pipeline.capacityBytes = it.bufferCapacityBytes
             }
         }
         launch { held.collect(pipeline::hold) }
@@ -176,9 +191,10 @@ internal class SendspinPlayerImpl(
         launch { session.watchStarvation() }
         try {
             config.filterNotNull()
-                .map { ConnectionKey(it.endpoint, it.deviceName, it.codecPreference) }
+                .map { ConnectionKey(it.endpoint, it.deviceName, it.codecPreference, it.bitDepth, it.bufferSeconds) }
                 .distinctUntilChanged()
                 .collectLatest { key ->
+                    pipeline.capacityBytes = key.capacityBytes()
                     supervisor.run(
                         endpoint = key.endpoint,
                         sessionConfig = session.sessionConfig(key),
@@ -215,10 +231,8 @@ internal class SendspinPlayerImpl(
             wire = key.endpoint.wire,
             deviceName = key.deviceName,
             playerSupport = PlayerSupport(
-                supportedFormats = key.codecs.filter(deps.decoders::supports).flatMap { codec ->
-                    SAMPLE_RATES.flatMap { rate -> BIT_DEPTHS.map { depth -> AudioFormatSpec(codec, 2, rate, depth) } }
-                },
-                bufferCapacity = config.value?.bufferCapacityBytes ?: 0,
+                supportedFormats = key.formats(deps.decoders::supports),
+                bufferCapacity = key.capacityBytes(),
                 supportedCommands = emptyList(),
             ),
             deviceInfo = EncryptedDeviceInfo(
@@ -286,13 +300,13 @@ internal class SendspinPlayerImpl(
         }
 
         /**
-         * Spec 1.0.0-rc1: `available` only once the time filter has an estimate (the
+         * Spec 1.0.0-rc1: `available` only once the time filter has converged (the
          * server starts no stream before it), then again on every change. The reported
          * delay is informational for the server's send-ahead; the scheduler still applies
          * the signed [LocalPlayerConfig.userDelayMs] itself.
          */
         private suspend fun reportSpecState(session: NoiseSession) {
-            while (clockSync.snapshot() == null) delay(CLOCK_POLL_MILLIS)
+            while (!clockSync.isConverged) delay(CLOCK_POLL_MILLIS)
             config.filterNotNull().map { it.userDelayMs }.distinctUntilChanged().collect { delayMs ->
                 session.send(
                     WireCodec.encode(
@@ -379,9 +393,6 @@ internal class SendspinPlayerImpl(
     }
 
     internal companion object {
-        // Hardcoding to 48kHz and 16-bit for now
-        val SAMPLE_RATES = listOf(48000)
-        val BIT_DEPTHS = listOf(16)
         const val STATE_REPORT_MILLIS = 2_000L
         const val CLOCK_UNSTABLE_MICROS = 60_000_000L
         const val CLOCK_POLL_MILLIS = 100L

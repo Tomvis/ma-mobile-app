@@ -43,14 +43,19 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.sendspin_failed_incompatible_protocol
 import musicassistantclient.composeapp.generated.resources.sendspin_failed_server_rejected
@@ -126,18 +131,17 @@ class LocalPlayerAdapter(
     private val config: StateFlow<LocalPlayerConfig?> = combine(
         settings.sendspinEnabled,
         endpoints.endpoint,
-        settings.sendspinDeviceName,
-        settings.sendspinCodecPreference,
-        settings.sendspinBufferCapacityMb,
+        settings.sendspinPlayerSettings,
         settings.sendspinStaticDelayMs,
-    ) { values ->
+    ) { enabled, endpoint, playerSettings, staticDelayMs ->
         localPlayerConfig(
-            enabled = values[0] as Boolean,
-            endpoint = values[1] as Endpoint?,
-            deviceName = values[2] as String,
-            codec = values[3] as AudioCodec,
-            bufferCapacityMb = values[4] as Int,
-            staticDelayMs = values[5] as Int,
+            enabled = enabled,
+            endpoint = endpoint,
+            deviceName = playerSettings.name,
+            codec = playerSettings.codecPreference,
+            bitDepth = playerSettings.effectiveBitDepth(),
+            bufferSeconds = playerSettings.bufferSeconds,
+            staticDelayMs = staticDelayMs,
         )
     }.stateIn(this, SharingStarted.Eagerly, null)
 
@@ -177,6 +181,7 @@ class LocalPlayerAdapter(
 
     init {
         launch { player.events.collect(::onPlayerEvent) }
+        launch { restartStreamOnFormatChange() }
         launch {
             // The server addresses the local player by the module's identity; keep the
             // persisted mirror in sync so other screens address the right player.
@@ -196,6 +201,31 @@ class LocalPlayerAdapter(
             player.state.filterIsInstance<PlayerState.Failed>()
                 .collect { errorBus.emit(getString(it.cause.message)) }
         }
+    }
+
+    /**
+     * The server builds the audio chain, and with it the quality badge, when a stream starts.
+     * A reconnect with a new codec or bit depth starts no stream, so the chain would show the
+     * old format until the next track. After such a change, a playing player pauses and plays
+     * once the new connection is active, which gives a fresh stream (a seek would fail on
+     * radio). The save already warned that it interrupts playback.
+     */
+    private suspend fun restartStreamOnFormatChange() {
+        settings.sendspinPlayerSettings
+            .map { it.codecPreference to it.effectiveBitDepth() }
+            .distinctUntilChanged()
+            .drop(1)
+            .collectLatest {
+                if (localPlayerData.value?.player?.isPlaying != true) return@collectLatest
+                withTimeoutOrNull(FORMAT_RESTART_WAIT_MS) {
+                    player.events.first { it == PlayerEvent.ServerRefreshNeeded }
+                } ?: return@collectLatest
+                val data = localPlayerData.value?.takeUnless { outputHeld } ?: return@collectLatest
+                val requests = listOf(PlayerAction.Pause, PlayerAction.Play)
+                    .mapNotNull { playerRequestFactory.buildRequest(data, it) }
+                log.i { "Restarting the stream in the new format" }
+                commands.sendOrDrop(requests)
+            }
     }
 
     private val FailureCause.message
@@ -236,16 +266,24 @@ class LocalPlayerAdapter(
 
                 StopCause.FocusLost -> {
                     pausedByInterruption = localPlayerData.value?.player?.isPlaying == true
+                    log.i { "Playback stopped: audio focus lost, resume=$pausedByInterruption" }
                     pauseLocalIfPlaying()
                 }
 
-                StopCause.SinkFailed -> pauseLocalIfPlaying()
+                StopCause.SinkFailed -> {
+                    log.w { "Playback stopped: audio output failed" }
+                    pauseLocalIfPlaying()
+                }
+
                 StopCause.ServerEnded, StopCause.Cleared, StopCause.Disabled -> Unit
             }
 
-            PlayerEvent.FocusRegained -> if (pausedByInterruption) {
-                pausedByInterruption = false
-                localPlayerData.value?.let { handleLocalCommand(it, PlayerAction.Play) }
+            PlayerEvent.FocusRegained -> {
+                log.i { "Audio focus regained: resume=$pausedByInterruption" }
+                if (pausedByInterruption) {
+                    pausedByInterruption = false
+                    localPlayerData.value?.let { handleLocalCommand(it, PlayerAction.Play) }
+                }
             }
 
             PlayerEvent.ServerRefreshNeeded -> _needsServerRefresh.emit(Unit)
@@ -510,7 +548,7 @@ class LocalPlayerAdapter(
                 PlayerData(
                     player = Player(
                         id = settings.sendspinEffectivePlayerId.value,
-                        name = settings.sendspinDeviceName.value,
+                        name = settings.sendspinPlayerSettings.value.name,
                         provider = "builtin",
                         type = PlayerType.PLAYER,
                         isListed = true,
@@ -626,7 +664,8 @@ class LocalPlayerAdapter(
             endpoint: Endpoint?,
             deviceName: String,
             codec: AudioCodec,
-            bufferCapacityMb: Int,
+            bitDepth: Int,
+            bufferSeconds: Int,
             staticDelayMs: Int,
         ): LocalPlayerConfig? {
             if (!enabled || endpoint == null) return null
@@ -634,7 +673,8 @@ class LocalPlayerAdapter(
                 endpoint = endpoint,
                 deviceName = deviceName,
                 codecPreference = listOf(codec),
-                bufferCapacityBytes = bufferCapacityMb * SettingsRepository.BYTES_PER_MB,
+                bitDepth = bitDepth,
+                bufferSeconds = bufferSeconds,
                 userDelayMs = -staticDelayMs,
             )
         }
@@ -644,6 +684,9 @@ class LocalPlayerAdapter(
 
         /** Backstop for play requests that neither confirm nor fail. */
         const val PENDING_PLAY_TIMEOUT_MS = 10_000L
+
+        /** A format change while offline must not pause and play much later. */
+        const val FORMAT_RESTART_WAIT_MS = 30_000L
     }
 }
 
