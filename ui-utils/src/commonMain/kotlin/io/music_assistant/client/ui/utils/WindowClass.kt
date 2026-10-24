@@ -1,9 +1,8 @@
-package io.music_assistant.client.utils
+package io.music_assistant.client.ui.utils
 
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 
 object WindowClass {
@@ -34,16 +33,4 @@ object WindowClass {
     @Composable
     private fun isAtLeastBreakpoint(widthDp: Int): Boolean =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(widthDp)
-}
-
-@Composable
-fun rowImageSize() = when {
-    WindowClass.isAtLeastMedium() -> 48.dp
-    else -> 48.dp
-}
-
-@Composable
-fun libraryItemMinWidth() = when {
-    WindowClass.isAtLeastMedium() -> 360.dp
-    else -> 240.dp
 }

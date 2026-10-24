@@ -83,8 +83,8 @@ import io.music_assistant.client.ui.compose.common.icons.AlbumIcon
 import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 import io.music_assistant.client.ui.compose.common.items.artistNavigation
 import io.music_assistant.client.ui.compose.common.painters.rememberPlaceholderPainter
-import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.ui.inactive
+import io.music_assistant.client.ui.utils.fadingEdges
 import io.music_assistant.client.utils.formatDuration
 import io.music_assistant.sendspin.api.PlayerState
 import kotlinx.coroutines.flow.Flow

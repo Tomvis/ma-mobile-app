@@ -56,8 +56,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import io.music_assistant.client.nav.MultiBackStack
 import io.music_assistant.client.nav.ScreenState
-import io.music_assistant.client.ui.fadingEdges
-import io.music_assistant.client.utils.WindowClass
+import io.music_assistant.client.ui.utils.WindowClass
+import io.music_assistant.client.ui.utils.fadingEdges
 import kotlinx.coroutines.launch
 
 /**

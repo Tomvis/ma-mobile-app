@@ -121,7 +121,7 @@ import io.music_assistant.client.ui.compose.home.HorizontalPagerIndicator
 import io.music_assistant.client.ui.compose.home.Queue
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
 import io.music_assistant.client.ui.inactive
-import io.music_assistant.client.utils.WindowClass
+import io.music_assistant.client.ui.utils.WindowClass
 import io.music_assistant.client.utils.conditional
 import io.music_assistant.sendspin.api.PlayerState
 import kotlinx.coroutines.flow.Flow
