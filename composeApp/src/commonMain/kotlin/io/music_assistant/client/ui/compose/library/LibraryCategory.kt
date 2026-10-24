@@ -18,7 +18,7 @@ import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.ai_radio_title
 import musicassistantclient.composeapp.generated.resources.nav_browse
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import org.jetbrains.compose.resources.StringResource
 
 enum class LibraryCategory {
@@ -63,7 +63,7 @@ val carTabCategories: List<LibraryCategory> = listOf(
 fun LibraryCategory.stringResource(): StringResource = when (this) {
     LibraryCategory.BROWSE -> Res.string.nav_browse
     LibraryCategory.AI_RADIO -> Res.string.ai_radio_title
-    LibraryCategory.HOME -> Res.string.nav_home
+    LibraryCategory.HOME -> Res.string.nav_discover
     // Every remaining category is server-media-type backed, so its label comes from there.
     else -> checkNotNull(mediaType).stringResource()
 }

@@ -11,7 +11,7 @@ import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.support.get
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.common_clear
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.search_query_label
 import musicassistantclient.composeapp.generated.resources.search_start
@@ -26,7 +26,7 @@ class SearchPage(composeTestRule: ComposeTestRule, val query: String? = null) : 
 
         assertNavBar(
             items = listOf(
-                Res.string.nav_home.get(),
+                Res.string.nav_discover.get(),
                 Res.string.nav_search.get(),
             ),
             selected = Res.string.nav_search.get(),

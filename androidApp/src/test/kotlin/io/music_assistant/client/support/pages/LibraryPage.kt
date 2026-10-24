@@ -18,7 +18,7 @@ import musicassistantclient.composeapp.generated.resources.media_type_playlists
 import musicassistantclient.composeapp.generated.resources.media_type_podcasts
 import musicassistantclient.composeapp.generated.resources.media_type_radio
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_search
 
 class LibraryPage(composeTestRule: ComposeTestRule) :
@@ -26,10 +26,10 @@ class LibraryPage(composeTestRule: ComposeTestRule) :
     override fun assert() {
         assertNavBar(
             items = listOf(
-                Res.string.nav_home.get(),
+                Res.string.nav_discover.get(),
                 Res.string.nav_search.get(),
             ),
-            selected = Res.string.nav_home.get(),
+            selected = Res.string.nav_discover.get(),
         )
     }
 

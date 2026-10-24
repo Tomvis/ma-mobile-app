@@ -111,7 +111,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_remote_volume_hint
@@ -440,7 +440,7 @@ private fun navigationItems(
             multiBackStack.createNavigationItem(
                 backStack = 0,
                 icon = Icons.Default.Home,
-                label = stringResource(Res.string.nav_home),
+                label = stringResource(Res.string.nav_discover),
                 screenState = homeScreenState.value,
             ),
         )

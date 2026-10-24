@@ -66,11 +66,11 @@ import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.home_edit_rows
-import musicassistantclient.composeapp.generated.resources.home_save_rows
-import musicassistantclient.composeapp.generated.resources.home_shortcuts
+import musicassistantclient.composeapp.generated.resources.discover_edit_rows
+import musicassistantclient.composeapp.generated.resources.discover_save_rows
+import musicassistantclient.composeapp.generated.resources.discover_shortcuts
 import musicassistantclient.composeapp.generated.resources.library_error
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.refresh
 import org.jetbrains.compose.resources.stringResource
 import sh.calvin.reorderable.ReorderableItem
@@ -294,7 +294,7 @@ internal fun getCategories(
             val shortcutsRow = HomeRow(
                 category = ItemCategory(
                     id = SHORTCUTS_CATEGORY_ID,
-                    title = Res.string.home_shortcuts.toDisplayString(),
+                    title = Res.string.discover_shortcuts.toDisplayString(),
                     items = shortcuts.map { it.item },
                     lazyListKey = SHORTCUTS_CATEGORY_ID,
                     tag = HomeScreenSemantics.SHORTCUTS_ROW_TAG,
@@ -324,7 +324,7 @@ private fun LandingPageTopBar(
     TopAppBar(
         title = {
             Text(
-                stringResource(Res.string.nav_home),
+                stringResource(Res.string.nav_discover),
                 modifier = Modifier.testTag(ScreenSemantics.TITLE_TAG),
             )
         },
@@ -333,7 +333,7 @@ private fun LandingPageTopBar(
                 Icon(
                     imageVector = if (editMode) Icons.Default.Done else Icons.Default.Edit,
                     contentDescription = stringResource(
-                        if (editMode) Res.string.home_save_rows else Res.string.home_edit_rows,
+                        if (editMode) Res.string.discover_save_rows else Res.string.discover_edit_rows,
                     ),
                 )
             }

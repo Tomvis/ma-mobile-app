@@ -44,7 +44,7 @@ import musicassistantclient.composeapp.generated.resources.media_type_playlists
 import musicassistantclient.composeapp.generated.resources.media_type_podcasts
 import musicassistantclient.composeapp.generated.resources.media_type_radio
 import musicassistantclient.composeapp.generated.resources.media_type_tracks
-import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_menu
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
@@ -116,7 +116,7 @@ fun <T : Page> ComposePage.clickSearch(destination: T): T {
 }
 
 fun <T : Page> ComposePage.clickHome(destination: T): T {
-    clickNavBarItem(Res.string.nav_home.get())
+    clickNavBarItem(Res.string.nav_discover.get())
     return destination.assertOnPage()
 }
 
