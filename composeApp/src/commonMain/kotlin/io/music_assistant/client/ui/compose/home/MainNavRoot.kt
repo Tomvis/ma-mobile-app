@@ -112,6 +112,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import musicassistantclient.composeapp.generated.resources.Res
+import musicassistantclient.composeapp.generated.resources.app_name
 import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_menu
@@ -341,6 +342,7 @@ fun MainNavigationRoot(
         }
 
         AdaptiveNavigationBarLayout(
+            appName = stringResource(Res.string.app_name),
             sections = navigationItems,
             trailingItem = playSelectionItem,
             showNavigation = !playerExpanded,

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+  <string name="app_name">Music Assistant</string>
   <string name="action_add_all_to_queue">Add all to queue</string>
   <string name="action_add_to_library">Add to library</string>
   <string name="action_add_to_playlist">Add to playlist</string>
