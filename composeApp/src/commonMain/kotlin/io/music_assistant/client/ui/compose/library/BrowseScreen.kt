@@ -99,9 +99,7 @@ fun BrowseScreen(
                                 hasMore = false,
                                 viewMode = ViewMode.LIST,
                                 onNavigateClick = onNavigateClick,
-                                onPlayClick = { item, option, radio, _ ->
-                                    actionsViewModel.onPlayClick(item, option, radio)
-                                },
+                                onPlayClick = actionsViewModel::onPlayClick,
                                 playlistActions = actionsViewModel,
                                 libraryActions = actionsViewModel,
                                 progressActions = actionsViewModel,

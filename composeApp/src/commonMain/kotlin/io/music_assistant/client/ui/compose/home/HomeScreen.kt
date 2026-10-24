@@ -153,9 +153,7 @@ fun HomeScreen(
                     data = if (row.loading) DataState.Loading() else DataState.Data(row.category),
                     itemCategoryProvider = { it },
                     onNavigateClick = onNavigateClick,
-                    onPlayClick = { item, option, radio, _ ->
-                        actionsViewModel.onPlayClick(item, option, radio)
-                    },
+                    onPlayClick = actionsViewModel::onPlayClick,
                     playlistActions = actionsViewModel,
                     libraryActions = actionsViewModel,
                     progressActions = actionsViewModel,

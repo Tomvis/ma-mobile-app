@@ -91,12 +91,11 @@ kotlin {
             implementation(libs.cryptography.provider.jdk)
 
             implementation(libs.coil)
-            implementation(libs.concentus)
         }
 
         commonMain.dependencies {
             implementation(project(":shared-icons"))
-            implementation(project(":sendspin"))
+            implementation(project(":sendspin-kmp"))
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

@@ -13,8 +13,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.data.play.PlayMode
 import io.music_assistant.client.ui.compose.common.CenteredProgress
 import io.music_assistant.client.ui.compose.common.CenteredText
 import io.music_assistant.client.ui.compose.common.DataState
@@ -36,7 +36,7 @@ fun ListenLaterScreen(
     libraryActions: LibraryActions,
     onBack: () -> Unit,
     onNavigateClick: (AppMediaItem) -> Unit,
-    onPlayClick: (AppMediaItem, QueueOption, Boolean) -> Unit,
+    onPlayClick: (AppMediaItem, PlayMode) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     TopBarLayout(
@@ -67,9 +67,7 @@ fun ListenLaterScreen(
                     AdaptiveMediaGrid(
                         items = items,
                         onNavigateClick = onNavigateClick,
-                        onPlayClick = { item, option, radio, _ ->
-                            onPlayClick(item, option, radio)
-                        },
+                        onPlayClick = onPlayClick,
                         playlistActions = playlistActions,
                         libraryActions = libraryActions,
                         contentPadding = contentPadding,

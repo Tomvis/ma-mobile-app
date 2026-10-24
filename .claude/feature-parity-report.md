@@ -62,7 +62,7 @@ Paths below use these prefixes:
 - `app/` = `composeApp/src/commonMain/kotlin/io/music_assistant/client/`
 - `aa/` = `androidApp/src/main/kotlin/io/music_assistant/client/`
 - `ios/` = `iosApp/iosApp/`
-- `sendspin/` = `sendspin/src/commonMain/kotlin/io/music_assistant/sendspin/`
+- `sendspin/` = `sendspin-kmp/src/commonMain/kotlin/io/music_assistant/sendspin/`
 - `server/` = `music_assistant/` in the server tree. "dev" marks the 2.11 tree.
 - `models/` = `music_assistant_models/` in the models package.
 
@@ -181,16 +181,16 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Feature | Web 2.10 | Web 2.11 | Phone | AA | CP | Class | Note |
 |---|---|---|---|---|---|---|---|
 | Play now, next, add, replace | yes | yes | yes | tap action | tap action | Parity | |
-| Replace next (`REPLACE_NEXT`) | yes | yes | no | no | no | Missing | One more `QueueOption` |
+| Replace next (`REPLACE_NEXT`) | yes | yes | yes | no | no | Parity | Menu entry; not a car action |
 | Play from here | yes | yes | yes | yes | yes | Parity | |
-| Play shuffled | yes | yes | no | favorites only | no | Missing | `play_media` with `shuffle=true` |
+| Play shuffled | yes | yes | yes | bulk action | bulk action | Parity | `play_media` with `shuffle=true`, schema 52 and newer |
 | Radio from item (endless mix) | yes | yes | yes | no | no | Parity | |
 | Add to and remove from library | yes | yes | yes | no | no | Parity | |
 | Favorite | yes | yes | yes | yes | yes | Adjust-2.11 | See 5.2 and 5.3 |
 | Dislike | no | yes | no | no | no | Missing | `favorites/set_item(false)` |
 | Add to playlist, remove from playlist | yes | yes | yes | no | no | Parity | |
 | Mark played and unplayed | yes | yes | yes | no | no | Parity | |
-| Play from beginning | yes | yes | no | no | no | Missing | `play_media` with `start_from_beginning` |
+| Play from beginning | yes | yes | yes | no | no | Parity | Podcast episodes with progress, schema 40 and newer |
 | Refresh item, find on music services | yes | yes | no | no | no | Missing | `music/refresh_item`. 2.11 lowers the scope to `library.write` |
 | Update metadata, edit builtin items | yes | yes | no | no | no | Out of scope | Needs `library.manage` |
 | Export, migrate, share playlist | export | all three | no | no | no | Missing | See 4.10 |
@@ -235,8 +235,8 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Feature | Web 2.10 | Web 2.11 | Phone | AA | CP | Class | Note |
 |---|---|---|---|---|---|---|---|
 | View, play index, reorder, remove | yes | yes | yes | yes | no | Parity | AA exposes the session queue |
-| Move to next, move to end | yes | yes | no | no | no | Missing | `move_item` with shift 0, `move_item_end` |
-| Radio from a queue item | yes | yes | no | no | no | Missing | |
+| Move to next, move to end | yes | yes | no | no | no | Decided | Drag reorders the queue (issue #1193) |
+| Radio from a queue item | yes | yes | yes | no | no | Parity | "Start endless mix" in the long-press menu replaces the queue; the web opens the radio playlist page |
 | Add a queue item to a playlist | no | no | yes | no | no | Parity | App extra |
 | Chapter jump from the queue | yes | yes | yes | n/a | buttons | Parity | |
 | Queue settings page | yes | yes | no | no | no | Out of scope | Scope `config.players.write` |
@@ -270,7 +270,7 @@ Columns: Web 2.10, Web 2.11, Phone, AA (Android Auto), CP (CarPlay).
 | Resume position, fully played state | yes | yes | yes | yes | yes | Parity | |
 | Chapters and chapter progress | yes | yes | yes | n/a | buttons | Parity | Preference `audiobook_chapter_progress` |
 | Mark played and unplayed | yes | yes | yes | no | no | Parity | |
-| Play episodes from here to the latest | yes | yes | no | no | no | Missing | |
+| Play episodes from here to the latest | yes | yes | yes | no | no | Parity | Episodes tab of the podcast |
 | Episode and season numbers | no | yes | yes | yes | yes | Parity | `PodcastEpisode.episode_number`, `season` |
 | Transcript | no | yes | no | no | no | Missing | |
 | Next unplayed book in a series | yes | yes | yes | yes | yes | Parity | Server starts the first unfinished book |
@@ -628,8 +628,6 @@ the app:
 | Server-driven sort options | `music/sort_options` (2.11) | Easy | Replace the static table on 2.11. Map `label_key` to local strings |
 | Dislike | `favorites/set_item` (2.11) | Easy | Three-state heart menu. Hide on 2.10 |
 | Save queue as playlist | `player_queues/save_as_playlist` | Easy | Menu item in the player overflow |
-| Queue move to next, move to end, item radio | `move_item`, `move_item_end` | Easy | Three more long-press actions in `CollapsibleQueue` |
-| Replace next, play shuffled, play from beginning | `play_media` options | Easy | More `QueueOption` cases in `ItemActionResolver` |
 | Playlist rename, image, delete | `playlists/update`, `library/remove_item` | Easy | Needs `library.write`. Hide if the scope is absent |
 | Playlist sharing and collaboration | `playlists/set_access`, `config/providers/share_candidates` (2.11) | Medium | A dialog with a user picker. Needs the `Playlist.access` DTO |
 | Playlist migration | `migrate_playlist` (2.11) | Medium | The command returns a background task. The app has no task progress UI. Show a toast and let the server finish |
