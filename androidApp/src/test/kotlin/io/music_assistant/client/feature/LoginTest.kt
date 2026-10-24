@@ -48,7 +48,7 @@ class LoginTest {
             .signInWith("Authentik")
 
         assertEquals(
-            listOf("oidc" to "musicassistant://auth/callback"),
+            listOf<Pair<String, String?>>("oidc" to "musicassistant://auth/callback"),
             serviceClient.authorizationUrlRequests,
         )
     }
