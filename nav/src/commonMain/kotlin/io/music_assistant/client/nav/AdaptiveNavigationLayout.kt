@@ -2,6 +2,7 @@ package io.music_assistant.client.nav
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -22,11 +23,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -40,7 +45,11 @@ import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,6 +87,7 @@ fun AdaptiveNavigationBarLayout(
     navigationBarHeight: Dp = 64.dp,
     maxNavigationBarItems: Int = 2,
     menuLabel: String,
+    onEdited: ((Set<String>) -> Unit)? = null,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
 ) {
     if (WindowClass.isWide()) {
@@ -92,6 +102,7 @@ fun AdaptiveNavigationBarLayout(
             menuLabel,
             maxNavigationBarItems,
             drawInitiallyOpen,
+            onEdited,
             content,
         )
     }
@@ -154,6 +165,7 @@ private fun BarWithDrawerLayout(
     menuLabel: String,
     maxNavigationBarItems: Int,
     drawInitiallyOpen: Boolean,
+    onEdited: ((Set<String>) -> Unit)?,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     val scope = rememberCoroutineScope()
@@ -175,8 +187,37 @@ private fun BarWithDrawerLayout(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
-                Row(modifier = Modifier.padding(16.dp)) {
+                var editing by remember { mutableStateOf(false) }
+                var enabled by remember(sections) {
+                    mutableStateOf(
+                        sections.flatMap { it.items }.filter { it.enabled }.map { it.id }.toSet(),
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Text(appName, style = MaterialTheme.typography.titleLarge)
+
+                    if (onEdited != null) {
+                        IconButton(
+                            onClick = {
+                                if (editing) {
+                                    onEdited(enabled)
+                                    editing = false
+                                } else {
+                                    editing = true
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (editing) Icons.Default.Done else Icons.Default.Edit,
+                                contentDescription = null,
+                            )
+                        }
+                    }
                 }
 
                 sections.forEachIndexed { index, section ->
@@ -189,25 +230,45 @@ private fun BarWithDrawerLayout(
                     SectionTitle(section.title)
 
                     section.items.forEach {
-                        NavigationDrawerItem(
-                            label = {
-                                Text(it.label)
-                            },
-                            icon = {
-                                Icon(
-                                    it.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            },
-                            selected = false,
-                            onClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    it.onClick()
-                                }
-                            },
-                        )
+                        if (it.enabled || editing) {
+                            NavigationDrawerItem(
+                                label = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(it.label)
+                                        if (it.editable && editing) {
+                                            Checkbox(
+                                                checked = enabled.contains(it.id),
+                                                onCheckedChange = { checked ->
+                                                    if (checked) {
+                                                        enabled += it.id
+                                                    } else {
+                                                        enabled -= it.id
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
+                                },
+                                icon = {
+                                    Icon(
+                                        it.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                },
+                                selected = false,
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        it.onClick()
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -335,6 +396,9 @@ data class NavigationItem(
     val label: String,
     val contentDescription: String? = null,
     val marqueeLabel: Boolean = false,
+    val enabled: Boolean = true,
+    val editable: Boolean = false,
+    val id: String = label,
 )
 
 fun <T : NavKey> MultiBackStack<T>.createNavigationItem(
@@ -396,13 +460,12 @@ fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
         ),
         drawInitiallyOpen = drawerOpen,
         menuLabel = "Menu",
-        content = { contentPadding, _ ->
-            Text(
-                modifier = Modifier.padding(contentPadding),
-                text = "Content",
-            )
-        },
-    )
+    ) { contentPadding, _ ->
+        Text(
+            modifier = Modifier.padding(contentPadding),
+            text = "Content",
+        )
+    }
 }
 
 @Preview
