@@ -736,7 +736,7 @@ class AuthenticationManagerTest {
     }
 
     @Test
-    fun `OpenID Connect providers are listed with their name, and over Remote Access only with an External URL`() =
+    fun `OpenID Connect providers are listed with their name and over Remote Access only with an External URL`() =
         runTest {
             val oidc = buildJsonObject {
                 put("provider_id", "oidc")

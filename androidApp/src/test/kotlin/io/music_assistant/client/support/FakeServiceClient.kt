@@ -11,8 +11,8 @@ import io.music_assistant.client.data.model.server.AudioFormat
 import io.music_assistant.client.data.model.server.AudioOutputDetails
 import io.music_assistant.client.data.model.server.AudioProcessingChain
 import io.music_assistant.client.data.model.server.AuthProvider
-import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.EventType
+import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.PlayerState
 import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerInfo
