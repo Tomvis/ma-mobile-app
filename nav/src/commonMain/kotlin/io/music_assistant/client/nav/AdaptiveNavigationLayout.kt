@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -40,7 +41,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
-import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberWideNavigationRailState
@@ -90,61 +90,94 @@ fun AdaptiveNavigationBarLayout(
     onEdited: ((List<String>) -> Unit)? = null,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
 ) {
+    var editing by remember { mutableStateOf(false) }
+    var enabledItems by remember(sections) {
+        mutableStateOf(
+            sections.flatMap { it.items }.filter { it.enabled }.map { it.id }.toSet(),
+        )
+    }
+
+    val onEditToggled = onEdited?.let {
+        {
+            if (editing) {
+                onEdited(enabledItems.toList())
+                editing = false
+            } else {
+                editing = true
+            }
+        }
+    }
+
+    val onEnabledToggled: (String, Boolean) -> Unit = { id, enabled ->
+        if (enabled) {
+            enabledItems += id
+        } else {
+            enabledItems -= id
+        }
+    }
+
     if (WindowClass.isWide()) {
-        RailLayout(sections, showNavigation, content)
+        RailLayout(
+            appName = appName,
+            sections = sections,
+            showNavigation = showNavigation,
+            editing = editing,
+            onEditToggled = onEditToggled,
+            enabledItems = enabledItems.toList(),
+            onEnabledToggled = onEnabledToggled,
+            content = content,
+        )
     } else {
         BarWithDrawerLayout(
-            appName,
-            sections,
-            trailingItem,
-            showNavigation,
-            navigationBarHeight,
-            menuLabel,
-            maxNavigationBarItems,
-            drawInitiallyOpen,
-            onEdited,
-            content,
+            appName = appName,
+            sections = sections,
+            trailingItem = trailingItem,
+            showNavigation = showNavigation,
+            navigationBarHeight = navigationBarHeight,
+            menuLabel = menuLabel,
+            maxNavigationBarItems = maxNavigationBarItems,
+            drawInitiallyOpen = drawInitiallyOpen,
+            editing = editing,
+            onEditToggled = onEditToggled,
+            enabledItems = enabledItems.toList(),
+            onEnabledToggled = onEnabledToggled,
+            content = content,
         )
     }
 }
 
 @Composable
 private fun RailLayout(
+    appName: String,
     sections: List<Section>,
     showNavigation: Boolean,
+    onEditToggled: (() -> Unit)?,
+    enabledItems: List<String>,
+    editing: Boolean,
+    onEnabledToggled: (String, Boolean) -> Unit,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     Row(Modifier.fillMaxWidth()) {
         if (showNavigation) {
             WideNavigationRail(
+                modifier = Modifier.width(280.dp),
                 state = rememberWideNavigationRailState(initialValue = WideNavigationRailValue.Expanded),
+                header = {
+                    SidebarHeader(
+                        appName = appName,
+                        editing = editing,
+                        onEditToggled = onEditToggled,
+                    )
+                },
             ) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    sections.forEachIndexed { index, section ->
-                        if (index != 0) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-
-                        SectionTitle(section.title)
-
-                        section.items.forEach {
-                            WideNavigationRailItem(
-                                railExpanded = true,
-                                selected = it.selected,
-                                onClick = it.onClick,
-                                icon = {
-                                    Icon(
-                                        it.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                },
-                                label = {
-                                    Text(it.label)
-                                },
-                            )
-                        }
-                    }
+                    SidebarSections(
+                        sections = sections,
+                        itemOnClick = { it.onClick },
+                        editing = editing,
+                        enabledItems = enabledItems.toList(),
+                        onEnabledToggled = onEnabledToggled,
+                    )
                 }
             }
         }
@@ -165,7 +198,10 @@ private fun BarWithDrawerLayout(
     menuLabel: String,
     maxNavigationBarItems: Int,
     drawInitiallyOpen: Boolean,
-    onEdited: ((List<String>) -> Unit)?,
+    onEditToggled: (() -> Unit)?,
+    enabledItems: List<String>,
+    editing: Boolean,
+    onEnabledToggled: (String, Boolean) -> Unit,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     val scope = rememberCoroutineScope()
@@ -187,27 +223,13 @@ private fun BarWithDrawerLayout(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
-                var editing by remember { mutableStateOf(false) }
-                var enabledItems by remember(sections) {
-                    mutableStateOf(
-                        sections.flatMap { it.items }.filter { it.enabled }.map { it.id }.toSet(),
-                    )
-                }
-
                 SidebarHeader(
                     appName = appName,
                     editing = editing,
-                    onEditToggled = onEdited?.let {
-                        {
-                            if (editing) {
-                                onEdited(enabledItems.toList())
-                                editing = false
-                            } else {
-                                editing = true
-                            }
-                        }
-                    },
+                    onEditToggled = onEditToggled,
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 SidebarSections(
                     sections = sections,
@@ -219,13 +241,7 @@ private fun BarWithDrawerLayout(
                     },
                     editing = editing,
                     enabledItems = enabledItems.toList(),
-                    onEnabledToggled = { id, enabled ->
-                        if (enabled) {
-                            enabledItems += id
-                        } else {
-                            enabledItems -= id
-                        }
-                    },
+                    onEnabledToggled = onEnabledToggled,
                 )
             }
         },
@@ -304,7 +320,7 @@ private fun SidebarHeader(
     onEditToggled: (() -> Unit)?,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -332,9 +348,7 @@ private fun SidebarSections(
     onEnabledToggled: (String, Boolean) -> Unit,
 ) {
     sections.forEachIndexed { index, section ->
-        if (index == 0) {
-            Spacer(modifier = Modifier.height(8.dp))
-        } else {
+        if (index != 0) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
