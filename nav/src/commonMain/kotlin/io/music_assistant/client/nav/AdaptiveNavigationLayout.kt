@@ -170,15 +170,13 @@ private fun RailLayout(
                     )
                 },
             ) {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    SidebarSections(
-                        sections = sections,
-                        itemOnClick = { it.onClick },
-                        editing = editing,
-                        enabledItems = enabledItems.toList(),
-                        onEnabledToggled = onEnabledToggled,
-                    )
-                }
+                SidebarSections(
+                    sections = sections,
+                    itemOnClick = { it.onClick },
+                    editing = editing,
+                    enabledItems = enabledItems.toList(),
+                    onEnabledToggled = onEnabledToggled,
+                )
             }
         }
 
@@ -347,43 +345,45 @@ private fun SidebarSections(
     enabledItems: List<String>,
     onEnabledToggled: (String, Boolean) -> Unit,
 ) {
-    sections.forEachIndexed { index, section ->
-        if (index != 0) {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        sections.forEachIndexed { index, section ->
+            if (index != 0) {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-        SectionTitle(section.title)
+            SectionTitle(section.title)
 
-        section.items.forEach {
-            if (it.enabled || editing) {
-                NavigationDrawerItem(
-                    label = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(it.label)
-                            if (it.editable && editing) {
-                                Checkbox(
-                                    checked = enabledItems.contains(it.id),
-                                    onCheckedChange = { checked ->
-                                        onEnabledToggled(it.id, checked)
-                                    },
-                                )
+            section.items.forEach {
+                if (it.enabled || editing) {
+                    NavigationDrawerItem(
+                        label = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(it.label)
+                                if (it.editable && editing) {
+                                    Checkbox(
+                                        checked = enabledItems.contains(it.id),
+                                        onCheckedChange = { checked ->
+                                            onEnabledToggled(it.id, checked)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                    },
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    },
-                    selected = false,
-                    onClick = { itemOnClick(it) },
-                )
+                        },
+                        icon = {
+                            Icon(
+                                it.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        selected = false,
+                        onClick = { itemOnClick(it) },
+                    )
+                }
             }
         }
     }
