@@ -11,6 +11,7 @@ import io.music_assistant.client.data.model.server.AudioFormat
 import io.music_assistant.client.data.model.server.AudioOutputDetails
 import io.music_assistant.client.data.model.server.AudioProcessingChain
 import io.music_assistant.client.data.model.server.AuthProvider
+import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.EventType
 import io.music_assistant.client.data.model.server.PlayerState
 import io.music_assistant.client.data.model.server.SearchResult
@@ -65,6 +66,10 @@ class FakeServiceClient : ServiceClient {
     private val mediaItemStore = FakeMediaItemStore()
     private val shortcuts = mutableListOf<String>()
     private val providers = mutableListOf<ServerProviderInstance>()
+    private val extraAuthProviders = mutableListOf<AuthProvider>()
+
+    /** provider_id and return_url of each `auth/authorization_url` request. */
+    val authorizationUrlRequests = mutableListOf<Pair<String, String?>>()
 
     val username = "user"
     val password = "password"
@@ -117,7 +122,17 @@ class FakeServiceClient : ServiceClient {
                                 type = "builtin",
                                 requiresRedirect = false,
                             ),
-                        ),
+                        ) + extraAuthProviders,
+                    ),
+                )
+            }
+
+            APICommands.AUTH_AUTHORIZATION_URL -> {
+                authorizationUrlRequests += request.getArg("provider_id") to request.getArgOrNull("return_url")
+                Result.success(
+                    answer(
+                        request = request,
+                        result = OauthUrl(url = "https://ma.example/auth/oidc/start"),
                     ),
                 )
             }
@@ -789,6 +804,11 @@ class FakeServiceClient : ServiceClient {
 
     fun addShortcut(item: ServerMediaItem) {
         shortcuts.add(item.uri!!)
+    }
+
+    /** Offer [provider] after the built-in login in `auth/providers`. */
+    fun addAuthProvider(provider: AuthProvider) {
+        extraAuthProviders += provider
     }
 
     fun addProvider(provider: ServerProviderInstance) {

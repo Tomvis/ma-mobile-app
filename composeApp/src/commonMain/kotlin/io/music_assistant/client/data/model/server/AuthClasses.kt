@@ -34,6 +34,8 @@ data class AuthProvider(
     @SerialName("requires_redirect") val requiresRedirect: Boolean,
     /** Server 2.11: the browser can return to the app, over Remote Access only. */
     @SerialName("supports_remote_app") val supportsRemoteApp: Boolean = false,
+    /** The admin-configured display name; only OpenID Connect providers send it. */
+    @SerialName("name") val name: String? = null,
 )
 
 /** [url] is null, with an [error], when the server refuses the sign-in. */

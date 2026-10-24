@@ -362,6 +362,19 @@ class AuthenticationViewModelTest {
     }
 
     @Test
+    fun `OpenID Connect login uses the same server redirect flow as Home Assistant`() = runTest {
+        val oidc = AuthProvider(id = "oidc", type = "oidc", requiresRedirect = true, name = "Authentik")
+        auth.oauthUrl = Result.success("https://ma.example/auth/oidc/start")
+
+        val vm = viewModel()
+        vm.login(oidc)
+
+        assertEquals(listOf("oidc" to "musicassistant://auth/callback"), auth.oauthRequests)
+        assertEquals(listOf("https://ma.example/auth/oidc/start"), auth.startedOAuthUrls)
+        assertTrue(auth.loginCalls.isEmpty(), "OIDC must not also try credential login")
+    }
+
+    @Test
     fun `logout delegates to AuthCoordinator`() = runTest {
         val vm = viewModel()
         vm.logout()

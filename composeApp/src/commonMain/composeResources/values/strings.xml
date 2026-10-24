@@ -102,6 +102,7 @@
   <string name="auth_logout">Logout</string>
   <string name="auth_password">Password</string>
   <string name="auth_retry_providers">Retry Loading Providers</string>
+  <string name="auth_sign_in_with">Sign in with %1$s</string>
   <string name="auth_show_password">Show password</string>
   <string name="auth_title">Authentication</string>
   <string name="auth_username">Username</string>

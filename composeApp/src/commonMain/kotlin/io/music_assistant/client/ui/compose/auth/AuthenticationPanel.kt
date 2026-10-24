@@ -52,6 +52,7 @@ import musicassistantclient.composeapp.generated.resources.auth_logout
 import musicassistantclient.composeapp.generated.resources.auth_password
 import musicassistantclient.composeapp.generated.resources.auth_retry_providers
 import musicassistantclient.composeapp.generated.resources.auth_show_password
+import musicassistantclient.composeapp.generated.resources.auth_sign_in_with
 import musicassistantclient.composeapp.generated.resources.auth_username
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -91,50 +92,43 @@ fun AuthenticationPanel(
             }
         } ?: run {
             // Show provider selection and auth UI
-            if (providers.isNotEmpty()) {
-                var selectedTab by remember(key1 = providers) { mutableIntStateOf(0) }
+            val options = remember(providers) { SignInOption.from(providers) }
+            if (options.isNotEmpty()) {
+                var selectedTab by remember(key1 = options) { mutableIntStateOf(0) }
                 // Provider tabs
                 PrimaryTabRow(
                     selectedTabIndex = selectedTab,
                 ) {
-                    providers.forEachIndexed { index, provider ->
-                        when (provider.type) {
-                            "builtin" -> Tab(
-                                selected = index == selectedTab,
-                                onClick = { selectedTab = index },
-                                text = {
-                                    Text("Music Assistant")
-                                },
-                            )
-
-                            "homeassistant" -> Tab(
-                                selected = index == selectedTab,
-                                onClick = { selectedTab = index },
-                                text = {
-                                    Text("Home Assistant")
-                                },
-                            )
-
-                            else -> Unit
-                        }
+                    options.forEachIndexed { index, option ->
+                        Tab(
+                            selected = index == selectedTab,
+                            onClick = { selectedTab = index },
+                            text = { Text(option.tabLabel) },
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Show provider-specific UI
-                providers.getOrNull(selectedTab)?.let { provider ->
-                    when (provider.type) {
-                        "builtin" -> BuiltinAuthForm(viewModel, provider)
-                        "homeassistant" -> Button(
+                options.getOrNull(selectedTab)?.let { option ->
+                    when (option) {
+                        is SignInOption.Credentials -> BuiltinAuthForm(viewModel, option.provider)
+                        is SignInOption.HomeAssistant -> Button(
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { viewModel.login(provider) },
+                            onClick = { viewModel.login(option.provider) },
                             enabled = authState !is AuthState.Loading,
                         ) {
                             Text(stringResource(Res.string.auth_authorize_ha))
                         }
 
-                        else -> Unit
+                        is SignInOption.OpenIdConnect -> Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { viewModel.login(option.provider) },
+                            enabled = authState !is AuthState.Loading,
+                        ) {
+                            Text(stringResource(Res.string.auth_sign_in_with, option.tabLabel))
+                        }
                     }
                 }
             } else {

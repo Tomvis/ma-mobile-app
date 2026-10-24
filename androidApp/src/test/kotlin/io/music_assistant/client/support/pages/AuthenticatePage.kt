@@ -25,6 +25,14 @@ class AuthenticatePage(private val composeTestRule: ComposeTestRule) : Page {
         return this.assertOnPage()
     }
 
+    /** Open the [provider] tab and press its sign-in button. */
+    fun signInWith(provider: String): AuthenticatePage {
+        composeTestRule.onNodeWithText(provider).assertIsDisplayed().performClick()
+        composeTestRule.onNodeWithText("Sign in with $provider").assertIsDisplayed().performClick()
+        composeTestRule.waitForIdle()
+        return this
+    }
+
     private fun fillLogin(username: String, password: String) {
         composeTestRule.onNodeWithText("Username").assertIsDisplayed().performTextInput(username)
         composeTestRule.onNodeWithText("Password").assertIsDisplayed().performTextInput(password)

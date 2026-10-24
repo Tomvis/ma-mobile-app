@@ -701,6 +701,83 @@ class AuthenticationManagerTest {
         }
     }
 
+    // --- OpenID Connect (fork, HW-221): the server's redirect flow, like Home Assistant ---
+
+    @Test
+    fun `an OpenID Connect sign-in keeps the server callback flow and needs no state`() = runTest {
+        val client = StubServiceClient()
+        client.sessionState.value = awaitingAuth(
+            serverInfo = ServerInfo(serverId = "server-1", schemaVersion = SERVER_2_11_SCHEMA),
+        )
+        // The server answers OIDC with its own browser entry point and no sign-in state.
+        client.respond = {
+            Result.success(
+                answer(buildJsonObject { put("authorization_url", "https://ma.example/auth/oidc/start") }),
+            )
+        }
+        val manager = AuthenticationManager(client, SettingsRepository(MapSettings(), MapSettings()))
+        try {
+            val url = manager.getOAuthUrl(OIDC_PROVIDER, OAuthCallback.RETURN_URL)
+
+            assertEquals("https://ma.example/auth/oidc/start", url.getOrNull())
+            val start = checkNotNull(client.requests.single().args)
+            assertEquals("oidc", start.string("provider_id"))
+            assertEquals(OAuthCallback.RETURN_URL, start.string("return_url"))
+            assertNull(start["code_challenge"])
+            assertNull(start["redirect_target"])
+
+            // The server's callback page returns the access token itself.
+            manager.handleOAuthCallbackUrl("musicassistant://auth/callback?code=oidc-token")
+            runCurrent()
+            assertEquals(listOf("oidc-token" to false), client.authorizeCalls)
+        } finally {
+            manager.close()
+        }
+    }
+
+    @Test
+    fun `OpenID Connect providers are listed with their name, and over Remote Access only with an External URL`() =
+        runTest {
+            val oidc = buildJsonObject {
+                put("provider_id", "oidc")
+                put("provider_type", "oidc")
+                put("requires_redirect", true)
+                put("supports_remote_app", false)
+                put("name", "Authentik")
+            }
+            suspend fun load(session: SessionState): List<AuthProvider> {
+                val client = StubServiceClient()
+                client.sessionState.value = session
+                client.respond = {
+                    Result.success(Answer(buildJsonObject { put("result", JsonArray(listOf(oidc))) }))
+                }
+                val manager = AuthenticationManager(client, SettingsRepository(MapSettings(), MapSettings()))
+                return try {
+                    manager.getProviders().getOrThrow()
+                } finally {
+                    manager.close()
+                }
+            }
+
+            assertEquals(listOf(OIDC_PROVIDER), load(awaitingAuth()))
+            assertEquals(emptyList<String>(), load(remoteAwaitingAuth()).map { it.id })
+            val remote = remoteAwaitingAuth()
+            assertEquals(
+                listOf("oidc"),
+                load(
+                    remote.copy(
+                        connectionData = remote.connectionData.copy(
+                            serverInfo = ServerInfo(
+                                serverId = "server-1",
+                                schemaVersion = SERVER_2_11_SCHEMA,
+                                externalUrl = "https://ma.example",
+                            ),
+                        ),
+                    ),
+                ).map { it.id },
+            )
+        }
+
     @Test
     fun `the PKCE challenge matches the RFC 7636 example`() = runTest {
         assertEquals(
@@ -767,6 +844,12 @@ class AuthenticationManagerTest {
         val SERVER_INFO = ServerInfo(serverId = "server-1")
         val USER = User(username = "daveb")
         val REMOTE_ID = RemoteId("PGSVXKGZJCFA6MOH4UPBH5Q9HY")
+        val OIDC_PROVIDER = AuthProvider(
+            id = "oidc",
+            type = "oidc",
+            requiresRedirect = true,
+            name = "Authentik",
+        )
         val HA_PROVIDER = AuthProvider(
             id = "homeassistant",
             type = "homeassistant",
