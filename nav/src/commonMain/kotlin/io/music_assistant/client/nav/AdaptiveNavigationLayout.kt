@@ -1,4 +1,4 @@
-package io.music_assistant.client.ui.compose.nav
+package io.music_assistant.client.nav
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -29,7 +29,6 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
 import androidx.compose.material3.WideNavigationRailItem
@@ -54,15 +53,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
-import io.music_assistant.client.nav.MultiBackStack
-import io.music_assistant.client.nav.ScreenState
 import io.music_assistant.client.ui.utils.WindowClass
 import io.music_assistant.client.ui.utils.fadingEdges
 import kotlinx.coroutines.launch
 
 /**
- * Shows a [NavigationBar] based on [navigationItems] on tall, narrow windows and a
- * [NavigationRail] instead on wide ones (see [WindowClass.isWide]).
+ * Shows a [androidx.compose.material3.NavigationBar] based on [navigationItems] on tall, narrow windows and a
+ * [androidx.compose.material3.NavigationRail] instead on wide ones (see [io.music_assistant.client.ui.utils.WindowClass.isWide]).
  */
 @Composable
 fun AdaptiveNavigationBarLayout(

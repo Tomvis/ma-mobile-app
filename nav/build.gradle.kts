@@ -33,8 +33,15 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(libs.androidx.navigation3.ui)
+                implementation(project(":ui-utils"))
+
                 implementation(libs.compose.runtime)
+                implementation(libs.compose.ui)
+                implementation(libs.compose.ui.tooling.preview)
+                implementation(libs.androidx.navigation3.ui)
+                implementation(libs.androidx.navigation3.material3.adaptive)
+                implementation(libs.material)
+                implementation(libs.material.icons.core)
             }
         }
 

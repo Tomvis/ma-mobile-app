@@ -17,12 +17,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.ServerMediaItem
+import io.music_assistant.client.nav.NavigationBarSemantics
+import io.music_assistant.client.nav.NavigationDrawerSemantics
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.isTab
 import io.music_assistant.client.support.withinTag
 import io.music_assistant.client.ui.compose.home.FloatingBarSemantics
-import io.music_assistant.client.ui.compose.nav.NavigationBarSemantics
-import io.music_assistant.client.ui.compose.nav.NavigationDrawerSemantics
 import io.music_assistant.client.ui.compose.support.inScrollable
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.action_pause

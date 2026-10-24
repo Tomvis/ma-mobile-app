@@ -46,6 +46,7 @@ import compose.icons.tablericons.GripVertical
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.Shortcut
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.nav.BackHandler
 import io.music_assistant.client.nav.ScreenState
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.ScreenSemantics
@@ -61,7 +62,6 @@ import io.music_assistant.client.ui.compose.common.moveToEnabledBoundary
 import io.music_assistant.client.ui.compose.common.providers.ProviderIconFetcher
 import io.music_assistant.client.ui.compose.common.toDisplayString
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
-import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
