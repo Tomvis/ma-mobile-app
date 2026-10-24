@@ -1,4 +1,4 @@
-package io.music_assistant.client.ui.compose.nav
+package io.music_assistant.client.nav
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

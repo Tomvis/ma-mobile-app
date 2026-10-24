@@ -62,6 +62,9 @@ import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.input.VolumeButtonService
+import io.music_assistant.client.nav.MultiBackStack
+import io.music_assistant.client.nav.NoSequentialDuplicatesBackstackAdder
+import io.music_assistant.client.nav.ScreenState
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.providers.providerIconFetcher
@@ -94,10 +97,7 @@ import io.music_assistant.client.ui.compose.library.stringResource
 import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationBarLayout
 import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.ConditionalBackNavDisplay
-import io.music_assistant.client.ui.compose.nav.MultiBackStack
 import io.music_assistant.client.ui.compose.nav.NavigationItem
-import io.music_assistant.client.ui.compose.nav.NoSequentialDuplicatesBackstackAdder
-import io.music_assistant.client.ui.compose.nav.ScreenState
 import io.music_assistant.client.ui.compose.nav.createNavigationItem
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
 import io.music_assistant.client.ui.compose.search.GlobalSearchRequest

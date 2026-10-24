@@ -1,4 +1,4 @@
-package io.music_assistant.client.ui.compose.nav
+package io.music_assistant.client.nav
 
 import androidx.navigation3.runtime.NavKey
 import kotlin.test.Test
@@ -54,7 +54,7 @@ class MultiBackStackTest {
     }
 }
 
-private data class TestNavKey(val id: String) :  NavKey
+private data class TestNavKey(val id: String) : NavKey
 private class MockScreenState : ScreenState {
     var isReset: Boolean = false
         private set

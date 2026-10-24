@@ -33,5 +33,6 @@ dependencyResolutionManagement {
 include(":composeApp")
 include(":androidApp")
 include(":shared-icons")
+include(":nav")
 
 include(":sendspin-kmp")

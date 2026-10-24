@@ -1,4 +1,4 @@
-package io.music_assistant.client.ui.compose.nav
+package io.music_assistant.client.nav
 
 import androidx.navigation3.runtime.NavKey
 
