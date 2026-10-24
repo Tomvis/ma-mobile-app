@@ -58,8 +58,8 @@ import io.music_assistant.client.ui.utils.fadingEdges
 import kotlinx.coroutines.launch
 
 /**
- * Shows a [androidx.compose.material3.NavigationBar] based on [navigationItems] on tall, narrow windows and a
- * [androidx.compose.material3.NavigationRail] instead on wide ones (see [io.music_assistant.client.ui.utils.WindowClass.isWide]).
+ * Shows a [NavigationBar] combined with a [ModalNavigationDrawer] based on [navigationItems] on
+ * tall, narrow windows and a [WideNavigationRail] instead on wide ones (see [WindowClass.isWide]).
  */
 @Composable
 fun AdaptiveNavigationBarLayout(
