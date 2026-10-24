@@ -1,6 +1,7 @@
 package io.music_assistant.client.ui.compose.common.items
 
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
+import io.music_assistant.client.data.model.server.PlayMediaSupport
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -39,6 +40,7 @@ class ListenLaterActionResolverTest {
             canAddToPlaylist = false,
             canRemoveFromPlaylist = false,
             progressSupported = false,
+            playMediaSupport = PlayMediaSupport.ALL,
         )
         assertFalse(ItemAction.SaveForLater in actions)
         assertFalse(ItemAction.RemoveFromLater in actions)
