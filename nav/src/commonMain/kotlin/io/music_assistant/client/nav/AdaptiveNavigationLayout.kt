@@ -188,89 +188,45 @@ private fun BarWithDrawerLayout(
         drawerContent = {
             ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
                 var editing by remember { mutableStateOf(false) }
-                var enabled by remember(sections) {
+                var enabledItems by remember(sections) {
                     mutableStateOf(
                         sections.flatMap { it.items }.filter { it.enabled }.map { it.id }.toSet(),
                     )
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(appName, style = MaterialTheme.typography.titleLarge)
-
-                    if (onEdited != null) {
-                        IconButton(
-                            onClick = {
-                                if (editing) {
-                                    onEdited(enabled.toList())
-                                    editing = false
-                                } else {
-                                    editing = true
-                                }
-                            },
-                        ) {
-                            Icon(
-                                imageVector = if (editing) Icons.Default.Done else Icons.Default.Edit,
-                                contentDescription = null,
-                            )
+                SidebarHeader(
+                    appName = appName,
+                    editing = editing,
+                    onEditToggled = onEdited?.let {
+                        {
+                            if (editing) {
+                                onEdited(enabledItems.toList())
+                                editing = false
+                            } else {
+                                editing = true
+                            }
                         }
-                    }
-                }
+                    },
+                )
 
-                sections.forEachIndexed { index, section ->
-                    if (index == 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    } else {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    SectionTitle(section.title)
-
-                    section.items.forEach {
-                        if (it.enabled || editing) {
-                            NavigationDrawerItem(
-                                label = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Text(it.label)
-                                        if (it.editable && editing) {
-                                            Checkbox(
-                                                checked = enabled.contains(it.id),
-                                                onCheckedChange = { checked ->
-                                                    if (checked) {
-                                                        enabled += it.id
-                                                    } else {
-                                                        enabled -= it.id
-                                                    }
-                                                },
-                                            )
-                                        }
-                                    }
-                                },
-                                icon = {
-                                    Icon(
-                                        it.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                },
-                                selected = false,
-                                onClick = {
-                                    scope.launch {
-                                        drawerState.close()
-                                        it.onClick()
-                                    }
-                                },
-                            )
+                SidebarSections(
+                    sections = sections,
+                    itemOnClick = {
+                        scope.launch {
+                            drawerState.close()
+                            it.onClick()
                         }
-                    }
-                }
+                    },
+                    editing = editing,
+                    enabledItems = enabledItems.toList(),
+                    onEnabledToggled = { id, enabled ->
+                        if (enabled) {
+                            enabledItems += id
+                        } else {
+                            enabledItems -= id
+                        }
+                    },
+                )
             }
         },
     ) {
@@ -336,6 +292,84 @@ private fun BarWithDrawerLayout(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SidebarHeader(
+    appName: String,
+    editing: Boolean,
+    onEditToggled: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(appName, style = MaterialTheme.typography.titleLarge)
+
+        if (onEditToggled != null) {
+            IconButton(
+                onClick = onEditToggled,
+            ) {
+                Icon(
+                    imageVector = if (editing) Icons.Default.Done else Icons.Default.Edit,
+                    contentDescription = null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SidebarSections(
+    sections: List<Section>,
+    itemOnClick: (NavigationItem) -> Unit,
+    editing: Boolean,
+    enabledItems: List<String>,
+    onEnabledToggled: (String, Boolean) -> Unit,
+) {
+    sections.forEachIndexed { index, section ->
+        if (index == 0) {
+            Spacer(modifier = Modifier.height(8.dp))
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        SectionTitle(section.title)
+
+        section.items.forEach {
+            if (it.enabled || editing) {
+                NavigationDrawerItem(
+                    label = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(it.label)
+                            if (it.editable && editing) {
+                                Checkbox(
+                                    checked = enabledItems.contains(it.id),
+                                    onCheckedChange = { checked ->
+                                        onEnabledToggled(it.id, checked)
+                                    },
+                                )
+                            }
+                        }
+                    },
+                    icon = {
+                        Icon(
+                            it.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    },
+                    selected = false,
+                    onClick = { itemOnClick(it) },
+                )
             }
         }
     }
