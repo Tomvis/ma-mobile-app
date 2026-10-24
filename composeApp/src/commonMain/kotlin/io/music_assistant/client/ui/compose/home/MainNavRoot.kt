@@ -96,6 +96,7 @@ import io.music_assistant.client.ui.compose.nav.BackHandler
 import io.music_assistant.client.ui.compose.nav.ConditionalBackNavDisplay
 import io.music_assistant.client.ui.compose.nav.MultiBackStack
 import io.music_assistant.client.ui.compose.nav.NavigationItem
+import io.music_assistant.client.ui.compose.nav.NoSequentialDuplicatesBackstackAdder
 import io.music_assistant.client.ui.compose.nav.ScreenState
 import io.music_assistant.client.ui.compose.nav.createNavigationItem
 import io.music_assistant.client.ui.compose.provider.ProviderViewModel
@@ -189,7 +190,9 @@ fun MainNavigationRoot(
         rememberMainNavBackStack(MainNav.Landing),
         rememberMainNavBackStack(MainNav.Search),
     )
-    val multiBackStack = remember { MultiBackStack(backStacks) }
+    val multiBackStack = remember {
+        MultiBackStack(backStacks, backstackAdder = NoSequentialDuplicatesBackstackAdder())
+    }
 
     // Apply a pending navigation deep link (musicassistant://app/<page> or the
     // https App/Universal Link). The destination is retained upstream, and we
@@ -306,7 +309,7 @@ fun MainNavigationRoot(
                     else -> category.mediaType?.let { MainNav.LibraryList(it) }
                 }
 
-                if (toAdd != null && toAdd != multiBackStack.lastOrNull()) {
+                if (toAdd != null) {
                     multiBackStack.add(toAdd)
                 }
             },

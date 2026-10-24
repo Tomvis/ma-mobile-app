@@ -14,8 +14,18 @@ import androidx.navigation3.runtime.NavKey
  * The back stack entries are combined to provide "exit through home" style navigation where
  * navigating backways from the last element of any back stack except the first leads to the top
  * element of the first back stack.
+ *
+ * @param backstackAdder determines what happens when [add] is called. By default, new elements
+ * are added to the current backstack.
  */
-class MultiBackStack<T : NavKey>(private val backStacks: List<MutableList<T>>) {
+class MultiBackStack<T : NavKey>(
+    private val backStacks: List<MutableList<T>>,
+    private val backstackAdder: BackstackAdder<T> = object : BackstackAdder<T> {
+        override fun add(backStack: MutableList<T>, navKey: T) {
+            backStack.add(navKey)
+        }
+    },
+) {
     var currentBackStack by mutableStateOf(0)
 
     private val roots = backStacks.map { it.first() }
@@ -36,11 +46,7 @@ class MultiBackStack<T : NavKey>(private val backStacks: List<MutableList<T>>) {
     }
 
     fun add(element: T) {
-        backStacks[currentBackStack].add(element)
-    }
-
-    fun lastOrNull(): T? {
-        return backStacks[currentBackStack].lastOrNull()
+        backstackAdder.add(backStacks[currentBackStack], element)
     }
 
     fun removeLastOrNull(): NavKey? {
@@ -71,4 +77,8 @@ class MultiBackStack<T : NavKey>(private val backStacks: List<MutableList<T>>) {
 
 interface ScreenState {
     fun reset()
+}
+
+interface BackstackAdder<T : NavKey> {
+    fun add(backStack: MutableList<T>, navKey: T)
 }
