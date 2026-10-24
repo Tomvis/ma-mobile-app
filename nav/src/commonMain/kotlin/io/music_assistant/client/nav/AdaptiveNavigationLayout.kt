@@ -172,7 +172,7 @@ private fun RailLayout(
             ) {
                 SidebarSections(
                     sections = sections,
-                    itemOnClick = { it.onClick },
+                    itemOnClick = { it.onClick() },
                     editing = editing,
                     enabledItems = enabledItems.toList(),
                     onEnabledToggled = onEnabledToggled,
