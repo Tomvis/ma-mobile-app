@@ -68,6 +68,7 @@ import io.music_assistant.client.nav.MultiBackStack
 import io.music_assistant.client.nav.NavigationItem
 import io.music_assistant.client.nav.NoSequentialDuplicatesBackstackAdder
 import io.music_assistant.client.nav.ScreenState
+import io.music_assistant.client.nav.Section
 import io.music_assistant.client.nav.createNavigationItem
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
@@ -112,6 +113,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.nav_discover
+import musicassistantclient.composeapp.generated.resources.nav_library
 import musicassistantclient.composeapp.generated.resources.nav_menu
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
@@ -302,7 +304,8 @@ fun MainNavigationRoot(
             multiBackStack = multiBackStack,
             homeScreenState = homeScreenState,
             searchScreenState = searchScreenState,
-            categories = libraryCategories.categories.filter { it.enabled }.map { it.libraryCategory },
+            categories = libraryCategories.categories.filter { it.enabled }
+                .map { it.libraryCategory },
             goToLibraryCategory = { category ->
                 val toAdd = when (category) {
                     LibraryCategory.BROWSE -> MainNav.Browse(path = null, title = null)
@@ -338,7 +341,7 @@ fun MainNavigationRoot(
         }
 
         AdaptiveNavigationBarLayout(
-            navigationItems = navigationItems,
+            sections = navigationItems,
             trailingItem = playSelectionItem,
             showNavigation = !playerExpanded,
             menuLabel = stringResource(Res.string.nav_menu),
@@ -412,7 +415,10 @@ fun MainNavigationRoot(
                             ),
                             entries = multiBackStack.toEntries(entryProvider),
                         ),
-                        transitionSpec = tabAwareTransitionSpec(tabRootKeys, defaultTransitionSpec()),
+                        transitionSpec = tabAwareTransitionSpec(
+                            tabRootKeys,
+                            defaultTransitionSpec(),
+                        ),
                         popTransitionSpec = tabAwareTransitionSpec(
                             tabRootKeys,
                             defaultPopTransitionSpec(),
@@ -437,48 +443,50 @@ private fun navigationItems(
     categories: List<LibraryCategory>,
     goToLibraryCategory: (LibraryCategory) -> Unit,
     goToSettings: () -> Unit,
-    ): List<NavigationItem> {
-    val navigationItems = buildList {
-        add(
+): List<Section> {
+    val explore = Section(
+        title = "Explore",
+        items = listOf(
             multiBackStack.createNavigationItem(
                 backStack = 0,
                 icon = Icons.Default.Home,
                 label = stringResource(Res.string.nav_discover),
                 screenState = homeScreenState.value,
             ),
-        )
-
-        add(
             multiBackStack.createNavigationItem(
                 backStack = 1,
                 icon = Icons.Default.Search,
                 label = stringResource(Res.string.nav_search),
                 screenState = searchScreenState.value,
             ),
-        )
+        ),
+    )
 
-        addAll(
-            categories.map {
-                NavigationItem(
-                    selected = false,
-                    onClick = { goToLibraryCategory(it) },
-                    icon = it.icon(),
-                    label = stringResource(it.stringResource()),
-                )
-            },
-        )
+    val library = Section(
+        title = stringResource(Res.string.nav_library),
+        items = categories.map {
+            NavigationItem(
+                selected = false,
+                onClick = { goToLibraryCategory(it) },
+                icon = it.icon(),
+                label = stringResource(it.stringResource()),
+            )
+        },
+    )
 
-        add(
+    val system = Section(
+        title = "System",
+        items = listOf(
             NavigationItem(
                 selected = false,
                 onClick = goToSettings,
                 icon = Icons.Default.Settings,
                 label = stringResource(Res.string.nav_settings),
             ),
-        )
-    }
+        ),
+    )
 
-    return navigationItems
+    return listOf(explore, library, system)
 }
 
 /**
@@ -638,8 +646,8 @@ private fun mainNavEntryProvider(
                         is Audiobook,
                         is MediaCollection,
                         is Genre,
-                            is Track,
-                        -> multiBackStack.add(
+                        is Track,
+                            -> multiBackStack.add(
                             MainNav.ItemDetails(
                                 itemId = item.itemId,
                                 mediaType = item.mediaType,

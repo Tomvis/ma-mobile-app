@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
@@ -58,12 +62,15 @@ import io.music_assistant.client.ui.utils.fadingEdges
 import kotlinx.coroutines.launch
 
 /**
- * Shows a [NavigationBar] combined with a [ModalNavigationDrawer] based on [navigationItems] on
+ * Shows a [NavigationBar] combined with a [ModalNavigationDrawer] based on [sections] on
  * tall, narrow windows and a [WideNavigationRail] instead on wide ones (see [WindowClass.isWide]).
+ *
+ * When showing a [NavigationBar], only the first [Section] items (up to [maxNavigationBarItems])
+ * are used.
  */
 @Composable
 fun AdaptiveNavigationBarLayout(
-    navigationItems: List<NavigationItem>,
+    sections: List<Section>,
     trailingItem: NavigationItem? = null,
     showNavigation: Boolean = true,
     drawInitiallyOpen: Boolean = false,
@@ -71,29 +78,39 @@ fun AdaptiveNavigationBarLayout(
     maxNavigationBarItems: Int = 2,
     menuLabel: String,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
-    ) {
+) {
     if (WindowClass.isWide()) {
         Row(Modifier.fillMaxWidth()) {
             if (showNavigation) {
                 WideNavigationRail(
                     state = rememberWideNavigationRailState(initialValue = WideNavigationRailValue.Expanded),
                 ) {
-                    navigationItems.forEach {
-                        WideNavigationRailItem(
-                            railExpanded = true,
-                            selected = it.selected,
-                            onClick = it.onClick,
-                            icon = {
-                                Icon(
-                                    it.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        sections.forEachIndexed { index, section ->
+                            if (index != 0) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+
+                            SectionTitle(section.title)
+
+                            section.items.forEach {
+                                WideNavigationRailItem(
+                                    railExpanded = true,
+                                    selected = it.selected,
+                                    onClick = it.onClick,
+                                    icon = {
+                                        Icon(
+                                            it.icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    },
+                                    label = {
+                                        Text(it.label)
+                                    },
                                 )
-                            },
-                            label = {
-                                Text(it.label)
-                            },
-                        )
+                            }
+                        }
                     }
                 }
             }
@@ -122,26 +139,34 @@ fun AdaptiveNavigationBarLayout(
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
-                    navigationItems.drop(maxNavigationBarItems).forEach {
-                        NavigationDrawerItem(
-                            label = {
-                                Text(it.label)
-                            },
-                            icon = {
-                                Icon(
-                                    it.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            },
-                            selected = false,
-                            onClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    it.onClick()
-                                }
-                            },
-                        )
+                    sections.forEachIndexed { index, section ->
+                        if (index != 0) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        SectionTitle(section.title)
+
+                        section.items.forEach {
+                            NavigationDrawerItem(
+                                label = {
+                                    Text(it.label)
+                                },
+                                icon = {
+                                    Icon(
+                                        it.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                },
+                                selected = false,
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        it.onClick()
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -194,9 +219,10 @@ fun AdaptiveNavigationBarLayout(
                                 label = menuLabel,
                             )
 
+                            val firstSection = sections.first()
                             val barItems = buildList {
                                 add(menuItem)
-                                addAll(navigationItems.take(maxNavigationBarItems))
+                                addAll(firstSection.items.take(maxNavigationBarItems))
                                 if (trailingItem != null) {
                                     add(trailingItem)
                                 }
@@ -211,6 +237,15 @@ fun AdaptiveNavigationBarLayout(
             }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(title: String) {
+    Text(
+        title,
+        modifier = Modifier.padding(start = 16.dp),
+        style = MaterialTheme.typography.titleMedium,
+    )
 }
 
 @Composable
@@ -246,6 +281,11 @@ private fun RowScope.NavigationBarItem(item: NavigationItem) {
         },
     )
 }
+
+data class Section(
+    val title: String,
+    val items: List<NavigationItem>,
+)
 
 data class NavigationItem(
     val selected: Boolean,
@@ -288,23 +328,33 @@ object NavigationDrawerSemantics {
 @Composable
 fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
     AdaptiveNavigationBarLayout(
-        navigationItems = listOf(
-            NavigationItem(
-                selected = true,
-                onClick = {},
-                icon = Icons.Default.Home,
-                label = "Home",
+        sections = listOf(
+            Section(
+                title = "Section 1",
+                items = listOf(
+                    NavigationItem(
+                        selected = true,
+                        onClick = {},
+                        icon = Icons.Default.Home,
+                        label = "Home",
+                    ),
+                ),
             ),
-            NavigationItem(
-                selected = false,
-                onClick = {},
-                icon = Icons.Default.Settings,
-                label = "Settings",
+            Section(
+                title = "Section 2",
+                items = listOf(
+                    NavigationItem(
+                        selected = false,
+                        onClick = {},
+                        icon = Icons.Default.Settings,
+                        label = "Settings",
+                    ),
+                ),
             ),
         ),
         drawInitiallyOpen = drawerOpen,
         menuLabel = "Menu",
-        content = { contentPadding, drawerOpen ->
+        content = { contentPadding, _ ->
             Text(
                 modifier = Modifier.padding(contentPadding),
                 text = "Content",
