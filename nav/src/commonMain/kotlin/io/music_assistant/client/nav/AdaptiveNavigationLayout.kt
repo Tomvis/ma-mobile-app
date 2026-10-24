@@ -87,7 +87,7 @@ fun AdaptiveNavigationBarLayout(
     navigationBarHeight: Dp = 64.dp,
     maxNavigationBarItems: Int = 2,
     menuLabel: String,
-    onEdited: ((Set<String>) -> Unit)? = null,
+    onEdited: ((List<String>) -> Unit)? = null,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
 ) {
     if (WindowClass.isWide()) {
@@ -165,7 +165,7 @@ private fun BarWithDrawerLayout(
     menuLabel: String,
     maxNavigationBarItems: Int,
     drawInitiallyOpen: Boolean,
-    onEdited: ((Set<String>) -> Unit)?,
+    onEdited: ((List<String>) -> Unit)?,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     val scope = rememberCoroutineScope()
@@ -205,7 +205,7 @@ private fun BarWithDrawerLayout(
                         IconButton(
                             onClick = {
                                 if (editing) {
-                                    onEdited(enabled)
+                                    onEdited(enabled.toList())
                                     editing = false
                                 } else {
                                     editing = true

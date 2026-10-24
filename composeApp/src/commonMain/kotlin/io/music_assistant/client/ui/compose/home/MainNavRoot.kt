@@ -305,8 +305,7 @@ fun MainNavigationRoot(
             multiBackStack = multiBackStack,
             homeScreenState = homeScreenState,
             searchScreenState = searchScreenState,
-            categories = libraryCategories.categories.filter { it.enabled }
-                .map { it.libraryCategory },
+            categories = libraryCategories.categories,
             goToLibraryCategory = { category ->
                 val toAdd = when (category) {
                     LibraryCategory.BROWSE -> MainNav.Browse(path = null, title = null)
@@ -347,6 +346,9 @@ fun MainNavigationRoot(
             trailingItem = playSelectionItem,
             showNavigation = !playerExpanded,
             menuLabel = stringResource(Res.string.nav_menu),
+            onEdited = { enabled ->
+                libraryCategoriesViewModel.onEnabledChanged(enabled)
+            },
             content = { scaffoldContentPadding, drawerOpen ->
                 FloatingBarLayout(
                     modifier = Modifier.padding(scaffoldContentPadding),
@@ -442,7 +444,7 @@ private fun navigationItems(
     multiBackStack: MultiBackStack<NavKey>,
     homeScreenState: MutableState<HomeScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
-    categories: List<LibraryCategory>,
+    categories: List<LibraryCategoriesViewModel.CategoryState>,
     goToLibraryCategory: (LibraryCategory) -> Unit,
     goToSettings: () -> Unit,
 ): List<Section> {
@@ -469,9 +471,12 @@ private fun navigationItems(
         items = categories.map {
             NavigationItem(
                 selected = false,
-                onClick = { goToLibraryCategory(it) },
-                icon = it.icon(),
-                label = stringResource(it.stringResource()),
+                onClick = { goToLibraryCategory(it.libraryCategory) },
+                icon = it.libraryCategory.icon(),
+                label = stringResource(it.libraryCategory.stringResource()),
+                id = it.libraryCategory.name,
+                editable = true,
+                enabled = it.enabled,
             )
         },
     )
