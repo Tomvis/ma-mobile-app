@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fork-only (HW-65, HW-191): per-person home theme and language. Kept apart from strings.xml so upstream merges stay clean. -->
+<resources>
+  <string name="home_theme_title">ערכת נושא</string>
+  <string name="home_theme_follow">לפי ערכת הנושא של הבית (%1$s · %2$s)</string>
+  <string name="home_theme_mode_automatic">אוטומטי</string>
+  <string name="home_theme_mode_light">בהיר</string>
+  <string name="home_theme_mode_dark">כהה</string>
+  <string name="home_theme_hint">בהיר או כהה: הכפתורים למעלה. ערכת הנושא של הבית מוגדרת פעם אחת לכל האפליקציות ב-auth.leratom.cloud › הגדרות.</string>
+  <string name="home_language_title">שפה</string>
+  <string name="home_language_follow">לפי שפת הבית (%1$s)</string>
+  <string name="home_language_device">לפי המכשיר (%1$s)</string>
+  <string name="home_language_hint">שפת הבית מוגדרת פעם אחת לכל האפליקציות ב-auth.leratom.cloud › הגדרות. בחירה כאן חלה על Music Assistant בכל המכשירים שלך.</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fork-only (HW-65, HW-191): per-person home theme and language. Kept apart from strings.xml so upstream merges stay clean. -->
+<resources>
+  <string name="home_theme_title">Тема</string>
+  <string name="home_theme_follow">Домашняя тема (%1$s · %2$s)</string>
+  <string name="home_theme_mode_automatic">Авто</string>
+  <string name="home_theme_mode_light">Светлая</string>
+  <string name="home_theme_mode_dark">Тёмная</string>
+  <string name="home_theme_hint">Светлая или тёмная — кнопки вверху. Сама домашняя тема задаётся один раз для всех приложений на auth.leratom.cloud › Настройки.</string>
+  <string name="home_language_title">Язык</string>
+  <string name="home_language_follow">Домашний язык (%1$s)</string>
+  <string name="home_language_device">Как на устройстве (%1$s)</string>
+  <string name="home_language_hint">Домашний язык задаётся один раз для всех приложений на auth.leratom.cloud › Настройки. Выбор здесь применяется к Music Assistant на всех ваших устройствах.</string>
+</resources>

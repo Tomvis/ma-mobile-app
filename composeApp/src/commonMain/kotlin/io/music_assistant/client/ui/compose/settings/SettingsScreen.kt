@@ -382,6 +382,7 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
                                 )
 
                                 HomeThemeSection() // Fork (HW-65)
+                                HomeLanguageSection() // Fork (HW-191)
 
                                 // Car options route to the local player — only meaningful when
                                 // it's reachable (authenticated) and enabled.

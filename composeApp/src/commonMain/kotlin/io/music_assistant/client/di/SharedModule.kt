@@ -66,6 +66,7 @@ import io.music_assistant.client.ui.compose.settings.CarDspViewModel
 import io.music_assistant.client.ui.compose.settings.DefaultClickActionsViewModel
 import io.music_assistant.client.ui.compose.settings.SendspinSettingsViewModel
 import io.music_assistant.client.ui.compose.settings.SettingsViewModel
+import io.music_assistant.client.ui.language.HomeLanguageRepository
 import io.music_assistant.client.ui.theme.HomeThemeRepository
 import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.LocalNetworkPermissionGate
@@ -156,6 +157,9 @@ fun sharedModule(
         single { AiRadioRepository(get(), get()) } // Optional ai_radio plugin: stations and queue DJ
         single(createdAtStart = true) {     // Fork (HW-65): per-person home theme, read at sign-in
             HomeThemeRepository(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        }
+        single(createdAtStart = true) {     // Fork (HW-191): per-person UI language, read at sign-in
+            HomeLanguageRepository(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
         single {                            // Typed and spoken announcements; outlives the dialog
             AnnouncementRepository(

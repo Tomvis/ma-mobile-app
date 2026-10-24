@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fork-only (HW-65): per-person home theme. Kept apart from strings.xml so upstream merges stay clean. -->
+<!-- Fork-only (HW-65, HW-191): per-person home theme and language. Kept apart from strings.xml so upstream merges stay clean. -->
 <resources>
   <string name="home_theme_title">Theme</string>
   <string name="home_theme_follow">Follow home theme (%1$s · %2$s)</string>
@@ -7,4 +7,8 @@
   <string name="home_theme_mode_light">Light</string>
   <string name="home_theme_mode_dark">Dark</string>
   <string name="home_theme_hint">Light or dark: the buttons at the top. The home theme itself is set once for every app on auth.leratom.cloud › Settings.</string>
+  <string name="home_language_title">Language</string>
+  <string name="home_language_follow">Follow home language (%1$s)</string>
+  <string name="home_language_device">Match device (%1$s)</string>
+  <string name="home_language_hint">The home language is set once for every app on auth.leratom.cloud › Settings. A pick here applies to Music Assistant on all your devices.</string>
 </resources>

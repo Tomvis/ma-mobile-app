@@ -502,9 +502,10 @@ class KtorServiceClient(
                 ) ?: it
             }
         },
-        // Fork (HW-76): HomeThemeRepository retries home_theme/* while the server's provider is
-        // still loading; that "Invalid command" is expected and not worth a toast.
-        onError = { if (!it.startsWith("Invalid command: home_theme/")) errorBus.emit(it) },
+        // Fork (HW-76, HW-191): the home theme and language repositories retry home_theme/* and
+        // home_language/* while the server's provider is still loading; that "Invalid command" is
+        // expected and not worth a toast.
+        onError = { if (!it.startsWith("Invalid command: home_")) errorBus.emit(it) },
     )
 
     init {
