@@ -59,9 +59,6 @@ import io.music_assistant.client.nav.ScreenState
 import io.music_assistant.client.ui.fadingEdges
 import io.music_assistant.client.utils.WindowClass
 import kotlinx.coroutines.launch
-import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.nav_menu
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Shows a [NavigationBar] based on [navigationItems] on tall, narrow windows and a
@@ -75,8 +72,9 @@ fun AdaptiveNavigationBarLayout(
     drawInitiallyOpen: Boolean = false,
     navigationBarHeight: Dp = 64.dp,
     maxNavigationBarItems: Int = 2,
+    menuLabel: String,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
-) {
+    ) {
     if (WindowClass.isWide()) {
         Row(Modifier.fillMaxWidth()) {
             if (showNavigation) {
@@ -190,7 +188,6 @@ fun AdaptiveNavigationBarLayout(
                             containerColor = Color.Transparent,
                             windowInsets = WindowInsets(0, 0, 0, 0),
                         ) {
-                            val menuLabel = stringResource(Res.string.nav_menu)
                             val menuItem = NavigationItem(
                                 selected = false,
                                 onClick = {
@@ -294,7 +291,6 @@ object NavigationDrawerSemantics {
 @Composable
 fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
     AdaptiveNavigationBarLayout(
-        drawInitiallyOpen = drawerOpen,
         navigationItems = listOf(
             NavigationItem(
                 selected = true,
@@ -309,12 +305,15 @@ fun PreviewAdaptiveNavigationBarLayout(drawerOpen: Boolean = false) {
                 label = "Settings",
             ),
         ),
-    ) { contentPadding, drawerOpen ->
-        Text(
-            modifier = Modifier.padding(contentPadding),
-            text = "Content",
-        )
-    }
+        drawInitiallyOpen = drawerOpen,
+        menuLabel = "Menu",
+        content = { contentPadding, drawerOpen ->
+            Text(
+                modifier = Modifier.padding(contentPadding),
+                text = "Content",
+            )
+        },
+    )
 }
 
 @Preview

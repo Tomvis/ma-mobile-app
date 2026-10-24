@@ -112,6 +112,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.nav_discover
+import musicassistantclient.composeapp.generated.resources.nav_menu
 import musicassistantclient.composeapp.generated.resources.nav_search
 import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.players_remote_volume_hint
@@ -337,91 +338,93 @@ fun MainNavigationRoot(
         }
 
         AdaptiveNavigationBarLayout(
-            showNavigation = !playerExpanded,
             navigationItems = navigationItems,
             trailingItem = playSelectionItem,
-        ) { scaffoldContentPadding, drawerOpen ->
-            FloatingBarLayout(
-                modifier = Modifier.padding(scaffoldContentPadding),
-                floatingBar = {
-                    // The bar is bottom-anchored, so shrinking towards its top slides it down
-                    // while the content padding follows the animated height.
-                    AnimatedVisibility(
-                        visible = playerExpanded || !rootScreenEditing,
-                        enter = expandVertically(expandFrom = Alignment.Top),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Top),
-                    ) {
-                        FloatingBar(
-                            expanded = playerExpanded,
-                            onExpand = onExpandPlayer,
-                            content = { expanded, contentPadding ->
-                                PlayersPager(
-                                    playerPagerState = playerPagerState,
-                                    state = playersState,
-                                    homeScreenViewModel = homeScreenViewModel,
-                                    actionsViewModel = playerActionsViewModel,
-                                    dspSettingsViewModel = dspSettingsViewModel,
-                                    providerViewModel = providerViewModel,
-                                    queueDjViewModel = queueDjViewModel,
-                                    expanded = expanded,
-                                    onClose = { playerExpanded = false },
-                                    contentPadding = contentPadding,
-                                    toastState = toastState,
-                                    navigateToItem = { item ->
-                                        multiBackStack.add(
-                                            MainNav.ItemDetails(
-                                                itemId = item.itemId,
-                                                mediaType = item.mediaType,
-                                                providerId = item.provider,
-                                            ),
-                                        )
-                                    },
-                                    onSelectPlayer = { showPlayerSelection = true },
-                                )
-                            },
-                        )
-                    }
-                },
-            ) { floatingBarContentPadding ->
-                BackHandler(playerExpanded) {
-                    playerExpanded = !playerExpanded
-                }
-
-                val entryProvider = mainNavEntryProvider(
-                    floatingBarContentPadding,
-                    multiBackStack,
-                    homeScreenViewModel,
-                    actionsViewModel,
-                    viewModeViewModel,
-                    providerViewModel,
-                    homeScreenState,
-                    searchScreenState,
-                    goToSettings,
-                )
-                val tabRootKeys = backStacks.map { entryProvider(it.first()).contentKey }
-                ConditionalBackNavDisplay(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
-                    entries = rememberDecoratedNavEntries(
-                        entryDecorators = listOf(
-                            rememberSaveableStateHolderNavEntryDecorator(),
-                            rememberViewModelStoreNavEntryDecorator(),
-                        ),
-                        entries = multiBackStack.toEntries(entryProvider),
-                    ),
-                    transitionSpec = tabAwareTransitionSpec(tabRootKeys, defaultTransitionSpec()),
-                    popTransitionSpec = tabAwareTransitionSpec(
-                        tabRootKeys,
-                        defaultPopTransitionSpec(),
-                    ),
-                    onBack = {
-                        multiBackStack.removeLastOrNull()
+            showNavigation = !playerExpanded,
+            menuLabel = stringResource(Res.string.nav_menu),
+            content = { scaffoldContentPadding, drawerOpen ->
+                FloatingBarLayout(
+                    modifier = Modifier.padding(scaffoldContentPadding),
+                    floatingBar = {
+                        // The bar is bottom-anchored, so shrinking towards its top slides it down
+                        // while the content padding follows the animated height.
+                        AnimatedVisibility(
+                            visible = playerExpanded || !rootScreenEditing,
+                            enter = expandVertically(expandFrom = Alignment.Top),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top),
+                        ) {
+                            FloatingBar(
+                                expanded = playerExpanded,
+                                onExpand = onExpandPlayer,
+                                content = { expanded, contentPadding ->
+                                    PlayersPager(
+                                        playerPagerState = playerPagerState,
+                                        state = playersState,
+                                        homeScreenViewModel = homeScreenViewModel,
+                                        actionsViewModel = playerActionsViewModel,
+                                        dspSettingsViewModel = dspSettingsViewModel,
+                                        providerViewModel = providerViewModel,
+                                        queueDjViewModel = queueDjViewModel,
+                                        expanded = expanded,
+                                        onClose = { playerExpanded = false },
+                                        contentPadding = contentPadding,
+                                        toastState = toastState,
+                                        navigateToItem = { item ->
+                                            multiBackStack.add(
+                                                MainNav.ItemDetails(
+                                                    itemId = item.itemId,
+                                                    mediaType = item.mediaType,
+                                                    providerId = item.provider,
+                                                ),
+                                            )
+                                        },
+                                        onSelectPlayer = { showPlayerSelection = true },
+                                    )
+                                },
+                            )
+                        }
                     },
-                    backEnabled = !playerExpanded && !drawerOpen,
-                )
-            }
-        }
+                ) { floatingBarContentPadding ->
+                    BackHandler(playerExpanded) {
+                        playerExpanded = !playerExpanded
+                    }
+
+                    val entryProvider = mainNavEntryProvider(
+                        floatingBarContentPadding,
+                        multiBackStack,
+                        homeScreenViewModel,
+                        actionsViewModel,
+                        viewModeViewModel,
+                        providerViewModel,
+                        homeScreenState,
+                        searchScreenState,
+                        goToSettings,
+                    )
+                    val tabRootKeys = backStacks.map { entryProvider(it.first()).contentKey }
+                    ConditionalBackNavDisplay(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                        entries = rememberDecoratedNavEntries(
+                            entryDecorators = listOf(
+                                rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator(),
+                            ),
+                            entries = multiBackStack.toEntries(entryProvider),
+                        ),
+                        transitionSpec = tabAwareTransitionSpec(tabRootKeys, defaultTransitionSpec()),
+                        popTransitionSpec = tabAwareTransitionSpec(
+                            tabRootKeys,
+                            defaultPopTransitionSpec(),
+                        ),
+                        onBack = {
+                            multiBackStack.removeLastOrNull()
+                        },
+                        backEnabled = !playerExpanded && !drawerOpen,
+                    )
+                }
+            },
+        )
         ToastHost(toastState = toastState)
     }
 }
