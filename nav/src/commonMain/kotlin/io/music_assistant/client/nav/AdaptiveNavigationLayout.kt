@@ -45,11 +45,8 @@ import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -89,29 +86,13 @@ fun AdaptiveNavigationBarLayout(
     onEdited: ((List<String>) -> Unit)? = null,
     content: @Composable BoxScope.(contentPadding: PaddingValues, drawerOpen: Boolean) -> Unit,
 ) {
-    var editing by remember { mutableStateOf(false) }
-    var enabledItems by remember(sections) {
-        mutableStateOf(
-            sections.flatMap { it.items }.filter { it.enabled }.map { it.id }.toSet(),
-        )
-    }
-
-    val onEditToggled = onEdited?.let {
-        {
-            if (editing) {
-                onEdited(enabledItems.toList())
-                editing = false
-            } else {
-                editing = true
-            }
-        }
-    }
-
-    val onEnabledToggled: (String, Boolean) -> Unit = { id, enabled ->
-        if (enabled) {
-            enabledItems += id
-        } else {
-            enabledItems -= id
+    val editState = onEdited?.let { onEditedCallback ->
+        remember(sections) {
+            EditableListState(
+                enabledIds = sections.flatMap { it.items }.filter { it.enabled }.map { it.id }
+                    .toSet(),
+                onSubmit = onEditedCallback,
+            )
         }
     }
 
@@ -120,10 +101,7 @@ fun AdaptiveNavigationBarLayout(
             appName = appName,
             sections = sections,
             showNavigation = showNavigation,
-            editing = editing,
-            onEditToggled = onEditToggled,
-            enabledItems = enabledItems.toList(),
-            onEnabledToggled = onEnabledToggled,
+            editState = editState,
             content = content,
         )
     } else {
@@ -136,10 +114,7 @@ fun AdaptiveNavigationBarLayout(
             menuLabel = menuLabel,
             maxNavigationBarItems = maxNavigationBarItems,
             drawInitiallyOpen = drawInitiallyOpen,
-            editing = editing,
-            onEditToggled = onEditToggled,
-            enabledItems = enabledItems.toList(),
-            onEnabledToggled = onEnabledToggled,
+            editState = editState,
             content = content,
         )
     }
@@ -150,10 +125,7 @@ private fun RailLayout(
     appName: String,
     sections: List<Section>,
     showNavigation: Boolean,
-    onEditToggled: (() -> Unit)?,
-    enabledItems: List<String>,
-    editing: Boolean,
-    onEnabledToggled: (String, Boolean) -> Unit,
+    editState: EditableListState?,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     Row(Modifier.fillMaxWidth()) {
@@ -164,17 +136,14 @@ private fun RailLayout(
                 header = {
                     SidebarHeader(
                         appName = appName,
-                        editing = editing,
-                        onEditToggled = onEditToggled,
+                        editState = editState,
                     )
                 },
             ) {
                 SidebarSections(
                     sections = sections,
                     itemOnClick = { it.onClick() },
-                    editing = editing,
-                    enabledItems = enabledItems.toList(),
-                    onEnabledToggled = onEnabledToggled,
+                    editState = editState,
                 )
             }
         }
@@ -195,10 +164,7 @@ private fun BarWithDrawerLayout(
     menuLabel: String,
     maxNavigationBarItems: Int,
     drawInitiallyOpen: Boolean,
-    onEditToggled: (() -> Unit)?,
-    enabledItems: List<String>,
-    editing: Boolean,
-    onEnabledToggled: (String, Boolean) -> Unit,
+    editState: EditableListState?,
     content: @Composable (BoxScope.(PaddingValues, Boolean) -> Unit),
 ) {
     val scope = rememberCoroutineScope()
@@ -228,8 +194,7 @@ private fun BarWithDrawerLayout(
 
                 SidebarHeader(
                     appName = appName,
-                    editing = editing,
-                    onEditToggled = onEditToggled,
+                    editState = editState,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -242,9 +207,7 @@ private fun BarWithDrawerLayout(
                             it.onClick()
                         }
                     },
-                    editing = editing,
-                    enabledItems = enabledItems.toList(),
-                    onEnabledToggled = onEnabledToggled,
+                    editState = editState,
                 )
             }
         },
@@ -319,8 +282,7 @@ private fun BarWithDrawerLayout(
 @Composable
 private fun SidebarHeader(
     appName: String,
-    editing: Boolean,
-    onEditToggled: (() -> Unit)?,
+    editState: EditableListState?,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
@@ -329,12 +291,12 @@ private fun SidebarHeader(
     ) {
         Text(appName, style = MaterialTheme.typography.titleLarge)
 
-        if (onEditToggled != null) {
+        if (editState != null) {
             IconButton(
-                onClick = onEditToggled,
+                onClick = { editState.toggleEditing() },
             ) {
                 Icon(
-                    imageVector = if (editing) Icons.Default.Done else Icons.Default.Edit,
+                    imageVector = if (editState.isEditing) Icons.Default.Done else Icons.Default.Edit,
                     contentDescription = null,
                 )
             }
@@ -346,9 +308,7 @@ private fun SidebarHeader(
 private fun SidebarSections(
     sections: List<Section>,
     itemOnClick: (NavigationItem) -> Unit,
-    editing: Boolean,
-    enabledItems: List<String>,
-    onEnabledToggled: (String, Boolean) -> Unit,
+    editState: EditableListState?,
 ) {
     Column(
         modifier = Modifier
@@ -363,7 +323,7 @@ private fun SidebarSections(
             SectionTitle(section.title)
 
             section.items.forEach {
-                if (it.enabled || editing) {
+                if (it.enabled || (editState?.isEditing == true)) {
                     NavigationDrawerItem(
                         label = {
                             Row(
@@ -372,11 +332,11 @@ private fun SidebarSections(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Text(it.label)
-                                if (it.editable && editing) {
+                                if (it.editable && editState?.isEditing == true) {
                                     Checkbox(
-                                        checked = enabledItems.contains(it.id),
+                                        checked = editState.isItemEnabled(it.id),
                                         onCheckedChange = { checked ->
-                                            onEnabledToggled(it.id, checked)
+                                            editState.setItemEnabled(it.id, checked)
                                         },
                                     )
                                 }
