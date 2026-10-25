@@ -211,7 +211,8 @@ private fun BarWithDrawerLayout(
         },
     )
 
-    BackHandler(enabled = drawerState.isOpen) {
+    val drawerIsOpeningOrOpen = drawerState.targetValue == DrawerValue.Open || drawerState.isOpen
+    BackHandler(enabled = drawerIsOpeningOrOpen) {
         scope.launch {
             drawerState.close()
         }
@@ -219,8 +220,13 @@ private fun BarWithDrawerLayout(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = drawerIsOpeningOrOpen,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.testTag(NavigationDrawerSemantics.TAG)) {
+            ModalDrawerSheet(
+                modifier = Modifier.testTag(NavigationDrawerSemantics.TAG),
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+
                 SidebarHeader(
                     appName = appName,
                     editing = editing,
@@ -258,7 +264,7 @@ private fun BarWithDrawerLayout(
                 } else {
                     PaddingValues()
                 },
-                drawerState.isOpen,
+                drawerIsOpeningOrOpen,
             )
 
             if (showNavigation) {
@@ -348,7 +354,7 @@ private fun SidebarSections(
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         sections.forEachIndexed { index, section ->
             if (index != 0) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             SectionTitle(section.title)
@@ -393,7 +399,7 @@ private fun SidebarSections(
 private fun SectionTitle(title: String) {
     Text(
         title,
-        modifier = Modifier.padding(start = 16.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         style = MaterialTheme.typography.titleMedium,
     )
 }
