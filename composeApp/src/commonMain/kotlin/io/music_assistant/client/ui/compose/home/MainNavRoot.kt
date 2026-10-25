@@ -218,14 +218,14 @@ fun MainNavigationRoot(
             }
 
             is DeepLinkDestination.Library -> {
-                multiBackStack.currentBackStack = 1
+                multiBackStack.currentBackStack = 0
                 multiBackStack.resetCurrentBackStack()
                 // /library/<category> → push the category list onto the Library tab.
                 dest.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
             }
 
             DeepLinkDestination.Search -> {
-                multiBackStack.currentBackStack = 2
+                multiBackStack.currentBackStack = 1
                 multiBackStack.resetCurrentBackStack()
             }
 
