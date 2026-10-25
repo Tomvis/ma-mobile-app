@@ -71,11 +71,10 @@ import io.music_assistant.client.ui.utils.fadingEdges
 import kotlinx.coroutines.launch
 
 /**
- * Shows a [NavigationBar] combined with a [ModalNavigationDrawer] based on [sections] on
- * tall, narrow windows and a [WideNavigationRail] instead on wide ones (see [WindowClass.isWide]).
+ * Shows a navigation bar combined with a navigation drawer based on [sections] on
+ * tall, narrow windows and a navigation rail instead on wide ones (see [WindowClass.isWide]).
  *
- * When showing a [NavigationBar], only the first [Section] items (up to [maxNavigationBarItems])
- * are used.
+ * When showing a bar, only the first [Section] items (up to [maxNavigationBarItems]) are used.
  */
 @Composable
 fun AdaptiveNavigationBarLayout(
@@ -324,7 +323,7 @@ private fun SidebarHeader(
     onEditToggled: (() -> Unit)?,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -351,7 +350,11 @@ private fun SidebarSections(
     enabledItems: List<String>,
     onEnabledToggled: (String, Boolean) -> Unit,
 ) {
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
         sections.forEachIndexed { index, section ->
             if (index != 0) {
                 Spacer(modifier = Modifier.height(8.dp))
