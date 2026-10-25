@@ -386,7 +386,7 @@ private fun SidebarSections(
                                 modifier = Modifier.size(24.dp),
                             )
                         },
-                        selected = false,
+                        selected = it.selected,
                         onClick = { itemOnClick(it) },
                     )
                 }
