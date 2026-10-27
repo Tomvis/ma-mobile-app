@@ -15,11 +15,21 @@ data class AlbumReview(
     val url: String? = null,
 )
 
-/** Site names that sign a critic review, in the order their text is preferred. */
+/** Site names that sign a critic review; the first wins among equally ranked texts. */
 private val REVIEW_SITES = listOf(
     ReviewSourceKind.AMG to "Angry Metal Guy",
     ReviewSourceKind.TPS to "The Progressive Subway",
 )
+
+/**
+ * Post types whose text a review source carries, best first (MUSIC-182): a review, then
+ * AMG's TYMHM, TPS's RFU, AMG's YMIO, TPS's LIT. Untyped text predates the type tag and
+ * ranks as a review.
+ */
+private val REVIEW_TYPE_RANK = listOf("review", "tymhm", "rfu", "ymio", "lit")
+
+private fun reviewRank(source: ReviewSource): Int =
+    REVIEW_TYPE_RANK.indexOf(source.reviewType ?: "review").let { if (it < 0) REVIEW_TYPE_RANK.size else it }
 
 private val EXTRA_BLANK_LINES = Regex("""\n[ \t]*\n(?:[ \t]*\n)+""")
 
@@ -31,15 +41,18 @@ private fun tidy(text: String?): String? = text
     ?.takeIf { it.isNotEmpty() }
 
 /**
- * The album's review: AMG's text, then TPS's (both from our own file tags), then the review
- * or description its metadata providers found. Mirrors the web's `albumReview()`.
+ * The album's review: the best-ranked AMG/TPS text (from our own file tags), AMG's first
+ * among equals, then the review or description its metadata providers found. Mirrors the
+ * web's `albumReview()`.
  */
 fun albumReview(metadata: Metadata?): AlbumReview? {
     val sources = metadata?.criticalReception?.sources.orEmpty()
-    return REVIEW_SITES.firstNotNullOfOrNull { (kind, site) ->
-        sources.filter { it.source == kind.serverKey }
-            .firstNotNullOfOrNull { source -> tidy(source.review)?.let { criticReview(source, it, site) } }
-    }
+    val critic = REVIEW_SITES.withIndex().flatMap { (order, site) ->
+        sources.filter { it.source == site.first.serverKey }.mapNotNull { source ->
+            tidy(source.review)?.let { Triple(reviewRank(source), order, criticReview(source, it, site.second)) }
+        }
+    }.minWithOrNull(compareBy({ it.first }, { it.second }))?.third
+    return critic
         ?: tidy(metadata?.review)?.let { AlbumReview(it, AlbumReviewKind.PROVIDER_REVIEW) }
         ?: tidy(metadata?.description)?.let { AlbumReview(it, AlbumReviewKind.DESCRIPTION) }
 }

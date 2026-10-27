@@ -313,6 +313,7 @@ class MediaItemFactory(
                     links = links,
                     authors = entry.authors.orEmpty(),
                     review = entry.review?.takeIf { it.isNotBlank() },
+                    reviewType = entry.reviewType?.takeIf { it.isNotBlank() },
                 )
             }
             .orEmpty()

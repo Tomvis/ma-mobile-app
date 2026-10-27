@@ -26,7 +26,25 @@ class AlbumReviewTest {
         review: String?,
         authors: List<String> = emptyList(),
         links: List<ReviewLink> = emptyList(),
-    ) = ReviewSource(source, null, null, emptyList(), links, authors, review)
+        reviewType: String? = null,
+    ) = ReviewSource(source, null, null, emptyList(), links, authors, review, reviewType)
+
+    @Test fun tpsReviewBeatsAmgTymhm() {
+        val r = albumReview(md(sources = listOf(src("AMG", "tymhm", reviewType = "tymhm"), src("TPS", "rev", reviewType = "review"))))!!
+        assertEquals("rev", r.text)
+        assertEquals("The Progressive Subway", r.site)
+    }
+
+    @Test fun fallbackOrderIsTymhmRfuYmioLit() {
+        fun pick(vararg s: ReviewSource) = albumReview(md(sources = s.toList()))!!.text
+        assertEquals("t", pick(src("TPS", "r", reviewType = "rfu"), src("AMG", "t", reviewType = "tymhm")))
+        assertEquals("r", pick(src("AMG", "y", reviewType = "ymio"), src("TPS", "r", reviewType = "rfu")))
+        assertEquals("y", pick(src("TPS", "l", reviewType = "lit"), src("AMG", "y", reviewType = "ymio")))
+    }
+
+    @Test fun untypedTextRanksAsAReview() {
+        assertEquals("tps", albumReview(md(sources = listOf(src("AMG", "amg", reviewType = "tymhm"), src("TPS", "tps"))))!!.text)
+    }
 
     @Test fun amgBeatsTpsAndProviderText() {
         val r = albumReview(

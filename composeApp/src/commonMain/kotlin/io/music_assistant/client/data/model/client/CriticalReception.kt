@@ -24,6 +24,8 @@ data class ReviewSource(
     val authors: List<String>,
     // the review's full text, plain with blank-line paragraph breaks (3.6.0+).
     val review: String? = null,
+    // the post type `review` came from: "review", "tymhm", "rfu", "ymio" or "lit" (3.8.0+).
+    val reviewType: String? = null,
 )
 
 /** One labeled post link for a review source (3.3.0+). Several links can share a label. */
