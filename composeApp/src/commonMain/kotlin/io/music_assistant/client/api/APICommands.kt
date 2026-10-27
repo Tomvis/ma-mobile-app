@@ -114,6 +114,7 @@ object APICommands {
 
     // Items
     const val MUSIC_ITEM_BY_URI = "music/item_by_uri"
+    const val MUSIC_REFRESH_ITEM = "music/refresh_item"
 
     // Auth commands
     const val AUTH_PROVIDERS = "auth/providers"
@@ -122,6 +123,9 @@ object APICommands {
     const val AUTH_LOGIN = "auth/login"
     const val AUTH_LOGOUT = "auth/logout"
     const val AUTH_ME = "auth/me"
+
+    // Updates the signed-in user. `preferences` replaces the whole preference object.
+    const val AUTH_USER_UPDATE = "auth/user/update"
 
     // Scopes granted to each user role, as a role-id -> scope-list map. Used to gate UI
     // on what the signed-in user may actually do. Available since 2.10.

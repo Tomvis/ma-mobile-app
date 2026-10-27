@@ -941,6 +941,18 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        /**
+         * The server loads the item again from its music services, or finds a substitute when
+         * none of them has it any more. Answers the refreshed item. Needs `library.manage` before
+         * server 2.11 and `library.write` from 2.11.
+         */
+        fun refreshItem(itemUri: String) = Request(
+            command = APICommands.MUSIC_REFRESH_ITEM,
+            args = buildJsonObject {
+                put("media_item", JsonPrimitive(itemUri))
+            },
+        )
+
         fun markPlayed(
             item: MarkableItem,
         ) = Request(
@@ -964,6 +976,8 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             mediaTypes: List<MediaType>,
             limit: Int = 20,
             libraryOnly: Boolean,
+            // From server 2.10.0 (`supportsSearchSources`): "library" and provider ids. Null searches all.
+            providers: List<String>? = null,
         ) = Request(
             command = APICommands.MUSIC_SEARCH,
             args = buildJsonObject {
@@ -974,6 +988,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 )
                 put("limit", JsonPrimitive(limit))
                 put("library_only", JsonPrimitive(libraryOnly))
+                providers?.let { put("providers", JsonArray(it.map(::JsonPrimitive))) }
             },
         )
 
@@ -1010,6 +1025,14 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
     data object Auth {
         fun providers() = Request(command = APICommands.AUTH_PROVIDERS)
+
+        fun me() = Request(command = APICommands.AUTH_ME)
+
+        /** Replaces ALL preferences of the signed-in user with [preferences]. */
+        fun updatePreferences(preferences: JsonObject) = Request(
+            command = APICommands.AUTH_USER_UPDATE,
+            args = buildJsonObject { put("preferences", preferences) },
+        )
 
         /** A [codeChallenge] makes the browser return to the app, which then sends [exchange]. */
         fun authorizationUrl(

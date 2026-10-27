@@ -125,6 +125,24 @@ actual class PlatformFeature {
   favorites, library membership, playlist edits and the played state. `canConfigurePlayers`
   (`config.players.write`) gates DSP and the car DSP action. Every role has `players.control`, so
   grouping has no gate.
+- **Refresh item**: `music/refresh_item` loads an item again from its music services. If no service has the
+  item, the server searches for a substitute. The item details menu shows "Refresh item" or "Find on your
+  music services" (`RefreshItemAction`). The command needs `library.manage` before server 2.11 and
+  `library.write` from 2.11 (`MainDataSource.refreshItemAccess`). Like the web frontend, "Refresh item"
+  also needs `library.manage`.
+
+  An item is unavailable if no mapping is available on an available provider instance. The entry stays
+  hidden until `ProviderRepository` loads the providers.
+
+  Send the command through `ItemRefresher` (`data/repository/`). For a library item, the server answers
+  only after it matches the providers and reloads the metadata. That can take minutes, and the server
+  reports no progress. So the refresher runs the command in an app scope and keeps the uri in
+  `refreshingUris` until the answer. It ignores a second refresh of that uri. The page shows an
+  indeterminate progress indicator while its uri is in the set, also after the user opens the page again.
+  The refresher publishes the answer as a local `MediaItemChange.Updated` with `carriesFavorite` false,
+  because a refresh does not change the favorite. Then it emits `refreshed`. The page replaces its item
+  from `refreshed` by uri, because a substitute has no mapping in common with the unavailable item.
+  The command changes the listings of the item, so the sub-items load again.
 - **Library sort**: get the sort choices of a library list from `LibrarySortRepository.menu(mediaType)`, on the
   phone and in Android Auto. From server 2.11 (`sortWireFor`), the menu holds the fields of `music/sort_options`
   and the request sends `sort_field` and `sort_direction`. An older server gets the static `SortConfig` table and
@@ -137,6 +155,18 @@ actual class PlatformFeature {
   `providers` from it. Do not send `Request.Provider.all()` from a screen. It loads the list once
   for each session and again on each `providers_updated`. It does not use the event payload,
   because server 2.10 sends the list without the provider filter of the user.
+- **User preferences**: `UserPreferences` (`data/`) owns the server preferences of the signed-in user.
+  The web frontend uses the same object. `auth/user/update` replaces the whole object, and the server
+  sends no change event. So write one key with `UserPreferences.update`. It gets the latest object from
+  `auth/me`, changes the key, and sends the whole object. One mutex orders the reads and the writes. If
+  the read fails, nothing is written. A change from another client between the read and the write is
+  lost. Recent searches (`search.recent`, 5 terms) and search sources (`search.sources`) use this path.
+- **Search sources**: from schema 63 (`supportsSearchSources`, server 2.10.0), `music/search` takes
+  `providers`, and the filter sheet shows a source picker instead of the "In library only" switch.
+  `SearchSources` (`ui/compose/search/`) makes the choices like the web frontend: "library", one
+  target for each streaming service (its domain), and one target for each other provider instance.
+  An empty choice searches everything. A genre-only search sends `library` only. The choice is saved
+  before the search starts, and the search reads the sources when it starts, not from the screen state.
 - **Play history**: the server sends `playlog_updated` to all users. Ignore an event with the
   `userid` of a different user. A null `userid` applies to all users. The home screen loads its
   rows again 1.5 s after the last event, like the web app.

@@ -24,10 +24,13 @@ import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
+import io.music_assistant.client.data.model.client.items.RefreshItemAction
 import io.music_assistant.client.data.model.client.items.Track
+import io.music_assistant.client.data.model.client.items.refreshItemAction
 import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.play.PlayMode
 import io.music_assistant.client.data.play.PlayRequest
+import io.music_assistant.client.data.repository.ItemRefresher
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.ProviderRepository
@@ -38,10 +41,16 @@ import io.music_assistant.client.ui.compose.common.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -52,6 +61,7 @@ class ItemDetailsViewModel(
     private val settingsRepository: SettingsRepository,
     private val mediaItemRepository: MediaItemRepository,
     private val providerRepository: ProviderRepository,
+    private val itemRefresher: ItemRefresher,
     private val itemId: String,
     private val mediaType: MediaType,
     private val providerId: String,
@@ -74,6 +84,8 @@ class ItemDetailsViewModel(
         val playableItemsQuery: String? = null,
         /** The user's manual tab choice; null means "follow the auto-selected default". */
         val userSelectedTab: ItemDetailsTab? = null,
+        /** True while `music/refresh_item` runs for the item, from this page or an earlier one. */
+        val refreshingItem: Boolean = false,
     ) {
         /** Tabs derive purely from the loaded item, so there's nothing to store or keep in sync. */
         val tabs: List<ItemDetailsTab>
@@ -127,6 +139,16 @@ class ItemDetailsViewModel(
     )
     val state = _state.asStateFlow()
 
+    /** The refresh entry of the item menu; null hides it. */
+    val refreshAction: StateFlow<RefreshItemAction?> =
+        combine(
+            _state.map { it.itemOrNull() }.distinctUntilChanged(),
+            mainDataSource.refreshItemAccess,
+            providerRepository.providers,
+        ) { item, access, providers ->
+            item?.refreshItemAction(access, providers.dataOrNull)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
+
     init {
         // Listen to library changes; refresh the open item + its sub-lists.
         // The repository already handles the library-fallback re-keying that
@@ -141,6 +163,24 @@ class ItemDetailsViewModel(
                     }
                 }
                 updateSubItemIfNeeded(updated, change)
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                _state.map { it.itemOrNull()?.uri }.distinctUntilChanged(),
+                itemRefresher.refreshingUris,
+            ) { uri, uris -> uri in uris }
+                .distinctUntilChanged()
+                .collect { refreshing -> _state.update { it.copy(refreshingItem = refreshing) } }
+        }
+        // The refresh changes the listings of the item, so the sub-items load again. The answer
+        // replaces the item by uri, because a substitute shares no mapping with an unavailable item.
+        viewModelScope.launch {
+            itemRefresher.refreshed.collect { (uri, refreshed) ->
+                val current = _state.value.itemOrNull()?.takeIf { it.uri == uri } ?: return@collect
+                val item = refreshed.withFavorite(current.favorite)
+                _state.update { it.copy(itemState = DataState.Data(item)) }
+                loadSubItems(item)
             }
         }
         // Filter and sort off Main. mapLatest drops a superseded run; the identity check drops a
@@ -589,6 +629,11 @@ class ItemDetailsViewModel(
         if (_state.value.playableItemsState is DataState.Loading) return
         val playlist = (state.value.itemState as? DataState.Data)?.data as? Playlist ?: return
         loadPlaylistTracks(playlist.itemId, playlist.provider, forceRefresh = true)
+    }
+
+    /** The [ItemRefresher] sends it in the app scope; [ItemRefresher.refreshed] gives the answer. */
+    fun refreshItem() {
+        _state.value.itemOrNull()?.uri?.let(itemRefresher::refresh)
     }
 
     fun reload() {

@@ -12,7 +12,8 @@ import io.music_assistant.client.support.Qualifiers
 import io.music_assistant.client.support.ServerMediaItemFixtures
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.launchLoggedInApp
-import io.music_assistant.client.support.pages.clickLibrary
+import io.music_assistant.client.support.pages.clickAlbums
+import io.music_assistant.client.support.pages.clickTracks
 import io.music_assistant.client.support.rules.createTestRuleChain
 import io.music_assistant.client.ui.compose.library.ReceptionFilterSemantics
 import io.music_assistant.client.ui.compose.support.inScrollable
@@ -56,7 +57,6 @@ class AlbumReceptionFilterTest {
         serviceClient.addToLibrary(album)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickAlbums()
 
         composeTestRule.onNodeWithContentDescription(Res.string.cd_reception_filter.get())
@@ -78,7 +78,6 @@ class AlbumReceptionFilterTest {
         serviceClient.addToLibrary(track)
 
         launchLoggedInApp(composeTestRule, serviceClient)
-            .clickLibrary()
             .clickTracks()
 
         // Critical reception is an album-level tag, so the action is album-only. Offering it
