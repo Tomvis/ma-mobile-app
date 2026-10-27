@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.ServerMediaItem
@@ -164,7 +165,8 @@ private fun <T : ComposePage> T.openNavDrawer(): T {
 }
 
 private fun ComposePage.clickNavDrawerItem(item: String) {
-    composeTestRule.onNode(withinTag(NavigationDrawerSemantics.TAG).and(isTab(item))).performClick()
+    // performScrollTo: the drawer scrolls, and the fork's Listen Later item pushes System below the fold.
+    composeTestRule.onNode(withinTag(NavigationDrawerSemantics.TAG).and(isTab(item))).performScrollTo().performClick()
 }
 
 fun ComposePage.clickSettings(): SettingsPage {
