@@ -7,12 +7,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.compose.common.items.LibraryActions
+import io.music_assistant.client.ui.compose.common.items.PlayHandler
 import io.music_assistant.client.ui.compose.common.items.PlaylistActions
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -52,9 +55,25 @@ class AdaptiveMediaGridTest {
         assertEquals(1, loadMoreCalls)
     }
 
+    // MUSIC-181: browsing the Ambient sounds provider returns `sound_effect` items, which the
+    // grid used to skip, leaving the folder empty.
+    @Test
+    fun `sound effects from a browse folder render and play on tap`() {
+        val played = mutableListOf<AppMediaItem>()
+        val pink = AppMediaItemFixtures.soundEffect()
+        setGrid(listOf(pink)) { item, _ -> played += item }
+
+        composeTestRule.onNodeWithContentDescription("Pink noise").performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf<AppMediaItem>(pink), played)
+    }
+
     // Three rows keep the last visible row within the load-more distance of the end.
-    private fun setGrid() {
-        val items = List(3) { AppMediaItemFixtures.track() }
+    private fun setGrid(
+        items: List<AppMediaItem> = List(3) { AppMediaItemFixtures.track() },
+        onPlayClick: PlayHandler<AppMediaItem> = { _, _ -> },
+    ) {
         composeTestRule.setContent {
             // Inspection mode short-circuits the Koin-backed seams of the rows.
             CompositionLocalProvider(LocalInspectionMode provides true) {
@@ -64,7 +83,7 @@ class AdaptiveMediaGridTest {
                     hasMore = hasMore,
                     viewMode = ViewMode.LIST,
                     onNavigateClick = {},
-                    onPlayClick = { _, _ -> },
+                    onPlayClick = onPlayClick,
                     onLoadMore = { loadMoreCalls++ },
                     playlistActions = StubPlaylistActions(),
                     libraryActions = StubLibraryActions(),

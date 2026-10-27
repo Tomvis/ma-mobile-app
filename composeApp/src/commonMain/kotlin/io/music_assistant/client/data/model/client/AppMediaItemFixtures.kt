@@ -6,6 +6,7 @@ import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
+import io.music_assistant.client.data.model.client.items.SoundEffect
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.utils.UniqueIdGenerator
@@ -250,6 +251,22 @@ object AppMediaItemFixtures {
             fullyPlayed = null,
             resumePositionMs = null,
             version = null,
+        )
+    }
+
+    fun soundEffect(
+        itemId: String = "pink_noise",
+        name: String = "Pink noise",
+    ): SoundEffect {
+        return SoundEffect(
+            itemId = itemId,
+            provider = "ambient_sounds",
+            name = name,
+            providerMappings = listOf(ProviderMapping(itemId, "ambient_sounds", "ambient_sounds")),
+            metadata = null,
+            images = emptyMap(),
+            duration = 30.0,
+            uri = "ambient_sounds://sound_effect/$itemId",
         )
     }
 

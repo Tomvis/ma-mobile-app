@@ -21,6 +21,7 @@ import io.music_assistant.client.data.model.client.items.AudioSource
 import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RadioStation
+import io.music_assistant.client.data.model.client.items.SoundEffect
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.play.PlayMode
 import io.music_assistant.client.settings.ViewMode
@@ -177,6 +178,45 @@ fun AudioSourceWithMenu(
     item: AudioSource,
     viewMode: ViewMode = ViewMode.GRID,
     onPlayOption: PlayHandler<AudioSource>,
+    libraryActions: LibraryActions,
+    providerIconFetcher: ProviderIconFetcher?,
+) {
+    PlayableItemWithMenu(
+        modifier = when (viewMode) {
+            ViewMode.GRID -> Modifier
+            ViewMode.LIST -> Modifier.fillMaxWidth()
+        },
+        item = item,
+        onPlayOption = onPlayOption,
+        libraryActions = libraryActions,
+        itemComposable = { mod, onClick, onLongClick ->
+            when (viewMode) {
+                ViewMode.LIST -> LiveStreamRowItem(
+                    modifier = mod,
+                    item = item,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                    providerIconFetcher = providerIconFetcher,
+                )
+
+                ViewMode.GRID -> LiveStreamGridItem(
+                    modifier = mod,
+                    item = item,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                    providerIconFetcher = providerIconFetcher,
+                )
+            }
+        },
+    )
+}
+
+/** An ambient sound from a browse folder; drawn like a live stream since it loops until stopped. */
+@Composable
+fun SoundEffectWithMenu(
+    item: SoundEffect,
+    viewMode: ViewMode = ViewMode.GRID,
+    onPlayOption: PlayHandler<SoundEffect>,
     libraryActions: LibraryActions,
     providerIconFetcher: ProviderIconFetcher?,
 ) {

@@ -1,9 +1,11 @@
 package io.music_assistant.client.ui.compose.common.items
 
+import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
+import io.music_assistant.client.data.model.client.items.canBeFavorited
 import io.music_assistant.client.data.model.client.testAlbum
 import io.music_assistant.client.data.model.client.testArtist
 import io.music_assistant.client.data.model.client.testAudiobook
@@ -264,5 +266,29 @@ class ItemActionResolverTest {
         assertEquals(false, ItemAction.Dislike.favorite)
         assertEquals(null, ItemAction.Unfavorite.favorite)
         assertEquals(null, ItemAction.RemoveDislike.favorite)
+    }
+
+    // MUSIC-181: an ambient sound loops until stopped, so like a live input it only starts; it
+    // has no library entry on the server to add, favorite or remove.
+    @Test
+    fun `sound effect long click offers play only`() {
+        val actions = resolveLongClickActions(
+            item = AppMediaItemFixtures.soundEffect(),
+            canEditLibrary = true,
+            dislikeSupported = true,
+            librarySupported = true,
+            canAddToPlaylist = false,
+            canRemoveFromPlaylist = false,
+            progressSupported = false,
+            playMediaSupport = ALL,
+        )
+
+        assertEquals(listOf<ItemAction>(ItemAction.Play(QueueOption.REPLACE)), actions)
+    }
+
+    // The player's heart would send a favorite the server can't store.
+    @Test
+    fun `sound effect has no quick favorite toggle`() {
+        assertFalse(AppMediaItemFixtures.soundEffect().canBeFavorited)
     }
 }

@@ -13,6 +13,7 @@ import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
+import io.music_assistant.client.data.model.client.items.SoundEffect
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.PlayMediaSupport
 
@@ -53,7 +54,8 @@ fun resolveLongClickActions(
     customizationAllowed: Boolean = false,
 ): List<ItemAction> = buildList {
     // A live input never ends, so nothing queued behind it is reached: starting it is the only action.
-    if (item is AudioSource) {
+    // An ambient sound loops the same way, and has no library entry on the server.
+    if (item is AudioSource || item is SoundEffect) {
         if (item.isPlayable) add(ItemAction.Play(QueueOption.REPLACE))
         return@buildList
     }
