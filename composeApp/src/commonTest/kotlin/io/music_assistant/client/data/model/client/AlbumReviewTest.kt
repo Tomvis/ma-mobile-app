@@ -55,7 +55,6 @@ class AlbumReviewTest {
             ),
         )!!
         assertEquals("amg text", r.text)
-        assertEquals(AlbumReviewKind.CRITIC, r.kind)
         assertEquals("Angry Metal Guy", r.site)
         assertEquals(listOf("Steel Druhm"), r.authors)
     }
@@ -80,24 +79,15 @@ class AlbumReviewTest {
         assertNull(albumReview(md(sources = listOf(src("AMG", "t"))))!!.url)
     }
 
-    @Test fun providerReviewThenDescription() {
-        assertEquals(
-            AlbumReview("provider review", AlbumReviewKind.PROVIDER_REVIEW),
-            albumReview(md(review = "provider review", description = "description")),
-        )
-        assertEquals(
-            AlbumReview("description", AlbumReviewKind.DESCRIPTION),
-            albumReview(md(review = " ", description = "description")),
-        )
-    }
-
-    @Test fun nothingWhenNoText() {
+    @Test fun nothingWithoutCriticText() {
+        // The providers' review and description are upstream's header text block (#1277).
+        assertNull(albumReview(md(review = "provider review", description = "description")))
         assertNull(albumReview(md()))
         assertNull(albumReview(null))
     }
 
     @Test fun keepsParagraphBreaksAndSqueezesExtraBlankLines() {
-        val r = albumReview(md(description = "\r\nOne.\r\n\r\n\r\nTwo\nlines.\n \n\nThree.\n"))!!
+        val r = albumReview(md(sources = listOf(src("AMG", "\r\nOne.\r\n\r\n\r\nTwo\nlines.\n \n\nThree.\n"))))!!
         assertEquals("One.\n\nTwo\nlines.\n\nThree.", r.text)
     }
 }

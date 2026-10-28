@@ -1,7 +1,9 @@
 package io.music_assistant.client.feature
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.music_assistant.client.api.ServiceClient
@@ -12,12 +14,8 @@ import io.music_assistant.client.data.model.server.ServerReviewSourceEntry
 import io.music_assistant.client.support.FakeServiceClient
 import io.music_assistant.client.support.Qualifiers
 import io.music_assistant.client.support.ServerMediaItemFixtures
-import io.music_assistant.client.support.get
 import io.music_assistant.client.support.launchLoggedInApp
 import io.music_assistant.client.support.rules.createTestRuleChain
-import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.review_about_title
-import musicassistantclient.composeapp.generated.resources.review_title
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,7 +37,9 @@ class AlbumReviewTest {
 
     private val serviceClient: FakeServiceClient by inject(ServiceClient::class.java)
 
+    // Upstream's header text block (#1277) plus the critic panel push the tabs below a medium phone's fold.
     @Test
+    @Config(qualifiers = "w412dp-h1400dp")
     fun `album page shows the critic review, signed with a link to the post`() {
         val album = ServerMediaItemFixtures.album(
             metadata = ServerMetadata(
@@ -61,14 +61,14 @@ class AlbumReviewTest {
 
         launchLoggedInApp(composeTestRule, serviceClient).clickOnMedia(album)
 
-        composeTestRule.onNodeWithText(Res.string.review_title.get()).assertExists()
         composeTestRule.onNodeWithText("Violin is a major feature.\n\nSo is the descent.").assertExists()
         composeTestRule.onNodeWithText("— Doug, The Progressive Subway").assertHasClickAction()
-        composeTestRule.onNodeWithText("The label's blurb.").assertDoesNotExist()
+        // The description is upstream's header text block (#1277), not a second review.
+        composeTestRule.onAllNodesWithText("The label's blurb.").assertCountEquals(1)
     }
 
     @Test
-    fun `album without a review shows its description`() {
+    fun `album without a critic review shows its description once, in the header`() {
         val album = ServerMediaItemFixtures.album(
             metadata = ServerMetadata(description = "The label's blurb."),
         )
@@ -76,7 +76,7 @@ class AlbumReviewTest {
 
         launchLoggedInApp(composeTestRule, serviceClient).clickOnMedia(album)
 
-        composeTestRule.onNodeWithText(Res.string.review_about_title.get()).assertExists()
-        composeTestRule.onNodeWithText("The label's blurb.").assertExists()
+        // Once: upstream's header block shows it, and the critic panel does not repeat it.
+        composeTestRule.onAllNodesWithText("The label's blurb.").assertCountEquals(1)
     }
 }

@@ -29,9 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.music_assistant.client.data.model.client.AlbumReview
-import io.music_assistant.client.data.model.client.AlbumReviewKind
 import musicassistantclient.composeapp.generated.resources.Res
-import musicassistantclient.composeapp.generated.resources.review_about_title
 import musicassistantclient.composeapp.generated.resources.review_show_less
 import musicassistantclient.composeapp.generated.resources.review_show_more
 import musicassistantclient.composeapp.generated.resources.review_title
@@ -52,9 +50,7 @@ fun AlbumReviewSection(review: AlbumReview, modifier: Modifier = Modifier) {
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = stringResource(
-                if (review.kind == AlbumReviewKind.DESCRIPTION) Res.string.review_about_title else Res.string.review_title,
-            ),
+            text = stringResource(Res.string.review_title),
             style = MaterialTheme.typography.titleMedium,
         )
         Column(
@@ -85,7 +81,7 @@ fun AlbumReviewSection(review: AlbumReview, modifier: Modifier = Modifier) {
                 )
             }
         }
-        review.site?.let { ReviewSignature(review.authors, it, review.url) }
+        ReviewSignature(review.authors, review.site, review.url)
     }
 }
 

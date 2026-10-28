@@ -1,17 +1,13 @@
 package io.music_assistant.client.data.model.client
 
-/** Where an album's review text came from; decides its heading and whether it is signed. */
-enum class AlbumReviewKind { CRITIC, PROVIDER_REVIEW, DESCRIPTION }
-
 /**
- * The text the album page shows under its critic data. A [AlbumReviewKind.CRITIC] text is
- * signed "— [authors], [site]", the site linking to [url] when there is one.
+ * The critic review the album page shows under its critic data, signed "— [authors], [site]",
+ * the site linking to [url] when there is one.
  */
 data class AlbumReview(
     val text: String,
-    val kind: AlbumReviewKind,
+    val site: String,
     val authors: List<String> = emptyList(),
-    val site: String? = null,
     val url: String? = null,
 )
 
@@ -41,27 +37,23 @@ private fun tidy(text: String?): String? = text
     ?.takeIf { it.isNotEmpty() }
 
 /**
- * The album's review: the best-ranked AMG/TPS text (from our own file tags), AMG's first
- * among equals, then the review or description its metadata providers found. Mirrors the
- * web's `albumReview()`.
+ * The album's critic review: the best-ranked AMG/TPS text (from our own file tags), AMG's
+ * first among equals. The metadata providers' review or description is upstream's text block
+ * under the header (#1277), so it is not repeated here.
  */
 fun albumReview(metadata: Metadata?): AlbumReview? {
     val sources = metadata?.criticalReception?.sources.orEmpty()
-    val critic = REVIEW_SITES.withIndex().flatMap { (order, site) ->
+    return REVIEW_SITES.withIndex().flatMap { (order, site) ->
         sources.filter { it.source == site.first.serverKey }.mapNotNull { source ->
             tidy(source.review)?.let { Triple(reviewRank(source), order, criticReview(source, it, site.second)) }
         }
     }.minWithOrNull(compareBy({ it.first }, { it.second }))?.third
-    return critic
-        ?: tidy(metadata?.review)?.let { AlbumReview(it, AlbumReviewKind.PROVIDER_REVIEW) }
-        ?: tidy(metadata?.description)?.let { AlbumReview(it, AlbumReviewKind.DESCRIPTION) }
 }
 
 private fun criticReview(source: ReviewSource, text: String, site: String): AlbumReview {
     val link = source.links.firstOrNull { it.label == "Review" } ?: source.links.firstOrNull()
     return AlbumReview(
         text = text,
-        kind = AlbumReviewKind.CRITIC,
         // AMG's founder writes as "Angry Metal Guy": don't sign his reviews twice.
         authors = source.authors.filter { it.isNotBlank() && it != site },
         site = site,

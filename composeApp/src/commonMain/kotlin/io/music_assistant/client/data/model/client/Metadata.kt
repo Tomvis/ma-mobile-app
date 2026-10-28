@@ -17,7 +17,9 @@ data class Metadata(
     val lrcLyrics: String?,
     val dynamicRange: Float? = null,
     val criticalReception: CriticalReception? = null,
-    // What the metadata providers found: the album page's text after our own AMG/TPS reviews.
-    val review: String? = null,
+    // The long texts of the item details page, as the provider sends them (Markdown, HTML or
+    // both): an artist's biography, or the description of a playlist, podcast or audiobook.
     val description: String? = null,
+    // An album's review; the page falls back to [description] when it is absent.
+    val review: String? = null,
 )
