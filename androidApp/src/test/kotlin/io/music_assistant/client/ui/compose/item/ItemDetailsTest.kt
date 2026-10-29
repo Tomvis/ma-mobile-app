@@ -23,10 +23,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.music_assistant.client.data.model.client.AlbumType
 import io.music_assistant.client.data.model.client.AppMediaItemFixtures
 import io.music_assistant.client.data.model.client.Lyrics
+import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.PlaylistAccessPart
 import io.music_assistant.client.data.model.client.items.PlaylistOwnerLine
+import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RefreshItemAction
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.support.get
@@ -40,17 +42,22 @@ import musicassistantclient.composeapp.generated.resources.action_choose_artist
 import musicassistantclient.composeapp.generated.resources.action_find_on_music_services
 import musicassistantclient.composeapp.generated.resources.action_go_to_album
 import musicassistantclient.composeapp.generated.resources.action_go_to_artist
+import musicassistantclient.composeapp.generated.resources.action_go_to_episode
+import musicassistantclient.composeapp.generated.resources.action_go_to_podcast
 import musicassistantclient.composeapp.generated.resources.action_go_to_track
 import musicassistantclient.composeapp.generated.resources.action_lyrics
 import musicassistantclient.composeapp.generated.resources.action_refresh_item
+import musicassistantclient.composeapp.generated.resources.action_transcript
 import musicassistantclient.composeapp.generated.resources.album_type_ep
 import musicassistantclient.composeapp.generated.resources.cd_more
 import musicassistantclient.composeapp.generated.resources.cd_refreshing_item
+import musicassistantclient.composeapp.generated.resources.episode_number_season
 import musicassistantclient.composeapp.generated.resources.item_description_more
 import musicassistantclient.composeapp.generated.resources.item_duration_minutes
 import musicassistantclient.composeapp.generated.resources.item_narrated_by
 import musicassistantclient.composeapp.generated.resources.item_publisher
 import musicassistantclient.composeapp.generated.resources.item_section_review
+import musicassistantclient.composeapp.generated.resources.item_tab_other_episodes
 import musicassistantclient.composeapp.generated.resources.item_tab_similar_tracks
 import musicassistantclient.composeapp.generated.resources.item_tab_versions
 import musicassistantclient.composeapp.generated.resources.item_track_count
@@ -101,8 +108,27 @@ class ItemDetailsTest {
             )
         }
 
-        composeTestRule.onAllNodes(hasText(album.name)).onFirst().assertIsDisplayed()
-        composeTestRule.onAllNodes(hasText(album.version!!)).onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodes(hasText("Best Version")).onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun `displays album year`() {
+        val artist = AppMediaItemFixtures.artist()
+        val album = AppMediaItemFixtures.album(artist = artist, year = 1992)
+
+        composeTestRule.setInspectableContent {
+            ItemDetails(
+                state = ItemDetailsViewModel.State(
+                    itemState = DataState.Data(album),
+                    albumsState = DataState.NoData(),
+                    playableItemsState = DataState.Data(emptyList()),
+                ),
+                geEditablePlaylists = suspend { emptyList() },
+                fetchColors = NoColors,
+            )
+        }
+
+        composeTestRule.onAllNodes(hasText("1992", substring = true)).onFirst().assertIsDisplayed()
     }
 
     @Test
@@ -324,7 +350,8 @@ class ItemDetailsTest {
         assertEquals(1, refreshes)
 
         refreshing = true
-        composeTestRule.onNodeWithContentDescription(Res.string.cd_refreshing_item.get()).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(Res.string.cd_refreshing_item.get())
+            .assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(Res.string.cd_more.get()).performClick()
         composeTestRule.onNodeWithText(Res.string.action_refresh_item.get()).assertIsNotEnabled()
     }
@@ -342,7 +369,8 @@ class ItemDetailsTest {
         }
 
         composeTestRule.onNodeWithContentDescription(Res.string.cd_more.get()).performClick()
-        composeTestRule.onNodeWithText(Res.string.action_find_on_music_services.get()).assertIsDisplayed()
+        composeTestRule.onNodeWithText(Res.string.action_find_on_music_services.get())
+            .assertIsDisplayed()
         composeTestRule.onNodeWithText(Res.string.action_refresh_item.get()).assertDoesNotExist()
     }
 
@@ -356,7 +384,8 @@ class ItemDetailsTest {
 
         composeTestRule.onNodeWithContentDescription(Res.string.cd_more.get()).performClick()
         composeTestRule.onNodeWithText(Res.string.action_refresh_item.get()).assertDoesNotExist()
-        composeTestRule.onNodeWithText(Res.string.action_find_on_music_services.get()).assertDoesNotExist()
+        composeTestRule.onNodeWithText(Res.string.action_find_on_music_services.get())
+            .assertDoesNotExist()
     }
 
     @Test
@@ -380,7 +409,8 @@ class ItemDetailsTest {
             Res.string.item_duration_minutes.get(7),
         ).joinToString(" · ")
         composeTestRule.onNodeWithText(facts).assertIsDisplayed()
-        composeTestRule.onNodeWithText(Res.string.item_section_review.get()).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText(Res.string.item_section_review.get()).performScrollTo()
+            .assertIsDisplayed()
         composeTestRule.onNodeWithText("A short review.").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText(Res.string.item_description_more.get()).assertDoesNotExist()
     }
@@ -437,12 +467,70 @@ class ItemDetailsTest {
 
     @Test
     fun `audiobook header shows the narrators and the publisher`() {
-        val book = AppMediaItemFixtures.audiobook().copy(narrators = listOf("Ann", "Bob"), publisher = "Pub House")
+        val book = AppMediaItemFixtures.audiobook()
+            .copy(narrators = listOf("Ann", "Bob"), publisher = "Pub House")
 
         composeTestRule.setInspectableContent { ItemHeader(item = book) }
 
-        composeTestRule.onNodeWithText(Res.string.item_narrated_by.get("Ann, Bob")).assertIsDisplayed()
-        composeTestRule.onNodeWithText(Res.string.item_publisher.get("Pub House")).assertIsDisplayed()
+        composeTestRule.onNodeWithText(Res.string.item_narrated_by.get("Ann, Bob"))
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText(Res.string.item_publisher.get("Pub House"))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `episode header shows the podcast and the other episodes and opens the podcast`() {
+        val podcast = AppMediaItemFixtures.podcast(name = "The Show")
+        val episode = AppMediaItemFixtures.episode(name = "Pilot", podcast = podcast, season = 1, episodeNumber = 3)
+        val other = AppMediaItemFixtures.episode(name = "Second", podcast = podcast)
+        var navigatedTo: Pair<String, MediaType>? = null
+
+        composeTestRule.setInspectableContent {
+            ItemDetails(
+                state = episodeState(episode, otherEpisodes = listOf(other)),
+                onNavigateToItem = { id, type, _ -> navigatedTo = id to type },
+                fetchColors = NoColors,
+            )
+        }
+
+        composeTestRule.onNodeWithText(Res.string.episode_number_season.get(1, 3), substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("The Show").performClick()
+        // The taller episode header pushes the tabs below the fold of the test window.
+        composeTestRule.inScrollable("LazyVerticalGrid") {
+            onNode(isTab(Res.string.item_tab_other_episodes.get())).assertIsDisplayed()
+            onNode(hasContentDescription(other.name, substring = true)).assertIsDisplayed()
+        }
+        assertEquals(podcast.itemId to MediaType.PODCAST, navigatedTo)
+    }
+
+    @Test
+    fun `episode overflow opens the transcript and goes to the podcast but not to the episode itself`() {
+        val episode = AppMediaItemFixtures.episode(name = "Pilot")
+
+        composeTestRule.setInspectableContent {
+            ItemDetails(
+                state = episodeState(episode, lyrics = Lyrics.Plain("First line of the transcript")),
+                fetchColors = NoColors,
+            )
+        }
+
+        composeTestRule.onNodeWithContentDescription(Res.string.cd_more.get()).performClick()
+        composeTestRule.onNodeWithText(Res.string.action_go_to_podcast.get()).assertIsDisplayed()
+        composeTestRule.onNodeWithText(Res.string.action_go_to_episode.get()).assertDoesNotExist()
+        composeTestRule.onNodeWithText(Res.string.action_lyrics.get()).assertDoesNotExist()
+        composeTestRule.onNodeWithText(Res.string.action_transcript.get()).performClick()
+
+        composeTestRule.onNodeWithText("First line of the transcript").assertIsDisplayed()
+    }
+
+    @Test
+    fun `episode without a transcript has no transcript entry`() {
+        composeTestRule.setInspectableContent {
+            ItemDetails(state = episodeState(AppMediaItemFixtures.episode()), fetchColors = NoColors)
+        }
+
+        composeTestRule.onNodeWithContentDescription(Res.string.cd_more.get()).performClick()
+        composeTestRule.onNodeWithText(Res.string.action_transcript.get()).assertDoesNotExist()
     }
 
     private fun albumState(
@@ -452,6 +540,17 @@ class ItemDetailsTest {
         itemState = DataState.Data(album),
         albumsState = DataState.NoData(),
         playableItemsState = DataState.Data(tracks),
+    )
+
+    private fun episodeState(
+        episode: PodcastEpisode,
+        otherEpisodes: List<PodcastEpisode> = emptyList(),
+        lyrics: Lyrics? = null,
+    ) = ItemDetailsViewModel.State(
+        itemState = DataState.Data(episode),
+        albumsState = DataState.NoData(),
+        playableItemsState = DataState.Data(otherEpisodes),
+        lyrics = lyrics,
     )
 
     private fun trackState(

@@ -64,6 +64,9 @@ import musicassistantclient.composeapp.generated.resources.cd_keep_screen_on_ena
 import musicassistantclient.composeapp.generated.resources.cd_lyrics_close
 import musicassistantclient.composeapp.generated.resources.cd_lyrics_offset_decrease
 import musicassistantclient.composeapp.generated.resources.cd_lyrics_offset_increase
+import musicassistantclient.composeapp.generated.resources.cd_transcript_close
+import musicassistantclient.composeapp.generated.resources.cd_transcript_offset_decrease
+import musicassistantclient.composeapp.generated.resources.cd_transcript_offset_increase
 import musicassistantclient.composeapp.generated.resources.edit_audio
 import musicassistantclient.composeapp.generated.resources.lyrics_screen_wake_on
 import musicassistantclient.composeapp.generated.resources.night_sight_auto
@@ -71,12 +74,15 @@ import musicassistantclient.composeapp.generated.resources.night_sight_auto_off
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
+/** What the sheet shows; the labels name it, because a transcript is not lyrics. */
+enum class LyricsSheetKind { LYRICS, TRANSCRIPT }
+
 /**
  * Modal sheet showing [lyrics], peeking to ~80% of the available height and
  * painted with the same art-derived gradient as the player view. [Lyrics.Synced]
  * enlarges, highlights, and auto-scrolls the active line against
  * [livePositionFlow] (seconds); when the flow is absent (or the lyrics are
- * [Lyrics.Plain]) it renders as static scrollable text.
+ * [Lyrics.Plain]) it renders as static scrollable text. [kind] names the content in the labels.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +90,7 @@ fun LyricsSheet(
     lyrics: Lyrics,
     livePositionFlow: Flow<Double>?,
     onDismiss: () -> Unit,
+    kind: LyricsSheetKind = LyricsSheetKind.LYRICS,
 ) {
     var offsetMs by remember(lyrics) { mutableStateOf(0) }
     var keepScreenOn by remember { mutableStateOf(false) }
@@ -119,7 +126,12 @@ fun LyricsSheet(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             Icons.Default.ExpandMore,
-                            contentDescription = stringResource(Res.string.cd_lyrics_close),
+                            contentDescription = stringResource(
+                                when (kind) {
+                                    LyricsSheetKind.LYRICS -> Res.string.cd_lyrics_close
+                                    LyricsSheetKind.TRANSCRIPT -> Res.string.cd_transcript_close
+                                },
+                            ),
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -129,6 +141,7 @@ fun LyricsSheet(
                     ) {
                         if (canAdjustOffset) {
                             LyricsOffsetStepper(
+                                kind = kind,
                                 offsetMs = offsetMs,
                                 onOffsetChange = { offsetMs = it },
                             )
@@ -192,6 +205,7 @@ fun LyricsSheet(
 /** `− value +` stepper for the lyrics offset; each end disables its button at the limit. */
 @Composable
 private fun LyricsOffsetStepper(
+    kind: LyricsSheetKind,
     offsetMs: Int,
     onOffsetChange: (Int) -> Unit,
 ) {
@@ -218,7 +232,12 @@ private fun LyricsOffsetStepper(
         ) {
             Icon(
                 Icons.Default.Remove,
-                contentDescription = stringResource(Res.string.cd_lyrics_offset_decrease),
+                contentDescription = stringResource(
+                    when (kind) {
+                        LyricsSheetKind.LYRICS -> Res.string.cd_lyrics_offset_decrease
+                        LyricsSheetKind.TRANSCRIPT -> Res.string.cd_transcript_offset_decrease
+                    },
+                ),
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -237,7 +256,12 @@ private fun LyricsOffsetStepper(
         ) {
             Icon(
                 Icons.Default.Add,
-                contentDescription = stringResource(Res.string.cd_lyrics_offset_increase),
+                contentDescription = stringResource(
+                    when (kind) {
+                        LyricsSheetKind.LYRICS -> Res.string.cd_lyrics_offset_increase
+                        LyricsSheetKind.TRANSCRIPT -> Res.string.cd_transcript_offset_increase
+                    },
+                ),
                 modifier = Modifier.size(18.dp),
             )
         }

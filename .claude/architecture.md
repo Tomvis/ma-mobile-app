@@ -165,6 +165,22 @@ actual class PlatformFeature {
   rejects a field that the list does not offer, so resolve the stored choice with
   `LibrarySortMenu.resolve` before the request. Send a sort only as a `ListSort`. The sub-item lists (album
   tracks, playlist tracks, episodes, artist lists) keep `SortConfig` and sort on the client.
+- **Library filters**: `LibraryFilters` (`data/model/client/`) is the filter set of one library list. The
+  settings store one instance for each media type, and the list ViewModel reads it from the settings flow.
+  Each field is one `library_items` argument that the server applies. Do not add a field for an argument
+  that the server drops into `**kwargs`. `audiobookArtistType` makes the Audiobooks list show the library
+  authors or narrators through `music/artists/library_items` with `artist_type`, and the ViewModel then
+  uses the Artists sort menu and the `ARTIST` row type (`State.listedMediaType`). The sheet offers the
+  row only for the types that `music/artists/library_artist_types` returns. An author or narrator row
+  opens the artist page. `Artist.isAudiobookArtist` (from `artist_type`) makes `ArtistDetailsViewModel`
+  load `music/artists/artist_audiobooks` into the "In library" row (`in_library_only`) and the "All
+  audiobooks" row, one option for each provider instance, and it leaves the top tracks row empty. The
+  request sends `artist_type`, because the server needs it for a provider artist. `genreContentType` is the
+  `content_type` taxonomy of the Genres list. `genreMediaType` refines the music taxonomy only: the sheet
+  shows it under the music content type, and `genreMediaTypeFilter` gives null for every other content
+  type, so a stored choice does not narrow the podcast or audiobook genres. The episodes tab of a podcast has its own played filter
+  (`PlayedFilter`, one setting for all podcasts). The app sends `fully_played=false` and filters the
+  answer as well, because a 2.10 server ignores the argument.
 - **Providers**: `ProviderRepository` (`data/repository/`) owns the `providers` list. Read
   `providers` from it. Do not send `Request.Provider.all()` from a screen. It loads the list once
   for each session and again on each `providers_updated`. It does not use the event payload,
@@ -189,6 +205,18 @@ actual class PlatformFeature {
   the subtitle. The phone gets the templates in `localizedSubtitle`. Android Auto and CarPlay load
   them once (`AutoLibrary`, `MediaSessionStrings`, `CarPlayStrings`), because their item builders are
   synchronous. Do not format the label in a different place.
+- **Episode page**: `ItemDetailsScreen` opens a `PodcastEpisode` (`music/podcasts/podcast_episode`, every server 2.x).
+  The header shows the podcast name, which opens the podcast, the played state, and the playing time. The
+  "Other episodes" tab (`ItemDetailsTab.OTHER_EPISODES`) lists the podcast episodes without the open one, with
+  the sort of the podcast page. The menus reach the page with "Go to episode" (`navigationOptions`). The page
+  shows the `description` as "About this episode". From schema 81 (`supportsEpisodeTranscript`, server 2.11),
+  `TranscriptRepository` (`data/repository/`) loads `music/podcasts/podcast_episode_transcript` once for each
+  episode in an app scope and keeps the last answers, because the page and the player ask for the same
+  episode. The answer is a `[text, cues]` tuple, and `transcriptOf` (`model/client/Transcript.kt`) makes a
+  `Lyrics` from it, so `LyricsSheet` shows a transcript with the lyrics timing and offset. The page keeps it
+  in `State.lyrics` and offers "Transcript" in the menu once it is loaded. The expanded player loads the
+  transcript of the current episode and shows it behind the lyrics button. An episode whose provider reports
+  `has_transcript` false is not asked. The page has no steppers and no hide-fully-played filter.
 - **Queue origin**: `QueueTrack.origin` is the container that the item was played from, from server
   2.11. It is null on an older server, for a single track and for a live stream. The stream details
   dialog shows it. It opens the container only if `opensItemDetails` is true. Add a type to

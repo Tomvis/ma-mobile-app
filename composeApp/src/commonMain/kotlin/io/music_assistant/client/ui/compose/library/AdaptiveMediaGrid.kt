@@ -170,6 +170,7 @@ fun AdaptiveMediaGrid(
                 is PodcastEpisode -> PodcastEpisodeWithMenu(
                     item = item,
                     viewMode = viewMode,
+                    navigateToItem = onNavigateClick,
                     onPlayOption = onPlayClick,
                     playlistActions = playlistActions,
                     libraryActions = libraryActions,

@@ -2,6 +2,7 @@ package io.music_assistant.client.data.factory
 
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.client.AlbumType
+import io.music_assistant.client.data.model.client.ArtistType
 import io.music_assistant.client.data.model.client.Chapter
 import io.music_assistant.client.data.model.client.CriticalReception
 import io.music_assistant.client.data.model.client.ImageInfo
@@ -57,6 +58,7 @@ class MediaItemFactory(
                 sortName = sortName,
                 uri = uri,
                 images = resolveImageInfo(image, metadata),
+                artistType = ArtistType.fromServer(artistType),
             )
 
             MediaType.ALBUM -> Album(
@@ -286,6 +288,7 @@ class MediaItemFactory(
             lrcLyrics = it.lrcLyrics,
             dynamicRange = it.dynamicRange?.toFloat(),
             criticalReception = createCriticalReception(it.criticalReception),
+            hasTranscript = it.hasTranscript,
             review = it.review,
             description = it.description,
         )

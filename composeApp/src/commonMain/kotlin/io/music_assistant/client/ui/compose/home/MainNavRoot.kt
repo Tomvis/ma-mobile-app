@@ -60,6 +60,7 @@ import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.MediaCollection
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
+import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.input.VolumeButtonService
@@ -564,6 +565,7 @@ private fun mainNavEntryProvider(
                         is MediaCollection,
                         is Genre,
                         is Track,
+                        is PodcastEpisode,
                             -> {
                             multiBackStack.add(
                                 MainNav.ItemDetails(
@@ -618,6 +620,7 @@ private fun mainNavEntryProvider(
                         is MediaCollection,
                         is Genre,
                         is Track,
+                        is PodcastEpisode,
                             -> {
                             multiBackStack.add(
                                 MainNav.ItemDetails(
@@ -669,6 +672,7 @@ private fun mainNavEntryProvider(
                         is MediaCollection,
                         is Genre,
                         is Track,
+                        is PodcastEpisode,
                             -> multiBackStack.add(
                             MainNav.ItemDetails(
                                 itemId = item.itemId,
@@ -705,6 +709,7 @@ private fun mainNavEntryProvider(
                         is MediaCollection,
                         is Genre,
                         is Track,
+                        is PodcastEpisode,
                             -> {
                             multiBackStack.add(
                                 MainNav.ItemDetails(

@@ -38,6 +38,8 @@ data class ServerMediaItem(
     @SerialName("position") val position: Long? = null,
     @SerialName("year") val year: Int? = null,
     @SerialName("artists") val artists: List<ServerMediaItem>? = null,
+    // Artist only: the server's `ArtistType`; a value the app does not know maps to null.
+    @SerialName("artist_type") val artistType: String? = null,
     // The server's `AlbumType`; a value the app does not know maps to null in `AlbumType.fromServer`.
     @SerialName("album_type") val albumType: String? = null,
     // Playlist only
@@ -95,6 +97,8 @@ data class ServerMetadata(
     @SerialName("copyright") val copyright: String? = null,
     @SerialName("lyrics") val lyrics: String? = null,
     @SerialName("lrc_lyrics") val lrcLyrics: String? = null,
+    /** Whether a transcript can be fetched; null when the provider cannot tell (server 2.11). */
+    @SerialName("has_transcript") val hasTranscript: Boolean? = null,
     @SerialName("label") val label: String? = null,
     // @SerialName("links") val links: List<String>? = null,
     // @SerialName("performers") val performers: List<String>? = null,

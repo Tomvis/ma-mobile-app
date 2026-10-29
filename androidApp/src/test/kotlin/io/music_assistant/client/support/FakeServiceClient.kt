@@ -14,6 +14,7 @@ import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.EventType
 import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.PlayerState
+import io.music_assistant.client.data.model.server.SERVER_2_11_SCHEMA
 import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.ServerMediaItem
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -75,6 +77,7 @@ class FakeServiceClient : ServiceClient {
 
     val username = "user"
     val password = "password"
+    val accessToken = "token"
     var serverId = "serverId"
 
     // 63 (server 2.10.0) and higher turn on the search source picker.
@@ -304,13 +307,45 @@ class FakeServiceClient : ServiceClient {
                 Result.success(answer(request, JsonArray(emptyList())))
             }
 
-            APICommands.musicGet(APICommands.KIND_PLAYLISTS) -> {
+            APICommands.musicGet(APICommands.KIND_PLAYLISTS),
+            APICommands.musicGet(APICommands.KIND_PODCASTS),
+                -> {
                 Result.success(
                     answer(
                         request = request,
                         result = findItem(request).enrichLibraryItem(),
                     ),
                 )
+            }
+
+            // Server 2.11 applies `fully_played`; an older server ignores the argument.
+            APICommands.MUSIC_PODCASTS_PODCAST_EPISODES -> {
+                val fullyPlayed = request.getArgOrNull("fully_played")
+                    ?.takeIf { schemaVersion >= SERVER_2_11_SCHEMA }
+                    ?.toBoolean()
+                Result.success(
+                    answer(
+                        request = request,
+                        result = mediaItemStore.getEpisodesByPodcast(findItem(request))
+                            .filter { fullyPlayed == null || (it.fullyPlayed ?: false) == fullyPlayed },
+                    ),
+                )
+            }
+
+            APICommands.MUSIC_ARTISTS_ARTIST_AUDIOBOOKS -> {
+                val audiobooks = when (request.getArg("provider_instance_id_or_domain")) {
+                    ServerMediaItem.LIBRARY_PROVIDER -> mediaItemStore.getAudiobooksByLibraryArtist(
+                        libraryId = request.getArg("item_id"),
+                        inLibraryOnly = request.getArgOrNull("in_library_only") == "true",
+                    ).enrichLibraryItems()
+
+                    else -> mediaItemStore.getAudiobooksByArtist(findItem(request))
+                }
+                Result.success(answer(request = request, result = audiobooks))
+            }
+
+            APICommands.MUSIC_ARTISTS_LIBRARY_ARTIST_TYPES -> {
+                Result.success(answer(request = request, result = mediaItemStore.libraryArtistTypes()))
             }
 
             APICommands.MUSIC_PLAYLISTS_PLAYLIST_TRACKS -> {
@@ -666,18 +701,17 @@ class FakeServiceClient : ServiceClient {
 
     override suspend fun login(username: String, password: String) {
         if (username == this.username && password == this.password) {
-            authorize("token", true)
-            _isReadyForCommands.value = true
+            authorize(accessToken, true)
         } else {
-            _sessionState.update { state ->
-                (state as SessionState.Connected).update(
-                    authProcessState = AuthProcessState.Failed("Invalid username or password"),
-                )
-            }
+            failAuth("Invalid username or password")
         }
     }
 
     override suspend fun authorize(token: String, isAutoLogin: Boolean) {
+        if (token != accessToken) {
+            failAuth("Invalid or expired token")
+            return
+        }
         _sessionState.update {
             when (it) {
                 is SessionState.Connected.Direct -> {
@@ -694,6 +728,22 @@ class FakeServiceClient : ServiceClient {
 
                 else -> error("Unhandled request type in FakeServiceClient")
             }
+        }
+        _isReadyForCommands.value = true
+    }
+
+    // Like the real client, an attempt passes through InProgress and then waits for the server.
+    // Without the yield, a collector sees only the final state, and a second failure with the
+    // same reason is equal to the first, so the StateFlow does not emit it.
+    private suspend fun failAuth(reason: String) {
+        setAuthProcessState(AuthProcessState.InProgress)
+        yield()
+        setAuthProcessState(AuthProcessState.Failed(reason))
+    }
+
+    private fun setAuthProcessState(authProcessState: AuthProcessState) {
+        _sessionState.update { state ->
+            (state as SessionState.Connected).update(authProcessState = authProcessState)
         }
     }
 
@@ -881,7 +931,17 @@ class FakeServiceClient : ServiceClient {
             mediaType = mediaType,
             inLibraryOnly = true,
             favoritesOnly = favoritesOnly,
+            artistType = request.getArgOrNull("artist_type"),
+            genreContentType = request.getArgOrNull("content_type"),
         )
+    }
+
+    fun setArtistAudiobooks(artist: ServerMediaItem, vararg audiobooks: ServerMediaItem) {
+        mediaItemStore.setArtistAudiobooks(artist, *audiobooks)
+    }
+
+    fun setGenreContentType(genre: ServerMediaItem, contentType: String) {
+        mediaItemStore.setGenreContentType(genre, contentType)
     }
 
     fun getQueueForPlayer(player: ServerPlayer): List<ServerMediaItem> {
