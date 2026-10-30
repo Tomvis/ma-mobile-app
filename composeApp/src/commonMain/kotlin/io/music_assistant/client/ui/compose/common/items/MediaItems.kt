@@ -122,7 +122,6 @@ fun ArtistGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -195,7 +194,6 @@ fun AlbumGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.subtitleText(subtitle).orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -276,7 +274,6 @@ fun PlaylistGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -373,7 +370,6 @@ fun PodcastGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -691,7 +687,6 @@ internal fun AudiobookGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -757,7 +752,6 @@ private fun GridPlayableItemLabels(item: PlayableItem) {
                 ?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
         }",
         subtitle = subtitleText,
-        textAlign = TextAlign.Center,
     )
 }
 
@@ -1063,7 +1057,6 @@ fun GenreGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -1156,7 +1149,6 @@ internal fun FolderCell(
             MediaItemLabels(
                 title = item.displayName,
                 subtitle = null,
-                textAlign = TextAlign.Center,
             )
         }
     }
@@ -1237,7 +1229,6 @@ internal fun MediaCollectionGridItem(
         MediaItemLabels(
             title = item.displayName,
             subtitle = item.localizedSubtitle().orEmpty(),
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -1272,7 +1263,6 @@ private const val SUBTITLE_ALPHA = 0.6f
 internal fun MediaItemLabels(
     title: String,
     subtitle: String?,
-    textAlign: TextAlign? = null,
     titleMaxLines: Int = 1,
 ) {
     Text(
@@ -1280,7 +1270,6 @@ internal fun MediaItemLabels(
         text = title,
         style = mediaItemTitleStyle(),
         fontWeight = MEDIA_TITLE_WEIGHT,
-        textAlign = textAlign,
         maxLines = titleMaxLines,
         overflow = TextOverflow.Ellipsis,
     )
@@ -1298,7 +1287,6 @@ internal fun MediaItemLabels(
                 style = subtitleStyle,
                 fontWeight = MEDIA_TITLE_WEIGHT,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = SUBTITLE_ALPHA),
-                textAlign = textAlign,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
