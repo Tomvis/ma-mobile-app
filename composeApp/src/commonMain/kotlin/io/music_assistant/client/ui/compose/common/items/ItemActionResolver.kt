@@ -54,8 +54,7 @@ fun resolveLongClickActions(
     customizationAllowed: Boolean = false,
 ): List<ItemAction> = buildList {
     // A live input never ends, so nothing queued behind it is reached: starting it is the only action.
-    // An ambient sound loops the same way, and has no library entry on the server.
-    if (item is AudioSource || item is SoundEffect) {
+    if (item is AudioSource) {
         if (item.isPlayable) add(ItemAction.Play(QueueOption.REPLACE))
         return@buildList
     }

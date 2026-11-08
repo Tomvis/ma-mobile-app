@@ -23,7 +23,9 @@ interface LibraryActions {
 
     /** Sets the favorite state of [item]: true is a like, false is a dislike, null clears it. */
     fun onFavoriteChange(item: AppMediaItem, favorite: Boolean?)
-    fun onListenLaterClick(item: AppMediaItem)
+
+    /** Fork (Listen Later). Default no-op so upstream's LibraryActions stubs compile unchanged (HW-306). */
+    fun onListenLaterClick(item: AppMediaItem) = Unit
 }
 
 interface ProgressActions {

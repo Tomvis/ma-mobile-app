@@ -268,24 +268,6 @@ class ItemActionResolverTest {
         assertEquals(null, ItemAction.RemoveDislike.favorite)
     }
 
-    // MUSIC-181: an ambient sound loops until stopped, so like a live input it only starts; it
-    // has no library entry on the server to add, favorite or remove.
-    @Test
-    fun `sound effect long click offers play only`() {
-        val actions = resolveLongClickActions(
-            item = AppMediaItemFixtures.soundEffect(),
-            canEditLibrary = true,
-            dislikeSupported = true,
-            librarySupported = true,
-            canAddToPlaylist = false,
-            canRemoveFromPlaylist = false,
-            progressSupported = false,
-            playMediaSupport = ALL,
-        )
-
-        assertEquals(listOf<ItemAction>(ItemAction.Play(QueueOption.REPLACE)), actions)
-    }
-
     // The player's heart would send a favorite the server can't store.
     @Test
     fun `sound effect has no quick favorite toggle`() {
