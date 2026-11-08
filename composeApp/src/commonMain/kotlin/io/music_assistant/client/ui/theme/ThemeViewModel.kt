@@ -20,4 +20,6 @@ class ThemeViewModel(
         settingsRepository.switchTheme(theme)
         homeTheme.effective.value?.let { homeTheme.choose(it.theme, theme.toHomeMode()) }
     }
+    val accentColor = settingsRepository.accentColor
+    fun setAccentColor(accent: AccentColor) = settingsRepository.setAccentColor(accent)
 }

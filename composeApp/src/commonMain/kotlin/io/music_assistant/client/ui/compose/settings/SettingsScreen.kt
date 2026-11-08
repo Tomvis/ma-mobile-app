@@ -81,6 +81,7 @@ import io.music_assistant.client.ui.compose.nav.TopBarLayout
 import io.music_assistant.client.ui.compose.settings.sections.SendspinSettingsSection
 import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.ui.theme.ThemeViewModel
+import io.music_assistant.client.ui.theme.isDark
 import io.music_assistant.client.utils.AppVersion
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.LocalNetworkOnboardingResources
@@ -395,6 +396,8 @@ fun SettingsScreen(goHome: () -> Unit, exitApp: () -> Unit) {
                         }
                     }
                 }
+
+                // Fork (HW-65): no AccentColorSection; the home palette (HomeThemeSection) replaces the whole scheme.
 
                 // Misc settings - always visible
                 val shareLogsTitle = stringResource(Res.string.settings_share_logs)

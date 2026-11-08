@@ -60,6 +60,8 @@ fun resolveLongClickActions(
         return@buildList
     }
     if (item.isPlayable) addPlaybackActions(item, clickContext, playMediaSupport)
+    // Provider sounds can be played from Browse, but have no library or per-kind tap settings.
+    if (item is SoundEffect) return@buildList
     if (customizationAllowed) add(ItemAction.Customize)
     if (!canEditLibrary) return@buildList
     if (librarySupported) {

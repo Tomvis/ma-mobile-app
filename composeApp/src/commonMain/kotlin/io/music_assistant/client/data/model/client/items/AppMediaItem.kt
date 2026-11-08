@@ -70,6 +70,15 @@ sealed class AppMediaItem {
     abstract val sortName: String?
     abstract val uri: String?
     abstract val images: Map<ImageType, ImageInfo>
+
+    /** The icon of the media type: the artwork placeholder and the type badge. */
+    abstract val defaultIcon: ImageVector
+
+    /**
+     * True if a tap on the item plays it. A tap on every other item opens its page. An audiobook
+     * is playable, but a tap opens its page.
+     */
+    open val playsOnTap: Boolean get() = false
     open val canStartEndlessMix: Boolean get() = false
 
     /** Returns a copy of this item with its [favorite] flag set to [favorite]. */
@@ -140,7 +149,7 @@ sealed class AppMediaItem {
 
 /**
  * A quick favorite toggle is possible only when the add path has a [uri] to send. A live
- * input or a sound effect has a uri, but nothing on the server to favorite.
+ * input or sound effect has a uri, but nothing on the server to favorite.
  */
 val AppMediaItem.canBeFavorited: Boolean get() = uri != null && this !is AudioSource && this !is SoundEffect
 
