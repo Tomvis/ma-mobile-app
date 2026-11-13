@@ -516,7 +516,7 @@ fun PreviewCategoryRowEmpty() {
                 TODO("Not yet implemented")
             }
 
-            override fun addToPlaylist(itemUri: String?, playlist: Playlist) {
+            override fun addToPlaylist(itemUris: List<String>, playlist: Playlist) {
                 TODO("Not yet implemented")
             }
 
@@ -560,7 +560,7 @@ fun PreviewCategoryLoading() {
                 TODO("Not yet implemented")
             }
 
-            override fun addToPlaylist(itemUri: String?, playlist: Playlist) {
+            override fun addToPlaylist(itemUris: List<String>, playlist: Playlist) {
                 TODO("Not yet implemented")
             }
 
@@ -604,7 +604,7 @@ fun PreviewCategoryNoData() {
                 TODO("Not yet implemented")
             }
 
-            override fun addToPlaylist(itemUri: String?, playlist: Playlist) {
+            override fun addToPlaylist(itemUris: List<String>, playlist: Playlist) {
                 TODO("Not yet implemented")
             }
 

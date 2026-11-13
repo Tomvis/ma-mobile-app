@@ -2,6 +2,7 @@ package io.music_assistant.client.support
 
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.server.AI_RADIO_DOMAIN
+import io.music_assistant.client.data.model.server.PARTY_DOMAIN
 import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.ServerMetadata
@@ -21,6 +22,7 @@ object ServerMediaItemFixtures {
             DEFAULT_PROVIDER_INSTANCE,
         ),
         metadata: ServerMetadata? = null,
+        albumType: String? = null,
     ): ServerMediaItem {
         return ServerMediaItem(
             itemId = itemId,
@@ -28,6 +30,7 @@ object ServerMediaItemFixtures {
             name = name,
             mediaType = MediaType.ALBUM.serverValue,
             metadata = metadata,
+            albumType = albumType,
             artists = listOf(artist),
             uri = "http://example.com/album/$itemId",
             isPlayable = true,
@@ -41,6 +44,23 @@ object ServerMediaItemFixtures {
             ),
         )
     }
+
+    /** A server 2.11 discography release that is on no music provider. */
+    fun musicBrainzRelease(
+        releaseGroupId: String = uniqueIdGenerator.nextInt().toString(),
+        name: String = "Release $releaseGroupId",
+        artist: ServerMediaItem = artist(),
+    ): ServerMediaItem = ServerMediaItem(
+        itemId = releaseGroupId,
+        provider = ServerMediaItem.MUSICBRAINZ_PROVIDER,
+        name = name,
+        mediaType = MediaType.ALBUM.serverValue,
+        albumType = "album",
+        artists = listOf(artist),
+        uri = "musicbrainz://album/$releaseGroupId",
+        isPlayable = false,
+        providerMappings = emptyList(),
+    )
 
     fun artist(
         itemId: String = uniqueIdGenerator.nextInt().toString(),
@@ -242,6 +262,14 @@ object ServerMediaItemFixtures {
         domain = AI_RADIO_DOMAIN,
         instanceId = AI_RADIO_DOMAIN,
         name = "AI Radio",
+        type = "plugin",
+    )
+
+    /** The loaded `party` plugin, as the `providers` command lists it. */
+    fun partyPlugin(): ServerProviderInstance = ServerProviderInstance(
+        domain = PARTY_DOMAIN,
+        instanceId = PARTY_DOMAIN,
+        name = "Party",
         type = "plugin",
     )
 

@@ -29,6 +29,7 @@ class QueueFactory(
             currentIndex = currentIndex,
             itemCount = items,
             shuffleEnabled = shuffleEnabled,
+            smartShuffleActive = smartShuffleActive,
             repeatMode = RepeatMode.fromServer(repeatMode) ?: RepeatMode.OFF,
             autoPlayEnabled = autoplayEnabled ?: dontStopTheMusicEnabled,
             crossfadeEnabled = crossfadeEnabled,
@@ -66,6 +67,7 @@ class QueueFactory(
                     isPlayable = appMediaItem.isPlayable,
                     format = streamDetails?.audioFormat,
                     provider = streamDetails?.provider,
+                    streamItemId = streamDetails?.itemId,
                     audioProcessingChain = streamDetails?.audioProcessingChain,
                     origin = origin?.container?.let(mediaItemFactory::create),
                 )

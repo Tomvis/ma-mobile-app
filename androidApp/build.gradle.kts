@@ -14,8 +14,8 @@ android {
         applicationId = "io.music_assistant.client"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 18
-        versionName = "0.17.0"
+        versionCode = 19
+        versionName = "0.18.0"
     }
     packaging {
         resources {
@@ -120,6 +120,7 @@ dependencies {
 
     testImplementation(project(":nav"))
     testImplementation(project(":ui-utils"))
+    testImplementation(project(":sendspin-kmp"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)

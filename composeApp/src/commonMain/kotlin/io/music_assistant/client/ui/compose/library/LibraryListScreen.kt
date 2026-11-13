@@ -38,6 +38,7 @@ import io.music_assistant.client.ui.compose.common.LocalGrantedScopes
 import io.music_assistant.client.ui.compose.common.SelectOption
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.items.ItemSortChip
+import io.music_assistant.client.ui.compose.common.rememberPlaylistFilePicker
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.item.ViewModeToggle
@@ -91,6 +92,18 @@ fun LibraryListScreen(
     val genreOptions by libraryListViewModel.genreOptions.collectAsStateWithLifecycle()
     val audiobookArtistTypes by libraryListViewModel.audiobookArtistTypes.collectAsStateWithLifecycle()
     val viewMode by viewModeViewModel.viewModeFor(state.mediaType).collectAsStateWithLifecycle()
+    val importSources by libraryListViewModel.importSources.collectAsStateWithLifecycle()
+    val pickPlaylistFile = rememberPlaylistFilePicker(libraryListViewModel::onPlaylistFilePicked)
+    val canEditPlaylists = state.mediaType == MediaType.PLAYLIST && LocalGrantedScopes.current.canEditLibrary
+
+    state.importDraft?.let { draft ->
+        ImportPlaylistDialog(
+            draft = draft,
+            sources = importSources,
+            onDismiss = libraryListViewModel::dismissImport,
+            onImport = libraryListViewModel::importPlaylist,
+        )
+    }
 
     TopBarLayout(
         topBar = {
@@ -122,9 +135,8 @@ fun LibraryListScreen(
             data = state.dataState,
             onNavigateClick = onNavigateClick,
             onPlayClick = actionsViewModel::onPlayClick,
-            onCreatePlaylist = libraryListViewModel::createPlaylist.takeIf {
-                state.mediaType == MediaType.PLAYLIST && LocalGrantedScopes.current.canEditLibrary
-            },
+            onCreatePlaylist = libraryListViewModel::createPlaylist.takeIf { canEditPlaylists },
+            onImportPlaylist = pickPlaylistFile.takeIf { canEditPlaylists },
             playlistActions = actionsViewModel,
             libraryActions = actionsViewModel,
             progressActions = actionsViewModel,

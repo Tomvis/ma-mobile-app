@@ -126,18 +126,18 @@ class ActionsViewModel(
         )
 
     override fun addToPlaylist(
-        itemUri: String?,
+        itemUris: List<String>,
         playlist: Playlist,
     ) {
         viewModelScope.launch {
-            if (itemUri == null) {
+            if (itemUris.isEmpty()) {
                 _toasts.emit(getString(Res.string.toast_no_uri))
                 return@launch
             }
             apiClient.sendRequest(
                 Request.Playlist.addTracks(
                     playlistId = playlist.itemId,
-                    trackUris = listOf(itemUri),
+                    trackUris = itemUris,
                 ),
             )
                 .onSuccess {
@@ -150,20 +150,21 @@ class ActionsViewModel(
     }
 
     /**
-     * [position] is the item's `PlayableItem.position` exactly as the server emitted it for this
+     * [positions] are the items' `PlayableItem.position` exactly as the server emitted them for this
      * playlist (providers number from 1 and delete `items[position - 1]`), so the displayed order
-     * or an active filter never affects which item is removed.
+     * or an active filter never affects which item is removed. The server removes them in one
+     * request, from the highest position down.
      */
     fun removeFromPlaylist(
         playlistId: String,
-        position: Int,
+        positions: List<Int>,
         onSuccess: () -> Unit,
     ) {
         viewModelScope.launch {
             apiClient.sendRequest(
                 Request.Playlist.removeTracks(
                     playlistId = playlistId,
-                    positions = listOf(position),
+                    positions = positions,
                 ),
             ).onSuccess {
                 onSuccess()
@@ -212,22 +213,24 @@ class ActionsViewModel(
      * item lists, browse, search, home and the Listen Later screen. Radio mode is suppressed
      * for genres (their URI already resolves to a radio-style stream).
      */
-    fun onPlayClick(item: AppMediaItem, mode: PlayMode) {
+    fun onPlayClick(item: AppMediaItem, mode: PlayMode) = onPlayItemsClick(listOf(item), mode)
+
+    /** Plays [items] as one `play_media` request, in the given order. */
+    fun onPlayItemsClick(items: List<AppMediaItem>, mode: PlayMode) {
         val queueId = dataSource.selectedPlayer?.queueOrPlayerId ?: return
-        item.mediaUri?.let { mediaUri ->
-            Logger.withTag("PlayDispatch")
-                .i { "ActionsViewModel: uri=$mediaUri mode=$mode queue=$queueId" }
-            playDispatcher.play(
-                PlayRequest(
-                    queueOrPlayerId = queueId,
-                    media = listOf(mediaUri),
-                    option = mode.option,
-                    endlessMixMode = mode.endlessMix && item !is Genre,
-                    shuffle = mode.shuffle,
-                    startFromBeginning = mode.startFromBeginning,
-                ),
-            )
-        }
+        val media = items.mapNotNull { it.mediaUri }.takeIf { it.isNotEmpty() } ?: return
+        Logger.withTag("Session.PlayDispatch")
+            .i { "ActionsViewModel: uri=${media.first()} count=${media.size} mode=$mode queue=$queueId" }
+        playDispatcher.play(
+            PlayRequest(
+                queueOrPlayerId = queueId,
+                media = media,
+                option = mode.option,
+                endlessMixMode = mode.endlessMix && items.none { it is Genre },
+                shuffle = mode.shuffle,
+                startFromBeginning = mode.startFromBeginning,
+            ),
+        )
     }
 
     private companion object {

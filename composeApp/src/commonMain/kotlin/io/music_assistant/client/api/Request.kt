@@ -10,6 +10,8 @@ import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.MarkableItem
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.ListSort
+import io.music_assistant.client.data.model.server.PlaylistMatchPolicy
+import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.SortWire
 import io.music_assistant.client.utils.myJson
 import kotlinx.serialization.SerialName
@@ -477,6 +479,33 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 )
             },
         )
+
+        /** The M3U8 text of a library playlist. */
+        fun export(dbPlaylistId: String) = Request(
+            command = APICommands.MUSIC_PLAYLISTS_EXPORT_PLAYLIST,
+            args = buildJsonObject {
+                put("db_playlist_id", JsonPrimitive(dbPlaylistId))
+            },
+        )
+
+        /**
+         * Creates a library playlist from [m3uData] and matches its tracks, like the web frontend.
+         * A null [matchProviders] searches every music source. Send [matchPolicy] only to a server
+         * that has it ([supportsPlaylistMatchPolicy]).
+         */
+        fun import(
+            m3uData: String,
+            matchProviders: List<String>?,
+            matchPolicy: PlaylistMatchPolicy?,
+        ) = Request(
+            command = APICommands.MUSIC_PLAYLISTS_IMPORT_PLAYLIST,
+            args = buildJsonObject {
+                put("m3u_data", JsonPrimitive(m3uData))
+                put("library_matching", JsonPrimitive(true))
+                matchProviders?.let { put("match_providers", JsonArray(it.map(::JsonPrimitive))) }
+                matchPolicy?.let { put("match_policy", JsonPrimitive(it.serverValue)) }
+            },
+        )
     }
 
     data object Podcast {
@@ -548,6 +577,25 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         /** The users a playlist can be shared with, the caller included. Server 2.11. */
         fun shareCandidates() = Request(command = APICommands.CONFIG_PROVIDERS_SHARE_CANDIDATES)
+
+        /** The config of a loaded instance, with its entries. Needs `config.providers.read`. */
+        fun config(instanceId: String) = Request(
+            command = APICommands.CONFIG_PROVIDERS_GET,
+            args = buildJsonObject { put("instance_id", JsonPrimitive(instanceId)) },
+        )
+
+        /**
+         * Stores [values] (only the given keys) and answers with the full config. The server then
+         * reloads the provider. Needs `config.providers.write` for a provider the user does not own.
+         */
+        fun saveConfig(domain: String, instanceId: String, values: Map<String, JsonPrimitive>) = Request(
+            command = APICommands.CONFIG_PROVIDERS_SAVE,
+            args = buildJsonObject {
+                put("provider_domain", JsonPrimitive(domain))
+                put("instance_id", JsonPrimitive(instanceId))
+                put("values", JsonObject(values))
+            },
+        )
 
         fun icon(providerDomain: String, variant: String? = null) = Request(
             command = APICommands.PROVIDERS_ICON,
@@ -803,6 +851,23 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             providerInstanceIdOrDomain,
             limit = limit,
         )
+
+        /** The albums a library artist appears on without being an album artist (server 2.11). */
+        fun getAppearsOn(libraryItemId: String) = Library.subItems(
+            APICommands.MUSIC_ARTISTS_ARTIST_APPEARS_ON,
+            libraryItemId,
+            ServerMediaItem.LIBRARY_PROVIDER,
+        )
+
+        /**
+         * The discography of a library artist as MusicBrainz knows it (server 2.11): the library
+         * albums, and a `musicbrainz` album for each release outside the library.
+         */
+        fun getDiscography(libraryItemId: String) = Library.subItems(
+            APICommands.MUSIC_ARTISTS_DISCOGRAPHY,
+            libraryItemId,
+            ServerMediaItem.LIBRARY_PROVIDER,
+        )
     }
 
     data object Album {
@@ -942,6 +1007,17 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         )
     }
 
+    data object AudioAnalysis {
+        /** The RMS waveform of a track: 1800 bins of 0.0 to 1.0, or null without analysis. `supportsWaveform`. */
+        fun waveForm(itemId: String, providerInstanceIdOrDomain: String) = Request(
+            command = APICommands.AUDIO_ANALYSIS_WAVE_FORM,
+            args = buildJsonObject {
+                put("item_id", JsonPrimitive(itemId))
+                put("provider_instance_id_or_domain", JsonPrimitive(providerInstanceIdOrDomain))
+            },
+        )
+    }
+
     data object Metadata {
         fun getTrackLyrics(track: TrackItem) = Request(
             command = APICommands.METADATA_GET_TRACK_LYRICS,
@@ -1036,6 +1112,16 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             args = buildJsonObject {
                 put("item", JsonPrimitive(itemUri))
                 put("favorite", JsonPrimitive(favorite))
+            },
+        )
+
+        /** Any item by type and provider. Resolves a `musicbrainz` release to an album (server 2.11). */
+        fun item(mediaType: MediaType, itemId: String, providerInstanceIdOrDomain: String) = Request(
+            command = APICommands.MUSIC_ITEM,
+            args = buildJsonObject {
+                put("media_type", JsonPrimitive(mediaType.serverValue))
+                put("item_id", JsonPrimitive(itemId))
+                put("provider_instance_id_or_domain", JsonPrimitive(providerInstanceIdOrDomain))
             },
         )
 
@@ -1244,5 +1330,16 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
                 put("host_id", hostId?.let(::JsonPrimitive) ?: JsonNull)
             },
         )
+    }
+
+    /**
+     * The optional `party` plugin provider (checked on server 2.10.9 and 2.11). Gate the call sites on
+     * `PartyRepository.available`. Both need `providers.read`.
+     */
+    data object Party {
+        /** The guest join URL, or null while guest access is off. */
+        fun url() = Request(command = APICommands.PARTY_URL)
+
+        fun config() = Request(command = APICommands.PARTY_CONFIG)
     }
 }

@@ -19,14 +19,15 @@
   <string name="action_choose_artist">Choose artist</string>
   <string name="action_customize">Customize…</string>
   <string name="action_dislike">Dislike</string>
+  <string name="action_export_playlist">Export playlist</string>
   <string name="action_favorite">Favorite</string>
   <string name="action_find_on_music_services">Find on your music services</string>
   <string name="action_go_to_album">Go to album</string>
   <string name="action_go_to_artist">Go to artist</string>
   <string name="action_go_to_episode">Go to episode</string>
   <string name="action_go_to_podcast">Go to podcast</string>
-  <string name="action_go_to_track">Go to track</string>
   <string name="action_go_to_radio">Go to radio</string>
+  <string name="action_go_to_track">Go to track</string>
   <string name="action_insert_next">Add next</string>
   <string name="action_insert_next_and_play">Add next and play</string>
   <string name="action_lyrics">Lyrics</string>
@@ -53,6 +54,7 @@
   <string name="action_remove_from_playlist">Remove from playlist</string>
   <string name="action_save_for_later">Save for later</string>
   <string name="action_replace_next">Add next and replace the rest</string>
+  <string name="action_select_multiple">Select multiple</string>
   <string name="action_similar_artists">Similar artists</string>
   <string name="action_start_endless_mix">Start endless mix</string>
   <string name="action_start_radio">Start radio</string>
@@ -107,11 +109,16 @@
   <string name="announcement_title">Play announcement</string>
   <string name="announcement_volume">Volume: %1$d</string>
   <string name="app_name">Music Assistant</string>
+  <string name="artist_section_albums">Albums</string>
   <string name="artist_section_all">Discography</string>
   <string name="artist_section_all_audiobooks">All audiobooks</string>
+  <string name="artist_section_appears_on">Appears on</string>
+  <string name="artist_section_discography">Discography</string>
   <string name="artist_section_in_library">In library</string>
+  <string name="artist_section_singles_eps">Singles &amp; EPs</string>
   <string name="artist_section_top">Top tracks</string>
   <string name="artist_source_all">All</string>
+  <string name="artist_source_library">Library</string>
   <string name="artist_type_authors">Authors</string>
   <string name="artist_type_narrators">Narrators</string>
   <string name="auth_authenticating">Authenticating…</string>
@@ -151,6 +158,7 @@
   <string name="cd_applied">Applied</string>
   <string name="cd_autoplay_off">Autoplay off</string>
   <string name="cd_autoplay_on">Autoplay on</string>
+  <string name="cd_autoplay_repeat_locked">Autoplay off while repeat is on</string>
   <string name="cd_close">Close</string>
   <string name="cd_collapse_sendspin_advanced">Hide advanced configuration</string>
   <string name="cd_connection_history">Connection history</string>
@@ -179,10 +187,11 @@
   <string name="cd_lyrics_offset_increase">Show lyrics earlier</string>
   <string name="cd_more">More</string>
   <string name="cd_mute">Mute</string>
+  <string name="cd_party_qr">QR code to join the party</string>
   <string name="cd_play_now">Play now</string>
+  <string name="cd_play_options">Play options</string>
   <string name="cd_player_delay">Playback delay of %1$s</string>
   <string name="cd_player_volume">Volume of %1$s</string>
-  <string name="cd_play_options">Play options</string>
   <string name="cd_playing">Playing %1$s</string>
   <string name="cd_provider_filter">Filtering %1$s by provider %2$s</string>
   <string name="cd_provider_icon">Provider Icon</string>
@@ -190,6 +199,9 @@
   <string name="cd_remove_from_group">Remove from group</string>
   <string name="cd_scan_qr_code">Scan QR code</string>
   <string name="cd_select_codec">Select codec</string>
+  <string name="cd_shuffle_off">Shuffle off</string>
+  <string name="cd_shuffle_on">Shuffle on</string>
+  <string name="cd_shuffle_smart">Smart shuffle on</string>
   <string name="cd_sleep_timer">Sleep timer active</string>
   <string name="cd_sleep_timer_off">Sleep timer off</string>
   <string name="cd_sort_direction">Sort direction</string>
@@ -203,6 +215,7 @@
   <string name="cd_transcript_offset_increase">Show transcript earlier</string>
   <string name="cd_unmute">Unmute</string>
   <string name="cd_view_all">View all %1$s</string>
+  <string name="cd_vinyl_record">Vinyl Record</string>
   <string name="clickctx_album">Album</string>
   <string name="clickctx_artist">Artist</string>
   <string name="clickctx_browse">Browse</string>
@@ -227,6 +240,7 @@
   <string name="common_delete">Delete</string>
   <string name="common_dismiss">Dismiss</string>
   <string name="common_done">Done</string>
+  <string name="common_save">Save</string>
   <string name="connection_lost">Disconnected — reconnecting…</string>
   <string name="default_click_dialog_save">Save</string>
   <string name="default_click_dialog_title">Default click action</string>
@@ -237,6 +251,10 @@
   <string name="dialog_remove_from_library_title">Remove from library?</string>
   <string name="dialog_remove_from_playlist_message">Remove "%1$s" from this playlist?</string>
   <string name="dialog_remove_from_playlist_title">Remove from playlist?</string>
+  <plurals name="dialog_remove_items_from_playlist_message">
+    <item quantity="one">Remove %1$d item from this playlist?</item>
+    <item quantity="other">Remove %1$d items from this playlist?</item>
+  </plurals>
   <string name="discover_edit_rows">Edit rows</string>
   <string name="discover_save_rows">Save rows</string>
   <string name="discover_shortcuts">Shortcuts</string>
@@ -282,6 +300,7 @@
   <string name="item_section_biography">Biography</string>
   <string name="item_section_description">Description</string>
   <string name="item_section_review">Review</string>
+  <string name="item_subtitle_ai_host">AI host</string>
   <string name="item_subtitle_audio_source">Input</string>
   <string name="item_subtitle_genre">Genre</string>
   <string name="item_subtitle_playlist">Playlist</string>
@@ -289,8 +308,8 @@
   <string name="item_subtitle_podcast">Podcast</string>
   <string name="item_subtitle_radio">Radio</string>
   <string name="item_subtitle_series">Series</string>
-  <string name="item_subtitle_ai_host">AI host</string>
   <string name="item_subtitle_sound">Sound effect</string>
+  <string name="item_subtitle_sound_effect">AI host</string>
   <string name="item_subtitle_unknown">Unknown</string>
   <string name="item_tab_other_episodes">Other episodes</string>
   <string name="item_tab_similar_tracks">Similar tracks</string>
@@ -348,10 +367,20 @@
   <string name="nav_home">Home</string>
   <string name="nav_library">Library</string>
   <string name="nav_menu">Menu</string>
+  <string name="nav_party">Party</string>
   <string name="nav_search">Search</string>
   <string name="nav_settings">Settings</string>
   <string name="nav_system">System</string>
   <string name="not_connected_retry">Not connected — try again when reconnected</string>
+  <string name="party_copy_link">Copy link</string>
+  <string name="party_guest_access_off">Guest access is off. Turn it on in the Party plugin settings on the server.</string>
+  <string name="party_guest_access_off_host">Set up the party, then turn on guest access to show the QR code.</string>
+  <string name="party_invite_error">Could not load the party link.</string>
+  <string name="party_link_copied">Link copied</string>
+  <string name="party_save_failed">Could not save the party settings.</string>
+  <string name="party_scan_to_join">Scan the QR code to join the party!</string>
+  <string name="party_settings">Party settings</string>
+  <string name="party_settings_error">Could not load the party settings.</string>
   <string name="playback_speed_dialog_title">Playback speed</string>
   <string name="player_autoplay">Autoplay</string>
   <string name="player_crossfade">Crossfade</string>
@@ -361,14 +390,16 @@
   <string name="player_power_on">Power on</string>
   <string name="player_powered_off">Powered off</string>
   <string name="player_show_buffer_indicator">Show buffer indicator</string>
+  <string name="player_show_waveform">Show waveform</string>
   <string name="player_sleep_timer">Sleep timer</string>
   <string name="player_standby">Player is in stand-by mode. Tap to wake.</string>
   <string name="player_unavailable">Unavailable</string>
-  <string name="players_dsp_settings">DSP settings</string>
   <string name="players_delay_slow_down">Slow down</string>
   <string name="players_delay_speed_up">Speed up</string>
   <string name="players_delay_step">%1$d ms</string>
+  <string name="players_dsp_settings">DSP settings</string>
   <string name="players_group_settings">Group settings</string>
+  <string name="players_group_volume">%1$s group volume</string>
   <string name="players_hide_unavailable">Hide unavailable</string>
   <string name="players_loading">Loading players…</string>
   <string name="players_none_available">No players available</string>
@@ -383,6 +414,17 @@
   <string name="playlist_add_new">Add new</string>
   <string name="playlist_add_to_title">Add to playlist</string>
   <string name="playlist_create_title">Create new playlist</string>
+  <string name="playlist_import">Import</string>
+  <string name="playlist_import_match_best_effort">Best effort</string>
+  <string name="playlist_import_match_best_effort_description">Prefer an exact match, then the same recording. Otherwise, accept the closest available match.</string>
+  <string name="playlist_import_match_exact">Exact release</string>
+  <string name="playlist_import_match_exact_description">Match tracks against the same release only.</string>
+  <string name="playlist_import_match_same_recording">Same recording (recommended)</string>
+  <string name="playlist_import_match_same_recording_description">Prefer an exact match. Otherwise accept the same recording from a different release.</string>
+  <string name="playlist_import_matching">Track matching</string>
+  <string name="playlist_import_sources">Search for tracks on</string>
+  <string name="playlist_import_sources_description">Selected music sources are used as a fallback when the original source of a track is not available.</string>
+  <string name="playlist_import_title">Import playlist</string>
   <string name="playlist_name_label">Playlist name</string>
   <string name="playlist_no_editable">No editable playlists available</string>
   <string name="playlist_sharing_everyone">Everyone, including guests</string>
@@ -433,6 +475,13 @@
   <string name="search_source_library">Library</string>
   <string name="search_start">Start searching…</string>
   <string name="search_title">Global search</string>
+  <string name="selection_actions">Actions for selected items</string>
+  <string name="selection_cancel">Cancel selection</string>
+  <plurals name="selection_count">
+    <item quantity="one">%1$d selected</item>
+    <item quantity="other">%1$d selected</item>
+  </plurals>
+  <string name="selection_select_all">Select all</string>
   <string name="sendspin_encryption_required_unavailable">Encrypted connection required, but this server does not support it. Update Music Assistant or disable the requirement.</string>
   <string name="sendspin_failed_incompatible_protocol">The server uses a Sendspin protocol version this app does not support. Check for app and server updates, then restart the local player. Share app logs if the problem persists.</string>
   <string name="sendspin_failed_server_rejected">The server refused this device as a player. Check the Music Assistant server log.</string>
@@ -520,6 +569,7 @@
   <string name="settings_sendspin_advanced_summary">buffer, custom connection, and more</string>
   <string name="settings_sendspin_advanced_title">Advanced Configuration</string>
   <string name="settings_sendspin_intro">Enable to play music directly through your device.</string>
+  <string name="settings_sendspin_require_encryption">Require encrypted connection</string>
   <string name="settings_sendspin_reset_defaults">Reset to defaults</string>
   <string name="settings_sendspin_save_changes">Save changes</string>
   <string name="settings_server">Server</string>
@@ -531,6 +581,8 @@
   <string name="settings_use_tls">Use TLS (wss://)</string>
   <string name="settings_use_tls_wss">Use secure connection (WSS/TLS)</string>
   <string name="settings_version_info">Version %1$s, Schema %2$s</string>
+  <string name="settings_volume_keys_control_player">Volume buttons control the selected player</string>
+  <string name="settings_volume_keys_control_player_hint">While the app is open and a player other than this device is selected, the volume buttons change the volume of that player instead of the phone.</string>
   <string name="settings_webrtc_description">Connect from anywhere without port forwarding</string>
   <string name="settings_webrtc_disclaimer">WebRTC connection can be slower and less reliable than direct or proxied connection to your server.</string>
   <string name="settings_webrtc_info">WebRTC uses cloud signalling with end-to-end encryption. Works through most firewalls and NATs.</string>
@@ -556,6 +608,7 @@
   <string name="toast_error_add_playlist">Error adding to playlist</string>
   <string name="toast_error_create_playlist">Error creating playlist</string>
   <string name="toast_error_favorite_stream_track">Could not favorite the on-air song. The server may be unable to resolve its title.</string>
+  <string name="toast_error_import_playlist">Error importing playlist</string>
   <string name="toast_error_mark_played">Error marking as played</string>
   <string name="toast_error_mark_unplayed">Error marking as unplayed</string>
   <string name="toast_favorited_stream_track">Added the on-air song to favorites</string>
@@ -609,7 +662,13 @@
   <string name="sort_tps">TPS</string>
   <string name="sort_listen_later_added">Date saved for later</string>
   <string name="listen_later_title">Listen Later</string>
+  <string name="toast_playlist_file_invalid">This file is not an M3U playlist</string>
+  <string name="toast_playlist_file_too_large">The playlist file is too large</string>
+  <string name="toast_playlist_file_unreadable">Could not read the file</string>
+  <string name="toast_playlist_imported">Imported %1$s</string>
   <string name="unsupported_install_description">This server is not installed through one of the supported installation methods. Some features may not work as expected, and issues reported from it may be closed without support.</string>
   <string name="unsupported_install_link">Installation methods</string>
   <string name="unsupported_install_title">Unsupported installation</string>
+  <string name="volume_keys_no_volume_control">The volume of %1$s cannot be changed</string>
+  <string name="volume_keys_player_off">%1$s is off</string>
 </resources>

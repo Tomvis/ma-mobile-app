@@ -46,6 +46,8 @@ object APICommands {
     const val MUSIC_PLAYLISTS_PLAYLIST_TRACKS = "music/playlists/playlist_tracks"
     const val MUSIC_PLAYLISTS_ADD_PLAYLIST_TRACKS = "music/playlists/add_playlist_tracks"
     const val MUSIC_PLAYLISTS_REMOVE_PLAYLIST_TRACKS = "music/playlists/remove_playlist_tracks"
+    const val MUSIC_PLAYLISTS_EXPORT_PLAYLIST = "music/playlists/export_playlist"
+    const val MUSIC_PLAYLISTS_IMPORT_PLAYLIST = "music/playlists/import_playlist"
 
     // Podcast commands
     const val MUSIC_PODCASTS_LIBRARY_ITEMS = "music/podcasts/library_items"
@@ -76,6 +78,8 @@ object APICommands {
     const val MUSIC_ARTISTS_SIMILAR_ARTISTS = "music/artists/similar_artists"
     const val MUSIC_ARTISTS_LIBRARY_ARTIST_TYPES = "music/artists/library_artist_types"
     const val MUSIC_ARTISTS_ARTIST_AUDIOBOOKS = "music/artists/artist_audiobooks"
+    const val MUSIC_ARTISTS_ARTIST_APPEARS_ON = "music/artists/artist_appears_on"
+    const val MUSIC_ARTISTS_DISCOGRAPHY = "music/artists/discography"
 
     // Album commands
     const val MUSIC_ALBUMS_LIBRARY_ITEMS = "music/albums/library_items"
@@ -103,6 +107,9 @@ object APICommands {
     const val MUSIC_MARK_PLAYED = "music/mark_played"
     const val MUSIC_MARK_UNPLAYED = "music/mark_unplayed"
 
+    // Audio analysis commands
+    const val AUDIO_ANALYSIS_WAVE_FORM = "audio_analysis/wave_form"
+
     // Metadata commands
     const val METADATA_GET_TRACK_LYRICS = "metadata/get_track_lyrics"
 
@@ -121,8 +128,11 @@ object APICommands {
     const val PROVIDERS = "providers"
     const val PROVIDERS_ICON = "providers/icon"
     const val CONFIG_PROVIDERS_SHARE_CANDIDATES = "config/providers/share_candidates"
+    const val CONFIG_PROVIDERS_GET = "config/providers/get"
+    const val CONFIG_PROVIDERS_SAVE = "config/providers/save"
 
     // Items
+    const val MUSIC_ITEM = "music/item"
     const val MUSIC_ITEM_BY_URI = "music/item_by_uri"
     const val MUSIC_REFRESH_ITEM = "music/refresh_item"
 
@@ -148,6 +158,10 @@ object APICommands {
     const val AI_RADIO_HOSTS_LIST = "ai_radio/hosts/list"
     const val AI_RADIO_QUEUE_DJ_STATUS = "ai_radio/queue_dj/status"
     const val AI_RADIO_QUEUE_DJ_SET = "ai_radio/queue_dj/set"
+
+    // Party plugin (optional provider, domain "party"): the host side of guest access.
+    const val PARTY_URL = "party/url"
+    const val PARTY_CONFIG = "party/config"
 
     // DSP commands
     const val CONFIG_PLAYERS_DSP_GET = "config/players/dsp/get"

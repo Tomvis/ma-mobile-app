@@ -26,6 +26,45 @@ Root: CPListTemplate ("Library")
 
 User taps an item → `CarPlayContentManager.playItem()` → `KmpHelper.playMediaItem()` → `CPNowPlayingTemplate.shared` is pushed → `NowPlayingManager` updates `MPNowPlayingInfoCenter` for artwork/metadata/remote commands.
 
+### Like button
+
+The Now Playing template shows a heart button (#1347). It follows the rules of the Android Auto
+favorite action (`MediaNotificationData`, `SharedMediaSessionManager`):
+
+| Current item | Heart | Tap |
+|---|---|---|
+| A liked track | Filled | Clears the like (`toggleFavorite` sends null, never a dislike). |
+| A track with no choice, or a disliked track (server 2.11) | Outline | Likes the track. |
+| A radio stream with a song on air that the server can resolve | Outline | Adds the song on air (`favoriteCurrentlyPlaying`). |
+| Audiobook, podcast episode, a track without a URI, nothing playing | No button | — |
+
+- The user must have `library.write` (`GrantedScopes.canEditLibrary`). Without it, there is no button.
+- `MainDataSource.nowPlayingLike` (`NowPlayingLike`, from `buildNowPlayingLike`) is the state of the
+  local player. It includes the optimistic favorite override, so the heart changes at once.
+- `KmpHelper.toggleNowPlayingLike` calls `MainDataSource.toggleNowPlayingLike`. It reads the state
+  again from the current local player, so the action always applies to the item that plays now.
+- The scene delegate keeps two heart instances for each connection, `heart` and `heart.fill`. A state
+  change installs the other instance, and it never makes a new one. The heart sits between shuffle and
+  repeat, as in Android Auto. A radio stream shows the heart alone.
+- A favorite is not a player action, so the tap does not go through `dispatchCarCommand`.
+
+### Up Next
+
+The Now Playing template shows the system Up Next button, titled "Queue" (`CarPlayStrings.queue`).
+The button opens a `CPListTemplate` with the queue of the local player.
+
+- `KmpHelper.observeCarPlayQueue` gives the rows from the current item on. It uses the same rows as
+  the in-app queue and Android Auto (`buildDisplayRows`, then `upNext`), so the chapters of a current
+  audiobook follow the book. The limit is `CPListTemplate.maximumItemCount`. Older items do not show.
+- The subscription starts on connect and stops on disconnect. It enables the button only if the list
+  has more than one row, because the current item alone is not an Up Next list.
+- The subscription fires only when a row changes. While the list is on screen, each change rebuilds
+  its sections. The current item shows the playing indicator.
+- A tap sends the row key to `KmpHelper.playCarPlayQueueRow`. A queue item plays, and a chapter row
+  seeks in the current book (`MainDataSource.selectQueueRow`, shared with Android Auto). Then the
+  stack pops back to Now Playing.
+- The list has no reorder and no remove, because CarPlay list rows have no such actions.
+
 ### Template constraints (iOS 18+)
 
 - `CPTabBarTemplate` only accepts `CPListTemplate` and `CPGridTemplate` — **not** `CPSearchTemplate`.
@@ -176,13 +215,17 @@ iOS-only Swift-callable API in `KmpHelper.kt`:
 |---|---|
 | `fetchArtists / Albums / Tracks / Playlists / Audiobooks / Podcasts / RadioStations` | `Request.<Type>.listLibrary()` |
 | `fetchRecommendations` | `Request.Library.recommendations()` |
-| `fetchRecommendationFolders` | Same, filtered to `AppMediaItem.RecommendationFolder` |
+| `fetchRecommendationFolders` | Same, filtered to `AppMediaItem.RecommendationFolder`, then to the visible rows in the order of the Discover config (`visibleHomeFolders`, like Android Auto) |
 | `search(query)` | 6 media types (artist/album/track/playlist/audiobook/radio), `limit=10`, `libraryOnly=false` |
 | `playMediaItem(item)` | Selected player + `QueueOption.PLAY` |
 | `setFavorite(item, favorite) -> Boolean` | `addFavorite(uri\|mediaUri)` or `removeFavorite(id, mediaType)`. False if no URI for add. |
 | `getServerUrl() -> String?` | The connected server's base URL |
 | `getServerId() -> String?` | The connected server's stable UUID (from `ServerInfo.server_id` in the handshake) |
 | `carPlayAccent() -> CarPlayAccent` | The accent primary as ARGB (`lightArgb`, `darkArgb`) for the browse icon tint |
+| `observeNowPlayingLike(onChanged) -> Cancellable` | The like button state of the current item (`NowPlayingLike`) |
+| `toggleNowPlayingLike()` | A tap on the like button |
+| `observeCarPlayQueue(limit, onChanged) -> Cancellable` | The Up Next rows of the local player (`CarPlayQueueRow.Item` or `.Chapter`) |
+| `playCarPlayQueueRow(key) -> Boolean` | Plays the queue item or seeks to the chapter. False if the row is gone |
 
 All completion handlers fire on `Dispatchers.Main` (= iOS main thread on Kotlin/Native).
 
@@ -229,6 +272,8 @@ Common failure modes:
 |---|---|
 | CarPlay browse + play (simulator) | ✅ |
 | CarPlay browse + play (in-car) | Untested |
+| CarPlay like button (#1347) | Compiled and unit-tested only. Not checked in the simulator or in a car |
+| CarPlay Up Next (#986) | Compiled and unit-tested only. Not checked in the simulator or in a car |
 | `INPlayMediaIntent` from "Hey Siri" on iPhone | ✅ verified for tracks, albums, artists |
 | `INUpdateMediaAffinityIntent` ("I love this song") | ⚠️ Server-side favorite applies correctly. Siri's own NLG fails with `SiriAudioAffinityScorer Got unexpected parse` because Siri can't ground the spoken confirmation against an unknown item — renders "something went wrong" UI. **Blocked on Spotlight indexing.** |
 | `INSearchForMediaIntent` | Untested |

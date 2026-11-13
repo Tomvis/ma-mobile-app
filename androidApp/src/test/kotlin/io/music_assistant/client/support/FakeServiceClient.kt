@@ -19,6 +19,7 @@ import io.music_assistant.client.data.model.server.Scope
 import io.music_assistant.client.data.model.server.SearchResult
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.ServerMediaItem
+import io.music_assistant.client.data.model.server.ServerPartyConfig
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerPlayerMedia
 import io.music_assistant.client.data.model.server.ServerProviderInstance
@@ -49,8 +50,11 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.atomic.AtomicBoolean
 
 class FakeServiceClient : ServiceClient {
@@ -74,6 +78,14 @@ class FakeServiceClient : ServiceClient {
 
     /** provider_id and return_url of each `auth/authorization_url` request. */
     val authorizationUrlRequests = mutableListOf<Pair<String, String?>>()
+
+    /** The Party plugin: the join link that guest access hands out, and the settings that a save changes. */
+    var partyUrl: String? = null
+    var partyName: String? = null
+    var partyGuestAccess = true
+
+    /** Scopes that the test user gets on top of the default role scopes. */
+    val extraScopes = mutableSetOf<String>()
 
     val username = "user"
     val password = "password"
@@ -152,7 +164,7 @@ class FakeServiceClient : ServiceClient {
                                 Scope.LIBRARY_WRITE,
                                 Scope.LIBRARY_MANAGE,
                                 Scope.QUEUES_CONTROL,
-                            ),
+                            ) + extraScopes,
                         ),
                     ),
                 )
@@ -162,6 +174,25 @@ class FakeServiceClient : ServiceClient {
                 val uri = request.getArg("media_item")
                 val item = mediaItemStore.getByUri(uri)!!.enrichLibraryItem()
                 Result.success(answer(request = request, result = item))
+            }
+
+            // A `musicbrainz` discography release resolves to an album on a music provider.
+            APICommands.MUSIC_ITEM -> {
+                val item = when (request.getArg("provider_instance_id_or_domain")) {
+                    ServerMediaItem.MUSICBRAINZ_PROVIDER ->
+                        mediaItemStore.resolveMusicBrainzRelease(request.getArg("item_id"))
+
+                    else -> findItem(request)
+                }
+                Result.success(answer(request = request, result = item.enrichLibraryItem()))
+            }
+
+            APICommands.MUSIC_ARTISTS_ARTIST_APPEARS_ON -> {
+                Result.success(answer(request, mediaItemStore.getAppearsOn(request.getArg("item_id"))))
+            }
+
+            APICommands.MUSIC_ARTISTS_DISCOGRAPHY -> {
+                Result.success(answer(request, mediaItemStore.getDiscography(request.getArg("item_id"))))
             }
 
             APICommands.MUSIC_ITEM_BY_URI -> {
@@ -626,6 +657,19 @@ class FakeServiceClient : ServiceClient {
                 )
             }
 
+            APICommands.PARTY_URL -> Result.success(answer(request, partyUrl?.takeIf { partyGuestAccess }))
+
+            APICommands.CONFIG_PROVIDERS_GET -> Result.success(answer(request, partyProviderConfig()))
+
+            APICommands.CONFIG_PROVIDERS_SAVE -> {
+                val values = request.args!!["values"]!!.jsonObject
+                values["enable_guest_access"]?.jsonPrimitive?.boolean?.let { partyGuestAccess = it }
+                values["party_name"]?.jsonPrimitive?.content?.let { partyName = it }
+                Result.success(answer(request, partyProviderConfig()))
+            }
+
+            APICommands.PARTY_CONFIG -> Result.success(answer(request, ServerPartyConfig(partyName = partyName)))
+
             APICommands.METADATA_GET_TRACK_LYRICS -> {
                 Result.success(
                     answer(
@@ -890,6 +934,22 @@ class FakeServiceClient : ServiceClient {
         extraAuthProviders += provider
     }
 
+    private fun partyProviderConfig(): JsonObject = buildJsonObject {
+        put(
+            "values",
+            buildJsonObject {
+                put("enable_guest_access", configEntry("boolean", "Guest access", JsonPrimitive(partyGuestAccess)))
+                put("party_name", configEntry("string", "Party Name", JsonPrimitive(partyName.orEmpty())))
+            },
+        )
+    }
+
+    private fun configEntry(type: String, label: String, value: JsonPrimitive) = buildJsonObject {
+        put("type", JsonPrimitive(type))
+        put("label", JsonPrimitive(label))
+        put("value", value)
+    }
+
     fun addProvider(provider: ServerProviderInstance) {
         providers.add(provider)
     }
@@ -958,6 +1018,19 @@ class FakeServiceClient : ServiceClient {
 
     fun setPlaylist(playlist: ServerMediaItem, vararg tracks: ServerMediaItem) {
         mediaItemStore.setPlaylist(playlist, *tracks)
+    }
+
+    fun setAppearsOn(artist: ServerMediaItem, vararg albums: ServerMediaItem) {
+        mediaItemStore.setAppearsOn(artist, *albums)
+    }
+
+    /** [releases] holds library albums and `musicbrainz` albums, like the server listing. */
+    fun setDiscography(artist: ServerMediaItem, vararg releases: ServerMediaItem) {
+        mediaItemStore.setDiscography(artist, *releases)
+    }
+
+    fun setMusicBrainzRelease(releaseGroupId: String, album: ServerMediaItem) {
+        mediaItemStore.setMusicBrainzRelease(releaseGroupId, album)
     }
 
     fun setTopTracks(artist: ServerMediaItem, vararg tracks: ServerMediaItem) {

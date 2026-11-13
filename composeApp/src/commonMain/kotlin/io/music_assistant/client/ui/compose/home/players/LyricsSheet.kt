@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import io.music_assistant.client.data.model.client.LrcLine
 import io.music_assistant.client.data.model.client.Lyrics
 import io.music_assistant.client.ui.compose.common.ToastHost
+import io.music_assistant.client.ui.compose.common.boundedModalSheet
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.inactive
 import io.music_assistant.client.utils.KeepScreenOn
@@ -94,6 +95,7 @@ fun LyricsSheet(
     kind: LyricsSheetKind = LyricsSheetKind.LYRICS,
 ) {
     ModalBottomSheet(
+        modifier = Modifier.boundedModalSheet(),
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = null,
@@ -346,6 +348,7 @@ private fun SyncedLyrics(
                 Text(
                     text = line.text,
                     fontSize = 28.sp,
+                    lineHeight = 36.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Transparent,
                     modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
@@ -353,6 +356,7 @@ private fun SyncedLyrics(
                 Text(
                     text = line.text,
                     fontSize = 28.sp,
+                    lineHeight = 36.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                     color = if (active) {
                         MaterialTheme.colorScheme.onSurface

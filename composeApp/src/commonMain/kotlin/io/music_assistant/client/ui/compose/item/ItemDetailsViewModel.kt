@@ -33,12 +33,14 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.items.hasFiniteTracklist
 import io.music_assistant.client.data.model.client.items.ownerLine
 import io.music_assistant.client.data.model.client.items.refreshItemAction
+import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.play.PlayMode
 import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.ItemRefresher
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.data.repository.PlaylistTransfer
 import io.music_assistant.client.data.repository.ProviderRepository
 import io.music_assistant.client.data.repository.TranscriptRepository
 import io.music_assistant.client.data.repository.favoriteAfter
@@ -74,6 +76,7 @@ class ItemDetailsViewModel(
     private val itemRefresher: ItemRefresher,
     private val authCoordinator: AuthCoordinator,
     private val transcriptRepository: TranscriptRepository,
+    private val playlistTransfer: PlaylistTransfer,
     private val itemId: String,
     private val mediaType: MediaType,
     private val providerId: String,
@@ -162,6 +165,7 @@ class ItemDetailsViewModel(
     private var rawPlayableItems: List<PlayableItem> = emptyList()
     private var playableItemsContext: SubItemContext? = null
     private var transcriptJob: Job? = null
+    private var exportJob: Job? = null
 
     /** Inputs of the visible playable list. Null while that list is not Data; see [setPlayableItemsState]. */
     private val playableInputs = MutableStateFlow<PlayableInputs?>(null)
@@ -276,7 +280,11 @@ class ItemDetailsViewModel(
     ): AppMediaItem? {
         val request = when (mediaType) {
             MediaType.ARTIST -> Request.Artist.get(itemId, providerId)
-            MediaType.ALBUM -> Request.Album.get(itemId, providerId)
+            MediaType.ALBUM -> if (providerId == ServerMediaItem.MUSICBRAINZ_PROVIDER) {
+                Request.Library.item(mediaType, itemId, providerId)
+            } else {
+                Request.Album.get(itemId, providerId)
+            }
             MediaType.PLAYLIST -> Request.Playlist.get(itemId, providerId)
             MediaType.RADIO -> Request.RadioStation.get(itemId, providerId)
             MediaType.PODCAST -> Request.Podcast.get(itemId, providerId)
@@ -723,7 +731,7 @@ class ItemDetailsViewModel(
 
         val mediaUri = itemToPlay.mediaUri ?: return
         mainDataSource.selectedPlayer?.queueOrPlayerId?.let { queueId ->
-            Logger.withTag("PlayDispatch").i {
+            Logger.withTag("Session.PlayDispatch").i {
                 "ItemDetailsViewModel.onPlayClick: uri=$mediaUri mode=$mode " +
                         "startItem=${startItem?.itemId} queue=$queueId"
             }
@@ -745,7 +753,7 @@ class ItemDetailsViewModel(
         (_state.value.itemState as? DataState.Data)?.data?.let { item ->
             item.uri?.let { uri ->
                 mainDataSource.selectedPlayer?.queueOrPlayerId?.let { queueId ->
-                    Logger.withTag("PlayDispatch").i {
+                    Logger.withTag("Session.PlayDispatch").i {
                         "ItemDetailsViewModel.onChapterClick: uri=$uri " +
                                 "chapter=$chapterPosition queue=$queueId"
                     }
@@ -829,6 +837,16 @@ class ItemDetailsViewModel(
     /** The [ItemRefresher] sends it in the app scope; [ItemRefresher.refreshed] gives the answer. */
     fun refreshItem() {
         _state.value.itemOrNull()?.uri?.let(itemRefresher::refresh)
+    }
+
+    /** Shares the M3U8 file of the loaded library playlist. A server error reaches the user through the error bus. */
+    fun exportPlaylist(chooserTitle: String) {
+        val playlist = (_state.value.itemOrNull() as? Playlist)?.takeIf { it.isInLibrary } ?: return
+        if (exportJob?.isActive == true) return
+        exportJob = viewModelScope.launch {
+            playlistTransfer.export(playlist, chooserTitle)
+                .onFailure { Logger.withTag("ItemDetailsVM").e(it) { "Export of ${playlist.uri} failed" } }
+        }
     }
 
     fun reload() {
