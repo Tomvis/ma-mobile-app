@@ -152,7 +152,7 @@ fun SearchScreen(
                         else -> Unit
                     }
                 },
-                onPlayClick = actionsViewModel::onPlayClick,
+                onPlayClick = searchViewModel::onPlayClick,
                 playlistActions = actionsViewModel,
                 libraryActions = actionsViewModel,
                 progressActions = actionsViewModel,

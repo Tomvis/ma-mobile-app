@@ -8,14 +8,17 @@ import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.support.FakeServiceClient
 import io.music_assistant.client.support.Qualifiers
 import io.music_assistant.client.support.ServerMediaItemFixtures
+import io.music_assistant.client.support.ServerPlayerFixtures
 import io.music_assistant.client.support.get
 import io.music_assistant.client.support.launchLoggedInApp
 import io.music_assistant.client.support.pages.ItemPage
 import io.music_assistant.client.support.pages.assertMediaDisplayed
 import io.music_assistant.client.support.pages.assertMediaNotDisplayed
+import io.music_assistant.client.support.pages.assertPlayer
 import io.music_assistant.client.support.pages.clickHome
 import io.music_assistant.client.support.pages.clickSearch
 import io.music_assistant.client.support.pages.enableFilter
+import io.music_assistant.client.support.pages.playMedia
 import io.music_assistant.client.support.rules.createTestRuleChain
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -143,6 +146,25 @@ class SearchTest {
         }
         // The whole object is replaced, so the keys of other clients must be sent back.
         assertEquals(JsonPrimitive("dark"), serviceClient.preferences["theme"])
+    }
+
+    @Test
+    fun `playing a result saves the query as a recent search`() {
+        // MUSIC-230: the fork routed play through ActionsViewModel, which skipped the recent search.
+        val track = ServerMediaItemFixtures.track(name = "Onion Dip")
+        serviceClient.addItems(track)
+        val player = ServerPlayerFixtures.player()
+        serviceClient.addPlayers(player)
+
+        launchLoggedInApp(composeTestRule, serviceClient)
+            .clickSearch()
+            .search("onion")
+            .playMedia(track)
+            .assertPlayer(player.displayName, playing = true, item = track.name)
+
+        composeTestRule.waitUntil("the server holds 'onion' as a recent search") {
+            serviceClient.preferences["search.recent"] == JsonArray(listOf(JsonPrimitive("onion")))
+        }
     }
 
     @Test
