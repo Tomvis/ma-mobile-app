@@ -12,6 +12,7 @@ import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.ListSort
 import io.music_assistant.client.data.model.server.PlaylistMatchPolicy
 import io.music_assistant.client.data.model.server.ServerMediaItem
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.data.model.server.SortWire
 import io.music_assistant.client.utils.myJson
 import kotlinx.serialization.SerialName
@@ -90,6 +91,18 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             args = buildJsonObject {
                 put("player_id", JsonPrimitive(playerId))
                 put("seconds", JsonPrimitive(seconds))
+            },
+        )
+
+        /** Stops [playerId] at the end of the item or chapter that its queue plays (schema 105). */
+        fun setSleepTimer(
+            playerId: String,
+            mode: SleepTimerMode,
+        ) = Request(
+            command = APICommands.PLAYERS_SLEEP_TIMER_SET,
+            args = buildJsonObject {
+                put("player_id", JsonPrimitive(playerId))
+                put("mode", myJson.encodeToJsonElement(SleepTimerMode.serializer(), mode))
             },
         )
 
@@ -861,7 +874,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         /**
          * The discography of a library artist as MusicBrainz knows it (server 2.11): the library
-         * albums, and a `musicbrainz` album for each release outside the library.
+         * albums, and an external album for each release outside the library.
          */
         fun getDiscography(libraryItemId: String) = Library.subItems(
             APICommands.MUSIC_ARTISTS_DISCOGRAPHY,
@@ -1115,7 +1128,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
-        /** Any item by type and provider. Resolves a `musicbrainz` release to an album (server 2.11). */
+        /** Any item by type and provider. Answers the item that an external item was found as (server 2.11). */
         fun item(mediaType: MediaType, itemId: String, providerInstanceIdOrDomain: String) = Request(
             command = APICommands.MUSIC_ITEM,
             args = buildJsonObject {

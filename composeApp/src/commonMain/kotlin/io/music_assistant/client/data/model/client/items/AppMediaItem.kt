@@ -89,7 +89,28 @@ sealed class AppMediaItem {
     open val displayName: String get() = name
     open val subtitle: String? get() = null
 
-    val isInLibrary: Boolean get() = provider == "library"
+    /** True if the item has a row in the server's library database; its [itemId] is then a library id. */
+    val isLibraryItem: Boolean get() = provider == ServerMediaItem.LIBRARY_PROVIDER
+
+    /**
+     * True if the server knows the item only by an external id. The server looks it up when it is
+     * opened or played. It has no provider mappings, so it cannot be a favorite, go into a playlist
+     * or be refreshed until it is found. It can be added to the library by its [uri].
+     */
+    val isExternalItem: Boolean get() = provider == ServerMediaItem.EXTERNAL_PROVIDER
+
+    /**
+     * True if the item is in the user's library. A library row alone does not tell: the server
+     * also keeps one for the album and the artists of a library track.
+     */
+    val isInLibrary: Boolean
+        get() {
+            if (!isLibraryItem) return false
+            if (favorite == true) return true
+            val flags = providerMappings.orEmpty().mapNotNull { it.inLibrary }
+            // a server that does not send the flag gives no way to tell
+            return flags.isEmpty() || flags.any { it }
+        }
     val isExplicit: Boolean get() = metadata?.explicit == true
 
     fun image(type: ImageType): ImageInfo? = images[type] ?: images[ImageType.MAIN]
@@ -149,9 +170,10 @@ sealed class AppMediaItem {
 
 /**
  * A quick favorite toggle is possible only when the add path has a [uri] to send. A live
- * input or sound effect has a uri, but nothing on the server to favorite.
+ * input, a sound effect or an external item has a uri, but nothing on the server to favorite.
  */
-val AppMediaItem.canBeFavorited: Boolean get() = uri != null && this !is AudioSource && this !is SoundEffect
+val AppMediaItem.canBeFavorited: Boolean
+    get() = uri != null && this !is AudioSource && this !is SoundEffect && !isExternalItem
 
 fun PlayableItem.image(type: ImageType): ImageInfo? =
     images[type] ?: images[ImageType.MAIN] ?: images.firstNotNullOfOrNull { it.value }

@@ -38,11 +38,11 @@ import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.play.PlayMode
 import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.ItemRefresher
+import io.music_assistant.client.data.repository.LyricsRepository
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.PlaylistTransfer
 import io.music_assistant.client.data.repository.ProviderRepository
-import io.music_assistant.client.data.repository.TranscriptRepository
 import io.music_assistant.client.data.repository.favoriteAfter
 import io.music_assistant.client.settings.PlayedFilter
 import io.music_assistant.client.settings.SettingsRepository
@@ -75,7 +75,7 @@ class ItemDetailsViewModel(
     private val providerRepository: ProviderRepository,
     private val itemRefresher: ItemRefresher,
     private val authCoordinator: AuthCoordinator,
-    private val transcriptRepository: TranscriptRepository,
+    private val lyricsRepository: LyricsRepository,
     private val playlistTransfer: PlaylistTransfer,
     private val itemId: String,
     private val mediaType: MediaType,
@@ -164,7 +164,7 @@ class ItemDetailsViewModel(
     private var rawAlbums: List<Album> = emptyList()
     private var rawPlayableItems: List<PlayableItem> = emptyList()
     private var playableItemsContext: SubItemContext? = null
-    private var transcriptJob: Job? = null
+    private var lyricsJob: Job? = null
     private var exportJob: Job? = null
 
     /** Inputs of the visible playable list. Null while that list is not Data; see [setPlayableItemsState]. */
@@ -278,13 +278,13 @@ class ItemDetailsViewModel(
         mediaType: MediaType,
         providerId: String,
     ): AppMediaItem? {
+        // The server looks an external item up and answers the item that it found.
+        if (providerId == ServerMediaItem.EXTERNAL_PROVIDER && mainDataSource.externalItemsSupported.value) {
+            return mediaItemRepository.fetchMediaItem(Request.Library.item(mediaType, itemId, providerId)).getOrNull()
+        }
         val request = when (mediaType) {
             MediaType.ARTIST -> Request.Artist.get(itemId, providerId)
-            MediaType.ALBUM -> if (providerId == ServerMediaItem.MUSICBRAINZ_PROVIDER) {
-                Request.Library.item(mediaType, itemId, providerId)
-            } else {
-                Request.Album.get(itemId, providerId)
-            }
+            MediaType.ALBUM -> Request.Album.get(itemId, providerId)
             MediaType.PLAYLIST -> Request.Playlist.get(itemId, providerId)
             MediaType.RADIO -> Request.RadioStation.get(itemId, providerId)
             MediaType.PODCAST -> Request.Podcast.get(itemId, providerId)
@@ -300,6 +300,8 @@ class ItemDetailsViewModel(
     }
 
     private fun loadSubItems(item: AppMediaItem) {
+        lyricsJob?.cancel()
+        _state.update { it.copy(lyrics = null) }
         when (item) {
             is Artist -> {
                 // Prefetch similar artists in the background so the sheet opens warm: the server's
@@ -436,7 +438,7 @@ class ItemDetailsViewModel(
 
     /** The library genres mapped to a library item. The server maps none to an item of a music service. */
     private fun loadGenres(item: AppMediaItem) {
-        if (!item.isInLibrary) {
+        if (!item.isLibraryItem) {
             _state.update { it.copy(genres = emptyList()) }
             return
         }
@@ -467,12 +469,12 @@ class ItemDetailsViewModel(
             setPlayableItemsState(DataState.Loading())
 
             try {
-                val tracks = mediaItemRepository.fetchMediaItems(
+                val tracks = mediaItemRepository.fetchAllMediaItems(
                     Request.Album.getTracks(
                         itemId = itemId,
                         providerInstanceIdOrDomain = provider,
                     ),
-                ).getOrNull()
+                )
                     ?.filterIsInstance<Track>()
                     ?: emptyList()
 
@@ -576,9 +578,9 @@ class ItemDetailsViewModel(
 
     /** Follows the transcript of [episode] into [State.lyrics]; the repository loads it once. */
     private fun loadTranscript(episode: PodcastEpisode) {
-        transcriptJob?.cancel()
-        transcriptJob = viewModelScope.launch {
-            transcriptRepository.also { it.load(episode) }.transcript(episode).collect { transcript ->
+        lyricsJob?.cancel()
+        lyricsJob = viewModelScope.launch {
+            lyricsRepository.also { it.load(episode) }.transcript(episode).collect { transcript ->
                 _state.update { it.copy(lyrics = transcript.dataOrNull) }
             }
         }
@@ -653,11 +655,11 @@ class ItemDetailsViewModel(
                 _state.update { it.copy(similarTracksState = similar) }
             }
         }
-        viewModelScope.launch {
-            val lyrics = track.lyrics ?: mediaItemRepository.fetchTrackLyrics(track)
-                .onFailure { Logger.e("Failed to load track lyrics", it) }
-                .getOrNull()
-            _state.update { it.copy(lyrics = lyrics) }
+        lyricsJob?.cancel()
+        lyricsJob = viewModelScope.launch {
+            lyricsRepository.also { it.load(track) }.lyrics(track).collect { lyrics ->
+                _state.update { it.copy(lyrics = lyrics.dataOrNull) }
+            }
         }
     }
 
@@ -782,7 +784,6 @@ class ItemDetailsViewModel(
         when (item) {
             is Podcast -> loadPodcastEpisodes(item.itemId, item.provider)
             is PodcastEpisode -> loadOtherEpisodes(item)
-            else -> Unit
         }
     }
 
@@ -841,7 +842,7 @@ class ItemDetailsViewModel(
 
     /** Shares the M3U8 file of the loaded library playlist. A server error reaches the user through the error bus. */
     fun exportPlaylist(chooserTitle: String) {
-        val playlist = (_state.value.itemOrNull() as? Playlist)?.takeIf { it.isInLibrary } ?: return
+        val playlist = (_state.value.itemOrNull() as? Playlist)?.takeIf { it.isLibraryItem } ?: return
         if (exportJob?.isActive == true) return
         exportJob = viewModelScope.launch {
             playlistTransfer.export(playlist, chooserTitle)

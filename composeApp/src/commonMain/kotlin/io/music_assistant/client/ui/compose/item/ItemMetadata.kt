@@ -16,9 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,11 +29,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.music_assistant.client.data.model.client.ItemDescription
 import io.music_assistant.client.data.model.client.ItemDescriptionKind
+import io.music_assistant.client.data.model.client.ItemText
 import io.music_assistant.client.data.model.client.ProviderDetails
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
@@ -123,7 +131,7 @@ private fun FactText(text: String, textAlign: TextAlign) {
 
 /** The names of the music services that hold a library item, in the order of its mappings. */
 private fun AppMediaItem.sourceNames(providerDetails: (String) -> ProviderDetails?): String? =
-    takeIf { isInLibrary }?.providerMappings.orEmpty()
+    takeIf { isLibraryItem }?.providerMappings.orEmpty()
         .filter { it.available }
         .mapNotNull { (providerDetails(it.providerInstance) ?: providerDetails(it.providerDomain))?.name }
         .distinct()
@@ -189,14 +197,15 @@ private fun ItemDescriptionKind.stringResource(): StringResource = when (this) {
 
 /**
  * The long text, clamped to a few lines. A text that does not fit shows a "More" label, and a tap
- * calls [onOpen] for the full text ([ItemDescriptionSheet]).
+ * calls [onOpen] for the full text ([ItemDescriptionSheet]). A tap on a link opens it in the system
+ * browser instead. [accentColor] tints the links and the label.
  */
 @Composable
 fun ItemDescriptionBlock(
     description: ItemDescription,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
-    moreColor: Color = MaterialTheme.colorScheme.primary,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     var clamped by remember(description) { mutableStateOf(false) }
     val more = stringResource(Res.string.item_description_more)
@@ -213,7 +222,7 @@ fun ItemDescriptionBlock(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = description.text,
+            text = description.text.annotated(accentColor),
             style = MaterialTheme.typography.bodyMedium,
             maxLines = CLAMPED_LINES,
             overflow = TextOverflow.Ellipsis,
@@ -223,13 +232,16 @@ fun ItemDescriptionBlock(
             Text(
                 text = more,
                 style = MaterialTheme.typography.labelLarge,
-                color = moreColor,
+                color = accentColor,
             )
         }
     }
 }
 
-/** The full text of [description], in a sheet the user can scroll and select from. */
+/**
+ * The full text of [description], in a sheet the user can scroll and select from. A tap on a link
+ * opens it in the system browser.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemDescriptionSheet(
@@ -239,7 +251,10 @@ fun ItemDescriptionSheet(
     ModalBottomSheet(
         modifier = Modifier.boundedModalSheet(),
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -254,8 +269,21 @@ fun ItemDescriptionSheet(
                 style = MaterialTheme.typography.titleLarge,
             )
             SelectionContainer {
-                Text(text = description.text, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = description.text.annotated(MaterialTheme.colorScheme.primary),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             }
         }
+    }
+}
+
+/** The text with its links. A link has no listener, so the platform `UriHandler` opens it. */
+@Composable
+private fun ItemText.annotated(linkColor: Color): AnnotatedString = remember(this, linkColor) {
+    val styles = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
+    buildAnnotatedString {
+        append(text)
+        links.forEach { addLink(LinkAnnotation.Url(it.url, styles), it.start, it.end) }
     }
 }

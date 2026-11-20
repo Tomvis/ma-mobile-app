@@ -37,6 +37,7 @@ import io.music_assistant.client.data.model.server.RefreshItemAccess
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerQueue
 import io.music_assistant.client.data.model.server.ServerQueueItem
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedEvent
 import io.music_assistant.client.data.model.server.events.PlayerAddedEvent
@@ -50,6 +51,7 @@ import io.music_assistant.client.data.model.server.playMediaSupport
 import io.music_assistant.client.data.model.server.refreshItemAccess
 import io.music_assistant.client.data.model.server.supportsAiRadio
 import io.music_assistant.client.data.model.server.supportsDislike
+import io.music_assistant.client.data.model.server.supportsExternalItems
 import io.music_assistant.client.data.model.server.supportsPlaylistAccess
 import io.music_assistant.client.data.model.server.supportsSearchSources
 import io.music_assistant.client.data.play.PlayDispatcher
@@ -242,6 +244,12 @@ class MainDataSource(
     override val playlistAccessSupported: StateFlow<Boolean> =
         apiClient.sessionState
             .map { supportsPlaylistAccess((it as? HasConnectionData)?.serverInfo?.schemaVersion) }
+            .stateIn(this, SharingStarted.Eagerly, false)
+
+    /** Whether the server looks up an external item ([supportsExternalItems]). False while no session is up. */
+    override val externalItemsSupported: StateFlow<Boolean> =
+        apiClient.sessionState
+            .map { supportsExternalItems((it as? HasConnectionData)?.serverInfo?.schemaVersion) }
             .stateIn(this, SharingStarted.Eagerly, false)
 
     /** Whether `music/search` takes `providers` ([supportsSearchSources]). False while no session is up. */
@@ -541,8 +549,10 @@ class MainDataSource(
 
                                     when (currentState.reason) {
                                         StaleReason.RECONNECTING -> {
-                                            // Brief disconnection — data is still fresh. Transition
-                                            // stale → Data without re-fetching to avoid a UI blink.
+                                            // Brief disconnection: show the cached data at once, so
+                                            // the UI does not blink, and re-fetch it, because the
+                                            // server does not replay the events of the gap (a track
+                                            // change, for example). The merge keeps newer event data.
                                             // This branch only runs when dataConnectionState is
                                             // already Authenticated; if a reconnect requires re-auth,
                                             // the else branch below preserves Stale data until
@@ -551,10 +561,7 @@ class MainDataSource(
                                             _serverPlayers.update {
                                                 DataState.Data(currentState.data)
                                             }
-
-                                            // selectedPlayerIndex doesn't re-emit on stale-recovery
-                                            // (same value before/after), so refresh manually.
-                                            refreshSelectedPlayerQueueItems()
+                                            updatePlayersAndQueues()
 
                                             // Sendspin reinit: WebRTC sendspin auth is inherited
                                             // from the data channel itself, not JSON-RPC auth state,
@@ -1244,6 +1251,14 @@ class MainDataSource(
         launch {
             apiClient.sendRequest(Request.Player.setSleepTimer(playerId, seconds))
                 .onFailure { log.e(it) { "Failed to set sleep timer for $playerId" } }
+        }
+    }
+
+    /** Stops [playerId] at the end of the item or chapter that plays now. See [setSleepTimer]. */
+    fun setSleepTimer(playerId: String, mode: SleepTimerMode) {
+        launch {
+            apiClient.sendRequest(Request.Player.setSleepTimer(playerId, mode))
+                .onFailure { log.e(it) { "Failed to set sleep timer $mode for $playerId" } }
         }
     }
 

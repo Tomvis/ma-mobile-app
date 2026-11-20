@@ -64,11 +64,12 @@ actual class PlatformFeature {
 - **Models**: Server DTOs in `model/server/`, domain models in `model/client/`
 - **List payloads**: `library_items` and `player_queues/items` answer in one message and the
   server caps a message at about 9 MB. Never send a huge `limit`. Page with `Request.fetchAllPages`
-  (`api/Paging.kt`) when a caller needs the whole list. `playlist_tracks` and `podcast_episodes`
-  depend on the server version. Server 2.10 streams the whole list in 500-item `partial` batches
-  that `RpcEngine` reassembles, and it ignores `limit` and `offset`. Server 2.11 answers one
-  500-item page. `MediaItemRepository.fetchAllMediaItems` selects the method from the schema
-  (`SERVER_2_11_SCHEMA`), so load these two lists through it. `library_items` already
+  (`api/Paging.kt`) when a caller needs the whole list. `album_tracks`, `playlist_tracks` and
+  `podcast_episodes` depend on the server version. Server 2.10 answers the whole list, and it
+  ignores `limit` and `offset`. It streams the last two lists in 500-item `partial` batches that
+  `RpcEngine` reassembles. Server 2.11 answers one 500-item page. `MediaItemRepository.fetchAllMediaItems`
+  selects the method from the schema (`SERVER_2_11_SCHEMA`), so load these three lists through it,
+  also on the car surfaces. `library_items` already
   returns slim summary items by default.
 - **Collections**: an audiobook series is `MediaType.COLLECTION` (`MediaCollection`, books in `items`). The
   server returns series rows only when `library_items` gets `collapse_collections`. The Audiobooks top bar sets
@@ -175,8 +176,11 @@ actual class PlatformFeature {
   web frontend: the biography of an artist (`metadata.description`), the review of an album
   (`metadata.review`, or its description), and the description of a playlist, a podcast or an
   audiobook. `AppMediaItem.itemDescription()` (`model/client/ItemDescription.kt`) selects the text
-  and `toPlainItemText` makes plain text from the Markdown and HTML that a provider sends. The page
-  clamps it to 3 lines, and "More" opens a sheet. The facts line shows the album type, the track
+  and `toItemText` makes plain text from the Markdown and HTML that a provider sends. It keeps the
+  links (`ItemLink`): an HTML anchor, a Markdown link and a bare URL. It keeps only the http, https
+  and mailto schemes, because the text comes from a provider. The page clamps it to 3 lines, and
+  "More" opens a sheet. A link works in the clamped text and in the sheet, because a short text
+  has no sheet. The platform `UriHandler` opens a link in the system browser. The facts line shows the album type, the track
   count and the total time (`PlayableSummary`, a client sum of the loaded tracks, none for a dynamic
   playlist), the publisher of an audiobook, and the music services of a library item. The genre chips
   come from `music/genres/genres_for_media_item`, which maps genres to library items only, so an
@@ -216,11 +220,20 @@ actual class PlatformFeature {
   An `ItemList` keeps its `releases`, and `ItemList.select` applies them to "View all" too. Appears on
   (`music/artists/artist_appears_on`) and Discography (`music/artists/discography`) need server 2.11
   (`supportsArtistAppearsOnAndDiscography`) and a library artist. The discography shows all release
-  types. A release that no music provider has is an `Album` with provider `musicbrainz`
-  (`isMusicBrainzRelease`). It is not playable, so the row dims it and its menu offers "Add to
-  library" only. A tap opens the item page, and `ItemDetailsViewModel` loads it with `music/item`,
-  which resolves it to the album on a music provider. An author or a narrator keeps the rows In
-  library and All audiobooks.
+  types. A release that no music provider has is an external `Album` (see External items). It is
+  not playable, so the row dims it and its menu offers "Add to library" only. A tap opens the item
+  page. An author or a narrator keeps the rows In library and All audiobooks.
+- **External items**: from server 2.11, the server lists an item that it knows only by an external
+  id, such as a MusicBrainz id. The item has provider `external`, the `item_id`
+  `<id type>:<id>` and no provider mappings (`AppMediaItem.isExternalItem`). A discography album
+  and a top track of an artist can be external, and so can the album of an external track. The
+  server looks an external item up when it is opened or played. From server 2.11
+  (`supportsExternalItems`), `ItemDetailsViewModel` loads every external item with `music/item`,
+  which answers the item that the server found. An external album is not playable. An external
+  track keeps the `is_playable` of the server, and a play request sends its uri. Until the server
+  finds it, an external item has no favorite (`canBeFavorited`), no playlist entry
+  (`supportsAddToPlaylist`) and no refresh entry. It is not in the library, so the menu offers
+  "Add to library", which sends the uri.
 - **Providers**: `ProviderRepository` (`data/repository/`) owns the `providers` list. Read
   `providers` from it. Do not send `Request.Provider.all()` from a screen. It loads the list once
   for each session and again on each `providers_updated`. It does not use the event payload,
@@ -274,13 +287,19 @@ actual class PlatformFeature {
   "Other episodes" tab (`ItemDetailsTab.OTHER_EPISODES`) lists the podcast episodes without the open one, with
   the sort of the podcast page. The menus reach the page with "Go to episode" (`navigationOptions`). The page
   shows the `description` as "About this episode". From schema 81 (`supportsEpisodeTranscript`, server 2.11),
-  `TranscriptRepository` (`data/repository/`) loads `music/podcasts/podcast_episode_transcript` once for each
+  `LyricsRepository` (`data/repository/`) loads `music/podcasts/podcast_episode_transcript` once for each
   episode in an app scope and keeps the last answers, because the page and the player ask for the same
   episode. The answer is a `[text, cues]` tuple, and `transcriptOf` (`model/client/Transcript.kt`) makes a
   `Lyrics` from it, so `LyricsSheet` shows a transcript with the lyrics timing and offset. The page keeps it
   in `State.lyrics` and offers "Transcript" in the menu once it is loaded. The expanded player loads the
   transcript of the current episode and shows it behind the lyrics button. An episode whose provider reports
   `has_transcript` false is not asked. The page has no steppers and no hide-fully-played filter.
+- **Track lyrics**: `LyricsRepository` (`data/repository/`) provides track lyrics and episode transcripts.
+  Item Details and Now Playing use the same results and pending requests.
+  Use lyrics from track metadata when available. Otherwise, request lyrics from the server.
+  The server selects the lyrics provider. The expanded player shows the Lyrics button when lyrics are available.
+  A delayed response cannot replace lyrics for a different track.
+  Requests continue when the user changes screens. A failed request can be tried again.
 - **Seek bar waveform**: `audio_analysis/wave_form` gives 1800 RMS bins (0.0 to 1.0) for the whole track,
   or null if the server has no analysis. The command needs schema 36 (`supportsWaveform`). The request
   uses the stream ids (`StreamDetails.item_id` and `provider`), because the server stores the analysis
@@ -297,6 +316,10 @@ actual class PlatformFeature {
   2.11. It is null on an older server, for a single track and for a live stream. The stream details
   dialog shows it. It opens the container only if `opensItemDetails` is true. Add a type to
   `opensItemDetails` when `ItemDetailsViewModel.getItemById` loads it.
+- **Queue end**: when a queue plays to its end, the server keeps `current_index` and `current_item` on
+  the last item and sets `ended` (every server 2.x that the app supports). `QueueInfo.activeItemId` gives
+  null for an ended queue. The queue list marks every row as played and shows "Playback finished". Use
+  `activeItemId`, not `currentItem`, to find the row that plays now.
 - **In-list filter**: `List.clientFiltered(query)` (`model/client/QueryFilter.kt`) filters loaded
   items on the client. Derive the visible list as raw → filter → sort in one place.
 - **Announcements**: `AnnouncementRepository` (`data/announcement/`) runs both kinds in an app scope,
@@ -506,14 +529,17 @@ The built-in player is the `:sendspin-kmp` Gradle module (`io.music_assistant.se
 
 **App side** (`composeApp`):
 - `data/LocalPlayerAdapter` owns the player and everything about the MA player model: optimistic UI, the offline command queue, and server event reconciliation. `LocalPlayerFactory` builds the player from the platform ports (sink, decoders, key store), so a test gives the adapter a fake player (`LocalPlayerAdapterTest`).
-- `data/LocalPlayerEndpoints` derives the endpoint from the MA session. A WebRTC session gets the data channel. A direct session gets the proxied WebSocket at `<wsUrl>/sendspin`, or the custom Sendspin server from settings. A reconnecting or backgrounded MA session keeps the last endpoint. Each Sendspin connection attempt needs a new data channel. From server schema 49 (`LABEL_ROUTED_CHANNELS_SCHEMA`), the app opens it in-band on the live peer, so the MA session continues. On an older server, or if the new channel does not open, the app renegotiates the peer connection.
+- `data/LocalPlayerEndpoints` derives the endpoint from the MA session. A WebRTC session gets the data channel. A direct session gets the proxied WebSocket at `<wsUrl>/sendspin`, or the custom Sendspin server from settings. The proxy needs the `auth` message before `client/init`, so the endpoint carries the MA token. The custom connection sends the token only while "Sign in through Music Assistant" is on (`SendspinConnectionAuth`). Turn it off for a plain Sendspin server, because the spec does not let a client send a message before `client/init`. A reconnecting or backgrounded MA session keeps the last endpoint. Each Sendspin connection attempt needs a new data channel. From server schema 49 (`LABEL_ROUTED_CHANNELS_SCHEMA`), the app opens it in-band on the live peer, so the MA session continues. On an older server, or if the new channel does not open, the app renegotiates the peer connection.
 - Sinks and decoders: Android uses `AudioTrackSink` and `AndroidDecoderFactory` from the module. On iOS, `player/local/` holds `AudioQueueSink` and pass-through `IosDecoderFactory` (the native player decodes).
 - The control plane stays on the MA REST API. Sendspin carries audio only (role `player@v1`).
+- Spec 1.0.0-rc1 says that every client offers the Pairing PSK method. On `SPEC_1_0`, `NoiseSession` offers and accepts the pairing PSK always. The stored `pairing_psk_enabled` flag of a 9.x `management/set-pairing-config` applies to `LEGACY_9` only.
 - Only the Noise-encrypted protocol is supported. `supportsEncryptedSendspin(schemaVersion)` requires MA schema 45 or newer. A known lower schema produces `Endpoint.Unsupported`, and the player fails without opening a transport. A missing schema is inconclusive: endpoint selection permits a handshake rather than rejecting the server. An explicit unsupported wire version, and a `server/error` for an unsupported version or suite, fail terminally; network failures and handshake timeouts still retry.
 - The module speaks two wire dialects, `WireVersion` (`api`). `LEGACY_9` is aiosendspin 9.x (server 2.10.6 and older). `SPEC_1_0` is Sendspin spec 1.0.0-rc1, aiosendspin 10.x (server 2.10.7 and 2.11). `sendspinWireFor(schemaVersion, serverVersion)` selects `SPEC_1_0` from `SERVER_2_11_SCHEMA`, or from a 2.10 `server_version` with patch 7 or higher, because 2.10.7 keeps the 2.10 schema. All other servers get `LEGACY_9`, which includes an unknown server and a source build (`0.0.0`). The handshake does not give the server version: `server/init` has `version` 1 on both wires. `LocalPlayerEndpoints` puts the wire on the `Endpoint`, so a wire change restarts the connection. A 10.x server accepts the 9.x wire only while its hidden setting `allow_legacy_clients` is on, and it logs a "non-compliant client" warning for it. The differences on `SPEC_1_0`: Noise message 1 carries `psk_category`, and the client matches the PSK by id and category. On a miss in the initial handshake, the client completes with the Sentinel PSK, so the server can offer re-pairing. `client/hello` has no `trust_level`, no `supported_commands`, and `supported_pair_methods` is an object keyed by method. `client/state` carries `output_delay_ms`, `required_lead_time_ms`, `min_buffer_ms` and `supported_commands`. The player sends it after the clock converges and again when the delay changes, never periodically. An audio chunk header has 4 more bytes, `send_ahead`, which the client skips. Fragments use type 1 with a flags byte. A re-handshake has no hello exchange, and an activate without `active_roles` keeps the roles. The Pairing PSK flow sends `client/pair-init` with the pairing index before `client/pair-finalize`. `SendspinJson` omits null fields on both wires. `SendspinDeps.deviceInfo` (`DeviceInfo`) gives the product name, the manufacturer and the app version that the server names in its logs.
-- Spec 1.0.0-rc1 rules that the module obeys on both wires: the `client/hello` name and each `device_info` string are cut to 64 bytes of UTF-8 (`truncateUtf8`). `advertisedFormats` (`api/AudioFormatSpec.kt`) makes the supported formats, all stereo at 48 kHz: the preferred codec at `LocalPlayerConfig.bitDepth` (24-bit, then 16-bit, for FLAC and PCM), then 16-bit PCM, because every server must produce 16-bit PCM. Opus is always 16-bit.
+- Spec 1.0.0-rc1 rules that the module obeys on both wires: the `client/hello` name and each `device_info` string are cut to 64 bytes of UTF-8 (`truncateUtf8`). `advertisedFormats` (`api/AudioFormatSpec.kt`) makes the supported formats, all stereo: the preferred codec at `LocalPlayerConfig.bitDepth` (24-bit, then 16-bit, for FLAC and PCM) at 48 kHz, then FLAC or PCM again at 44.1 kHz, then 16-bit PCM at 48 kHz, because every server must produce 16-bit PCM. Opus is always 16-bit at 48 kHz. 48 kHz stays first, because a server that does not match the source rate sends the first format. From server 2.10.6, the server selects the rate of the first track of a playback session from the formats of the top codec (`follow_session_sample_rate`). So 44.1 kHz audio comes without a resample, with about 8% less data than 48 kHz. The server player config "preferred Sendspin format" sets one fixed format. The client has no rate setting. A rate change gives a `stream/start` with a new format, and the player builds a new sink.
 - Buffer: `LocalPlayerConfig.bufferSeconds` sets the buffer in seconds. `buffer_capacity` and the local byte cap are that many seconds of the heaviest advertised format (`estimatedBytesPerSecond`), so a fallback format gets the same time. The estimate counts FLAC as raw PCM, its worst case, and Opus as 16 kB/s. The settings screen shows the same estimate for the preferred codec. The server reads `buffer_capacity` only from `client/hello`, so a buffer change restarts the connection, and the local cap changes when a connection starts. A local cap below the advertised capacity evicts the future chunks that the server sends, and each evicted chunk is a gap in the audio. The `Stream stats` line counts these evictions.
 - 24-bit audio: the user sets it in the settings, and it applies to FLAC and PCM only (`SendspinPlayerSettings.effectiveBitDepth`). `supportsHiResAudio` gates it: Android 12 (API 31) or newer, and all iOS versions. The default is 16-bit. The client advertises 16-bit and 24-bit only, and `AudioFormatSpec` accepts no other depth. 24-bit audio already exceeds real DACs, and the Android mixer drops more bits. `DriftCorrector` resamples 16-bit and 24-bit packed PCM. On Android, `FlacDecoder` asks MediaCodec for float output on a 24-bit stream and converts it to 24-bit packed (`floatToPcm24`). The stock decoder makes only 16-bit or float, and the framework pads 16-bit output for a 24-bit request.
+- In-place stream start: a `stream/start` while a stream is active continues the same timeline (`StreamAction.Continue`). The player keeps the buffered chunks. `JitterBuffer` tags each chunk with the format that applied when the chunk arrived, and the scheduler decodes each chunk in its own format. If the decoded output keeps the sink format, the scheduler changes the decoder only, and there is no gap. If the sink format changes (sample rate, channels or bit depth), the scheduler waits until the old audio was heard, then it builds a new sink. The gap is the build time of the sink. The track continues, so the player does not send a second `PlaybackStarted`. Music Assistant uses this method in enqueue mode (Sendspin backlog#82).
+- Partial clear: a `stream/clear` with `from_timestamp` removes only the buffered chunks at or after that time (`StreamAction.ClearFrom`). Playback continues, and the player does not flush the sink or report a stop. The de-dup memory stays, so a resent chunk that is already in the sink is dropped. A `stream/clear` or a `stream/end` with a `roles` list that does not contain `player` does not touch the player.
 - Format change: the server builds the audio chain and the quality badge when a stream starts, and a reconnect starts no stream. So after a codec or bit-depth change, a playing local player pauses and plays when the new connection is active (`LocalPlayerAdapter.restartStreamOnFormatChange`). A seek is not used, because a seek fails on radio.
 - Codec default: a new install gets FLAC. `SettingsRepository` stores the default on the first read. An install that has a server or used the local player gets Opus, because Opus was the default before.
 - Spec 1.0.0-rc1 rules that apply on `SPEC_1_0` only: a JSON message that is not UTF-8, or that has no `type` string or no `payload` object, closes the connection (`ServerMessage.BadEnvelope`). An audio message shorter than its 13-byte header also closes it. A payload that does not decode into the client model (`ServerMessage.Malformed`) is not a protocol error, so the client ignores it. The 9.x wire ignores all of these.
