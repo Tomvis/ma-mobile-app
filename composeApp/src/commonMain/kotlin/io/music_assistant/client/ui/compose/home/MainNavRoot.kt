@@ -130,6 +130,8 @@ import musicassistantclient.composeapp.generated.resources.Res
 import musicassistantclient.composeapp.generated.resources.app_name
 import musicassistantclient.composeapp.generated.resources.cd_listen_later
 import musicassistantclient.composeapp.generated.resources.cd_more
+import musicassistantclient.composeapp.generated.resources.deep_link_no_player_selected
+import musicassistantclient.composeapp.generated.resources.deep_link_player_not_found
 import musicassistantclient.composeapp.generated.resources.media_action_next
 import musicassistantclient.composeapp.generated.resources.nav_discover
 import musicassistantclient.composeapp.generated.resources.nav_explore
@@ -258,6 +260,9 @@ fun MainNavigationRoot(
                 playerExpanded = true
                 dest.playerIdOrName?.let(homeScreenViewModel::selectPlayerByIdOrName)
             }
+
+            // Plays without expanding: the link is often fired from automation, not by a viewer.
+            is DeepLinkDestination.Play -> homeScreenViewModel.playDeepLink(dest)
         }
         deepLinkBus.consume(dest)
     }
@@ -282,6 +287,15 @@ fun MainNavigationRoot(
                     toastState.showToast(currentHint, ToastDuration.SHORT)
                 }
             }
+        }
+    }
+
+    LaunchedEffect(homeScreenViewModel) {
+        homeScreenViewModel.deepLinkPlayFailures.collect { link ->
+            val text = link.playerIdOrName
+                ?.let { getString(Res.string.deep_link_player_not_found, it) }
+                ?: getString(Res.string.deep_link_no_player_selected)
+            toastState.showToast(text, ToastDuration.LONG)
         }
     }
 

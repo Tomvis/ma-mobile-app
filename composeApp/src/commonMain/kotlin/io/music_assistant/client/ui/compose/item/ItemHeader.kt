@@ -81,6 +81,7 @@ import io.music_assistant.client.ui.compose.common.OverflowMenuButton
 import io.music_assistant.client.ui.compose.common.OverflowMenuOption
 import io.music_assistant.client.ui.compose.common.PlayerColors
 import io.music_assistant.client.ui.compose.common.RemoveFromLibraryConfirmationDialog
+import io.music_assistant.client.ui.compose.common.copyPlayLinkMenuOption
 import io.music_assistant.client.ui.compose.common.dynamicColorsMenuOption
 import io.music_assistant.client.ui.compose.common.items.AddToPlaylistDialog
 import io.music_assistant.client.ui.compose.common.items.Badges
@@ -187,7 +188,7 @@ fun ItemHeader(
                     description = it,
                     onOpen = onOpenDescription,
                     modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-                    moreColor = colors.controlTint,
+                    accentColor = colors.controlTint,
                 )
             }
         }
@@ -395,6 +396,8 @@ private fun ItemOverflow(
         },
     )
 
+    val copyPlayLink = listOfNotNull(item.mediaUri?.takeIf { item.isPlayable }?.let { copyPlayLinkMenuOption(it) })
+
     val canonical = resolveDetailOverflowActions(
         item = item,
         canEditLibrary = LocalGrantedScopes.current.canEditLibrary,
@@ -420,7 +423,7 @@ private fun ItemOverflow(
     }
     OverflowMenuButton(
         options = canonical + item.navigationOptions(navigateToItem, containerItem = item) + similarArtists +
-            lyrics + refresh + export + dynamicColorsMenuOption(),
+            lyrics + refresh + export + copyPlayLink + dynamicColorsMenuOption(),
     ) { onClick ->
         IconButton(onClick = onClick) {
             Icon(
