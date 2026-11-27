@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.concurrent.Volatile
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * Server-time estimate shared between the session reader (replies), the probe
@@ -35,10 +36,10 @@ internal class ClockSync(private val clock: MonotonicClock) {
     @Volatile
     private var lastAcceptedMicros = 0L
 
-    /** A `server/time` reply; timestamped on arrival. */
-    fun onReply(payload: ServerTimePayload) {
-        val sample =
-            ClockSample(payload.clientTransmitted, payload.serverReceived, payload.serverTransmitted, clock.nowMicros())
+    /** A `server/time` reply. [receivedAtMicros] is its transport receive time; null takes the time now. */
+    fun onReply(payload: ServerTimePayload, receivedAtMicros: Long? = null) {
+        val t4 = receivedAtMicros ?: clock.nowMicros()
+        val sample = ClockSample(payload.clientTransmitted, payload.serverReceived, payload.serverTransmitted, t4)
         synchronized(lock) { burst += sample }
         _replies.update { it + 1 }
     }
@@ -84,6 +85,10 @@ internal class ClockSync(private val clock: MonotonicClock) {
 
     /** Converts a server timestamp to local time, or null before the first burst. */
     fun toLocalMicros(serverMicros: Long): Long? = estimate?.toLocalMicros(serverMicros)
+
+    /** Converts a local time to server time (the spec's `compute_server_time`), or null before the first burst. */
+    fun toServerMicros(localMicros: Long): Long? =
+        estimate?.let { localMicros + it.offsetAt(localMicros).roundToLong() }
 
     fun quality(nowMicros: Long = clock.nowMicros()): ClockQuality {
         val current = estimate ?: return ClockQuality.Lost

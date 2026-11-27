@@ -4,6 +4,8 @@ import io.music_assistant.sendspin.api.Frame
 import io.music_assistant.sendspin.api.SendspinTransport
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 
 /** Scriptable transport: the test plays the server. */
 class FakeTransport : SendspinTransport {
@@ -17,7 +19,11 @@ class FakeTransport : SendspinTransport {
 
     override val inbound: ReceiveChannel<Frame> get() = fromServer
 
+    /** While true, [send] waits, as on a socket that does not drain. */
+    val stalled = MutableStateFlow(false)
+
     override suspend fun send(frame: Frame) {
+        stalled.first { !it }
         check(!closed) { "transport closed" }
         sent += frame
         outbound.trySend(frame)
@@ -32,8 +38,8 @@ class FakeTransport : SendspinTransport {
         fromServer.trySend(Frame.Text(text))
     }
 
-    fun serverSends(bytes: ByteArray) {
-        fromServer.trySend(Frame.Binary(bytes))
+    fun serverSends(bytes: ByteArray, receivedAtMicros: Long? = null) {
+        fromServer.trySend(Frame.Binary(bytes, receivedAtMicros))
     }
 
     /** The connection ends; [cause] marks a failure, null a clean close. */

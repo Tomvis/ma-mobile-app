@@ -4,6 +4,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerMedia
+import io.music_assistant.client.data.model.client.PlayerSource
 import io.music_assistant.client.data.model.client.PlayerType
 import io.music_assistant.client.data.model.client.SongTiming
 import io.music_assistant.client.data.model.server.PlayerFeature
@@ -52,6 +53,17 @@ class PlayerFactory(
             currentMedia = currentMedia?.let(::createPlayerMedia),
             sleepTimerExpiresAt = sleepTimerExpiresAt,
             sleepTimerMode = sleepTimerMode,
+            activeSource = activeSource,
+            sources = sourceList.map {
+                PlayerSource(
+                    id = it.id,
+                    name = it.name,
+                    passive = it.passive,
+                    canPlayPause = it.canPlayPause,
+                    canSeek = it.canSeek,
+                    canNextPrevious = it.canNextPrevious,
+                )
+            },
         )
     }
 
@@ -60,7 +72,8 @@ class PlayerFactory(
 
     private fun createPlayerMedia(server: ServerPlayerMedia): PlayerMedia = with(server) {
         val clientMediaType = MediaType.fromServer(mediaType)
-        val songTiming = songTiming(clientMediaType)
+        val timing = timing()
+        val songTiming = timing.takeIf { clientMediaType == MediaType.RADIO }
         PlayerMedia(
             title = title,
             artist = artist,
@@ -73,11 +86,11 @@ class PlayerFactory(
             mediaType = clientMediaType,
             uri = uri,
             songTiming = songTiming,
+            timing = timing,
         )
     }
 
-    private fun ServerPlayerMedia.songTiming(clientMediaType: MediaType?): SongTiming? {
-        if (clientMediaType != MediaType.RADIO) return null
+    private fun ServerPlayerMedia.timing(): SongTiming? {
         val songDuration = duration?.takeIf { it > 0 } ?: return null
         val elapsed = elapsedTime ?: return null
         val updatedAt = elapsedTimeLastUpdated ?: return null

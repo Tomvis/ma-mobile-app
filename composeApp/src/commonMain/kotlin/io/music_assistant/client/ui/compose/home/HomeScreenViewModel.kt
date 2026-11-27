@@ -39,6 +39,8 @@ import io.music_assistant.client.data.repository.WaveformRepository
 import io.music_assistant.client.data.repository.favoriteAfter
 import io.music_assistant.client.data.repository.fetchRecommendationRowItems
 import io.music_assistant.client.data.repository.fetchRecommendationRows
+import io.music_assistant.client.input.PendingVolume
+import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
@@ -97,7 +99,7 @@ internal fun List<Player>.findByIdOrName(query: String): Player? =
             ?: candidates.find { it.name.equals(query, ignoreCase = true) }
     }
 
-// Play deep-link target: null = the selected player, `local` = this device's built-in player.
+// Deep-link target (play and players links): null = the selected player, `local` = this device's built-in player.
 internal fun List<PlayerData>.findPlayTarget(query: String?, selectedId: String?): PlayerData? = when {
     query == null -> selectedId?.let { id -> find { it.playerId == id } }
     query.equals(DeepLinkBus.LOCAL_PLAYER, ignoreCase = true) -> find { it.isLocal }
@@ -114,6 +116,7 @@ class HomeScreenViewModel(
     private val lyricsRepository: LyricsRepository,
     private val sendspinDelays: SendspinDelayRepository,
     private val waveformRepository: WaveformRepository,
+    private val volumeButtonService: VolumeButtonService,
 ) : ViewModel() {
     private val jobs = mutableListOf<Job>()
     private var loadDataJob: Job? = null
@@ -522,8 +525,9 @@ class HomeScreenViewModel(
             dataSource.playersData,
             dataSource.selectedPlayerId,
             dataSource.sendspinState,
-        ) { playerData, selectedId, sendspinState ->
-            Triple(playerData, selectedId, sendspinState)
+            volumeButtonService.pendingVolumes,
+        ) { playerData, selectedId, sendspinState, pendingVolumes ->
+            Triple(playerData.withPendingVolumes(pendingVolumes), selectedId, sendspinState)
         }.collect { (playerData, selectedId, sendspinState) ->
             // Update when in Loading or Data state
             // This allows transitioning from Loading to Data and updating existing Data
@@ -567,7 +571,7 @@ class HomeScreenViewModel(
         deepLinkPlayerJob = viewModelScope.launch {
             withTimeoutOrNull(DEEP_LINK_PLAYER_TIMEOUT) {
                 dataSource.playersData
-                    .mapNotNull { state -> state.dataOrNull?.map { it.player }?.findByIdOrName(query) }
+                    .mapNotNull { state -> state.dataOrNull?.findPlayTarget(query, selectedId = null)?.player }
                     .first()
             }?.let(dataSource::selectPlayer)
                 ?: Logger.withTag("HomeScreenVM").w { "Deep link: no selectable player '$query'" }
@@ -668,3 +672,25 @@ data class RecommendationRowState(
 
 private fun RecommendationFolder.isSameRow(other: RecommendationFolder): Boolean =
     itemId == other.itemId && provider == other.provider
+
+/** The players with the level that the volume keys are stepping each one to, while it shows. */
+internal fun DataState<List<PlayerData>>.withPendingVolumes(
+    pending: Map<String, PendingVolume>,
+): DataState<List<PlayerData>> {
+    if (pending.isEmpty()) return this
+    fun List<PlayerData>.applied() = map { data ->
+        val level = pending[data.playerId]?.level ?: return@map data
+        val player = data.player
+        val stepped = if (player.groupMembers?.isNotEmpty() == true) {
+            player.copy(groupVolume = level)
+        } else {
+            player.copy(volumeLevel = level)
+        }
+        data.copy(player = stepped)
+    }
+    return when (this) {
+        is DataState.Data -> DataState.Data(data.applied())
+        is DataState.Stale -> copy(data = data.applied())
+        else -> this
+    }
+}

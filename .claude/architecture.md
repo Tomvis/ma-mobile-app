@@ -79,8 +79,8 @@ actual class PlatformFeature {
 - **Input sources**: a live input from a server plugin is `MediaType.AUDIO_SOURCE` (`AudioSource`). The server
   puts the sources that a client can start at the `music/browse` root, from server 2.9.0. Play the source `uri`
   with `play_media`. A source never ends, so the long-press menu has "Play now" only. A source has no favorite
-  state. Native player inputs (`source_list`, `players/cmd/select_source`) are a different feature, and the
-  client does not show them.
+  state. The sources of a player (`source_list`, `players/cmd/select_source`) are a different feature. See
+  "Player sources".
 - **Ambient sound overlay**: the server mixes a looping `sound_effect` item into the queue stream, so all
   players on the stream hear it. `QueueOverlayRepository` (`data/repository/`) sends `player_queues/overlay`
   and loads the sounds with `music/sound_effects`. The command goes to the server for every player and is never
@@ -106,6 +106,10 @@ actual class PlatformFeature {
   time. It drops a double tap, and a new "play" or "replace" request replaces a waiting one (`coalesce`).
   Before a request leaves, the dispatcher calls `LocalPlayerAdapter.prepareQueue` with the queue id. For the local
   player, that lifts the hold and brings the audio link up first (see the link policy in the Sendspin section).
+  If the media holds an audiobook or a series (`PlayRequest.playsAudiobook`), the dispatcher first sets the repeat
+  mode of the queue to off. With repeat on, the server preloads the current book as its own next item from 0, and
+  that clears the seek and the resume position of the book. The player controls hide repeat for an audiobook, so
+  the user cannot see or change it. If the repeat command fails, the play request still goes out.
   `busyQueueIds` gives the queues that have a request in progress or waiting. `PlayerData.playRequestPending`
   joins it with the server flag `extra_attributes.play_action_in_progress` (any client), and `PlayerControls`
   shows a ring around the main button while it is true. Read the server flag from the server queues, because the
@@ -135,7 +139,8 @@ actual class PlatformFeature {
 - **App and Universal Links**: the app claims `https://www.music-assistant.io/app/*` only. The apex domain
   redirects to `www`, and Android and iOS do not follow a redirect when they get the association file. So do not
   add the apex domain to the manifest or the entitlements, because the check of that host fails. Before
-  Android 12, one failed host makes all hosts of the intent filter fail.
+  Android 12, one failed host makes all hosts of the intent filter fail. See `.claude/deep-links.md` for all
+  link routes, the flow and the tests.
 - **Favorites**: from server 2.11 (`sendsFavoriteUpdates`), a favorite belongs to one user. The server
   sends null `favorite` in every `media_item_*` event, and sends the state of the user in `favorite_updated`.
   That event has no item body, so `MediaItemRepository` fetches the item and emits
@@ -287,7 +292,7 @@ actual class PlatformFeature {
   lets a guest control every player. See `.claude/party-guest-investigation.md`.
 - **Volume keys**: on Android, an opt-in setting gives the hardware volume keys to the selected remote player
   while the app is on screen. `MainActivity.onKeyDown` asks `VolumeButtonService.onVolumeKey`, which
-  sends the slider step commands through `RemoteVolumeTarget` (`MainDataSource`). The media session does not
+  decides and gives the reason when it does not take a key, and sends the slider step commands through `RemoteVolumeTarget` (`MainDataSource`). The media session does not
   change. See `.claude/volume-control.md`.
 - **Play history**: the server sends `playlog_updated` to all users. Ignore an event with the
   `userid` of a different user. A null `userid` applies to all users. The home screen loads its
@@ -331,6 +336,31 @@ actual class PlatformFeature {
   2.11. It is null on an older server, for a single track and for a live stream. The stream details
   dialog shows it. It opens the container only if `opensItemDetails` is true. Add a type to
   `opensItemDetails` when `ItemDetailsViewModel.getItemById` loads it.
+- **Player sources**: a player can play a source that is not its queue: a live input (Spotify Connect, AirPlay,
+  the device audio source) or an input of the device (a TV input). `Player.sources` holds the `source_list` of
+  the server, and `Player.activeSource` holds the id of the active source. The queue of the player is the entry
+  with the player id. `Player.externalSource` is the active entry if it is not the queue. A sync child names the
+  queue of its leader, which is not in its own list, so it has no external source. A uri that the server does
+  not list becomes a passive entry with no controls, so the player offers Stop only.
+
+  A player on an external source has no queue. `mergePlayerDataList` gives it no queue, also not the queue of
+  before the source. The controls follow the flags of the source, like the web frontend. `transportState` and
+  `mainTransport` (`PlayerControls.kt`) are the one place for the buttons: `canPlayPause` gives Pause or Stop,
+  and `canNextPrevious` gives the skip buttons. A stopped source that is not passive accepts Play, because the
+  server selects it again. `PlayerData.canSeekContent` gives the seek rule to the timeline and to the Android
+  media session. The page shows the source name as the title if the media has no title. The position of an
+  external source comes from `current_media` of the player (`PlayerMedia.timing`), because the source has no
+  queue. `externalSourceTimings` gives it to `PlayerPositionTracker.setSource` under `Player.sourcePositionKey`,
+  which is not a queue id. Read the position of a player with `PlayerData.positionKey`, which covers the queue
+  and the external source. The timeline and the Android media session read it. The position uses the server
+  time of the report, so a wrong device clock moves it. The iOS lock screen shows no position for a source.
+
+  The menu of the expanded player has "Select source" (`Player.sourceChoices`): the entries that are not
+  passive and the active entry, sorted by name. The entry shows only if the list has more than one choice and
+  the player is not a sync child. The local player and the target of a device audio share get no entry. A
+  choice sends `PlayerAction.SelectSource`, which is `players/cmd/select_source`. The player id selects the
+  queue again. The car surfaces have no picker. An older server makes a live input the current queue item
+  (`AudioSource`), and that path does not change.
 - **Queue end**: when a queue plays to its end, the server keeps `current_index` and `current_item` on
   the last item and sets `ended` (every server 2.x that the app supports). `QueueInfo.activeItemId` gives
   null for an ended queue. The queue list marks every row as played and shows "Playback finished". Use
@@ -342,6 +372,45 @@ actual class PlatformFeature {
   `message`. Voice has no upload endpoint: raw s16le PCM streams live over `/live_announcement`
   (WebSocket) or the `live_announcement` data channel (WebRTC). Closing the link ends the clip, so
   never cancel a session early. The platform microphone is the `MicrophoneCapture` Koin binding.
+- **Device audio source**: on Android 10 and newer, the app sends the audio of other apps to the server, and the
+  server plays it on a player. The device is then a live input: the local player offers the Sendspin `source@v1` role
+  on its own connection, only while a share runs. `DeviceAudioShare` (`data/share/`) is the platform capture, and
+  `DeviceAudioSource` gives its `SourceConfig` to `LocalPlayerAdapter`. iOS has no playback capture.
+
+  `DeviceAudioRouter` owns a share. Only the server starts the stream. So the router waits until the server accepts the
+  source, then sends a `PlayRequest` for the source uri (`sendspinSourceUri`) through `PlayDispatcher`. The server
+  lists a client as a source only after the first `client/state` of the client. Before that, the server cannot find
+  the source uri and rejects the play request. So `SourceStatus.Ready` comes only after the module sent that report.
+  The report and the play request use different connections, so the router also asks the server with
+  `music/verify_item_uri`. It sends the play request only after the answer is true. If the answer stays false for
+  5 s, the share ends.
+  The handshake does not give the revision of the role. The router starts with `SourceDialect.SPEC`, and tries `RC1`
+  if the status is `Refused`. That restarts the audio link one time. A share ends when the user stops it, when the
+  system ends the capture, when the server stops the stream, or when the audio link drops. Under both dialects the
+  module reports a silent input as `absent` (`PlayerState.Connected.sourceSignal`), and the server stops the source after
+  a minute of it. The router then ends the share with `DeviceAudioShareEnd.Silence`. The roles go in
+  `client/hello`, so the start and the end of a share restart the audio link.
+
+  The server keeps the device as the active source of the target after a stop. So the end of a share sends
+  `players/cmd/select_source` with the id of the target, and the target gets its queue again. While a share runs,
+  `LocalPlayerAdapter.wantsSession` is true, because the user is then in the app that plays, and the share needs
+  the MA session.
+
+  Find the feature from the provider list (`sendspinSourceInstanceId`), not from the schema: the `sendspin_source`
+  plugin, or a `sendspin` provider with the `audio_source` feature. The role needs `WireVersion.SPEC_1_0`.
+
+  On Android, `DeviceAudioShareService` (type `mediaProjection`) holds the projection, and `PlaybackCapture` records
+  with `excludeUid` of the app, so the local player never feeds the source. The service mutes the media stream for the
+  share, because the device plays the audio about 2 seconds before the player. It unmutes the stream at the end. The
+  start needs the record permission and the capture consent for each share (`rememberDeviceAudioShareLauncher`).
+  `DeviceAudioShareDialog` tells the user first. A refusal starts nothing.
+
+  `DeviceAudioShareUi` gives the UI rules. The menu of the expanded player has "Play device audio here". The device
+  and a group that has it are not a target. The entry is disabled while the local player plays. While a share runs,
+  the menu has "Stop device audio", and `SharedDeviceInfo` covers the local player page. The artwork of the
+  target shows `DeviceAudioIcon` instead of the type icon. The target comes from the server:
+  the player whose
+  active source is the source uri, or the queue whose current item is the `AudioSource` with that uri.
 - **AI Radio**: The client supports server schema 88 and higher only (`supportsAiRadio`). Both gates,
   `MainDataSource.aiRadioAvailable` and `aiRadioQueueDjAvailable`, need it. A station is a finite
   Radio item (`ai_radio://radio/<station_id>`, `ServerAiRadioStation.uri`). Play it through
@@ -398,7 +467,7 @@ actual class PlatformFeature {
 ## Compose Guidelines
 
 - Material3 components
-- Extract reusable composables to `ui/common/composables/`
+- Extract reusable composables to `ui/compose/common/`
 - Use `remember`/`derivedStateOf` for computed values
 - Split large composables into smaller files by meaning
 - Previews only when explicitly requested
@@ -515,15 +584,9 @@ fun FeatureScreen(viewModel: FeatureViewModel = koinViewModel()) {
 
 ## UI Architecture
 
-**IMPORTANT**: The project is transitioning from the old MainScreen/MainViewModel to the new HomeScreen/HomeScreenViewModel architecture.
-
-- **Deprecated (do NOT use)**: `MainScreen.kt`, `MainViewModel.kt`
-- **Current (use these)**: `HomeScreen.kt`, `HomeScreenViewModel.kt`
-
-When implementing new features or integrations:
-- Use `HomeScreenViewModel` as reference for architecture patterns
-- Add dependencies to `HomeScreenViewModel` in `SharedModule.kt`
-- Do NOT modify `MainViewModel` - it's legacy code being phased out
+- `HomeScreen` and `HomeScreenViewModel` (`ui/compose/home/`) are the main screen and its ViewModel. Use them as
+  the reference for architecture patterns.
+- Add dependencies of `HomeScreenViewModel` in `SharedModule.kt`.
 
 ### Sendspin Integration
 
@@ -546,7 +609,7 @@ The built-in player is the `:sendspin-kmp` Gradle module (`io.music_assistant.se
 - `data/LocalPlayerAdapter` owns the player and everything about the MA player model: optimistic UI, the offline command queue, and server event reconciliation. `LocalPlayerFactory` builds the player from the platform ports (sink, decoders, key store), so a test gives the adapter a fake player (`LocalPlayerAdapterTest`).
 - `data/LocalPlayerEndpoints` derives the endpoint from the MA session. A WebRTC session gets the data channel. A direct session gets the proxied WebSocket at `<wsUrl>/sendspin`, or the custom Sendspin server from settings. The proxy needs the `auth` message before `client/init`, so the endpoint carries the MA token. The custom connection sends the token only while "Sign in through Music Assistant" is on (`SendspinConnectionAuth`). Turn it off for a plain Sendspin server, because the spec does not let a client send a message before `client/init`. A reconnecting or backgrounded MA session keeps the last endpoint. Each Sendspin connection attempt needs a new data channel. From server schema 49 (`LABEL_ROUTED_CHANNELS_SCHEMA`), the app opens it in-band on the live peer, so the MA session continues. On an older server, or if the new channel does not open, the app renegotiates the peer connection.
 - Sinks and decoders: Android uses `AudioTrackSink` and `AndroidDecoderFactory` from the module. On iOS, `player/local/` holds `AudioQueueSink` and pass-through `IosDecoderFactory` (the native player decodes).
-- The control plane stays on the MA REST API. Sendspin carries audio only (role `player@v1`).
+- The control plane stays on the MA REST API. Sendspin carries audio only: role `player@v1`, and role `source@v1` while the device audio is shared.
 - Spec 1.0.0-rc1 says that every client offers the Pairing PSK method. On `SPEC_1_0`, `NoiseSession` offers and accepts the pairing PSK always. The stored `pairing_psk_enabled` flag of a 9.x `management/set-pairing-config` applies to `LEGACY_9` only.
 - Only the Noise-encrypted protocol is supported. `supportsEncryptedSendspin(schemaVersion)` requires MA schema 45 or newer. A known lower schema produces `Endpoint.Unsupported`, and the player fails without opening a transport. A missing schema is inconclusive: endpoint selection permits a handshake rather than rejecting the server. An explicit unsupported wire version, and a `server/error` for an unsupported version or suite, fail terminally; network failures and handshake timeouts still retry.
 - The module speaks two wire dialects, `WireVersion` (`api`). `LEGACY_9` is aiosendspin 9.x (server 2.10.6 and older). `SPEC_1_0` is Sendspin spec 1.0.0-rc1, aiosendspin 10.x (server 2.10.7 and 2.11). `sendspinWireFor(schemaVersion, serverVersion)` selects `SPEC_1_0` from `SERVER_2_11_SCHEMA`, or from a 2.10 `server_version` with patch 7 or higher, because 2.10.7 keeps the 2.10 schema. All other servers get `LEGACY_9`, which includes an unknown server and a source build (`0.0.0`). The handshake does not give the server version: `server/init` has `version` 1 on both wires. `LocalPlayerEndpoints` puts the wire on the `Endpoint`, so a wire change restarts the connection. A 10.x server accepts the 9.x wire only while its hidden setting `allow_legacy_clients` is on, and it logs a "non-compliant client" warning for it. The differences on `SPEC_1_0`: Noise message 1 carries `psk_category`, and the client matches the PSK by id and category. On a miss in the initial handshake, the client completes with the Sentinel PSK, so the server can offer re-pairing. `client/hello` has no `trust_level`, no `supported_commands`, and `supported_pair_methods` is an object keyed by method. `client/state` carries `output_delay_ms`, `required_lead_time_ms`, `min_buffer_ms` and `supported_commands`. The player sends it after the clock converges and again when the delay changes, never periodically. An audio chunk header has 4 more bytes, `send_ahead`, which the client skips. Fragments use type 1 with a flags byte. A re-handshake has no hello exchange, and an activate without `active_roles` keeps the roles. The Pairing PSK flow sends `client/pair-init` with the pairing index before `client/pair-finalize`. `SendspinJson` omits null fields on both wires. `SendspinDeps.deviceInfo` (`DeviceInfo`) gives the product name, the manufacturer and the app version that the server names in its logs.
@@ -558,7 +621,7 @@ The built-in player is the `:sendspin-kmp` Gradle module (`io.music_assistant.se
 - Format change: the server builds the audio chain and the quality badge when a stream starts, and a reconnect starts no stream. So after a codec or bit-depth change, a playing local player pauses and plays when the new connection is active (`LocalPlayerAdapter.restartStreamOnFormatChange`). A seek is not used, because a seek fails on radio.
 - Codec default: a new install gets FLAC. `SettingsRepository` stores the default on the first read. An install that has a server or used the local player gets Opus, because Opus was the default before.
 - Spec 1.0.0-rc1 rules that apply on `SPEC_1_0` only: a JSON message that is not UTF-8, or that has no `type` string or no `payload` object, closes the connection (`ServerMessage.BadEnvelope`). An audio message shorter than its 13-byte header also closes it. A payload that does not decode into the client model (`ServerMessage.Malformed`) is not a protocol error, so the client ignores it. The 9.x wire ignores all of these.
-- Clock: `ClockFilter` is the spec time filter with the spec parameter values. A test compares it with a literal copy of the spec steps. The one addition is a re-seed: 3 samples in a row that each exclude the prediction from before the streak by more than their `max_error` plus 20 ms, on the same side, mean that the clock moved. `ClockProbe` sends each probe after the reply to the previous probe, 8 probes for each burst. Bursts start 9 s apart (2 s for the first 30 s), under the 10 s limit of the spec. A probe without a reply in 1.5 s ends its burst. The player sends `available` after two samples, as aiosendspin does.
+- Clock: `ClockFilter` is the spec time filter with the spec parameter values. A test compares it with a literal copy of the spec steps. The one addition is a re-seed: 3 samples in a row that each exclude the prediction from before the streak by more than their `max_error` plus 20 ms, on the same side, mean that the clock moved. `ClockProbe` sends each probe after the reply to the previous probe, 8 probes for each burst. Bursts start 9 s apart (2 s for the first 30 s), under the 10 s limit of the spec. A probe without a reply in 1.5 s ends its burst. The player sends `available` after two samples, as aiosendspin does. The transport stamps each inbound binary frame with the player clock when the connection delivers it (`Frame.Binary.receivedAtMicros`), before any queue. The WebSocket pump and `DataChannelWrapper` take the stamp. The receive time of a `server/time` reply is the stamp of its last frame. A frame without a stamp gets the time when the session reads it.
 
 ### Android Services Integration
 
@@ -566,14 +629,14 @@ Android foreground services integrate with Sendspin through MainDataSource:
 
 **MainMediaPlaybackService**:
 - Handles notifications and lock screen controls
-- Shows all active players (excluding deprecated builtin players)
+- Shows all active players
 - Accesses player state via `MainDataSource.playersData`
-- Uses `MediaSessionHelper` for MediaSession management and volume control (see `.claude/volume-control.md`)
+- Uses `SharedMediaSessionManager` for MediaSession management and volume control (see `.claude/volume-control.md`)
 
 **AndroidAutoPlaybackService**:
 - Provides Android Auto support via `MediaBrowserServiceCompat`
 - Shows first player with active playback (`queueInfo?.currentItem != null`)
-- Uses `playerData.queue` for queue access (not deprecated `builtinPlayerQueue`)
+- Uses `playerData.queue` for queue access
 - When Sendspin is playing locally, it appears in Android Auto
 - Supports library browsing via `AutoLibrary`
 - Shows a Home tab that copies the app home page. The tab has one browsable item for each
@@ -591,7 +654,7 @@ Android foreground services integrate with Sendspin through MainDataSource:
 
 **Key Pattern**: Services do NOT create or manage Sendspin directly. They access player data through MainDataSource's playersData StateFlow, maintaining a single source of truth.
 
-See `.claude/sendspin-integration-design.md` and `.claude/sendspin-android-services-integration.md` for detailed technical documentation.
+See `sendspin-kmp/README.md` for the player module.
 
 ## Misc rules
 

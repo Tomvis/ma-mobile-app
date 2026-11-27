@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import home.theme.HomeTheme
 import home.theme.HomeThemes
+import io.music_assistant.client.ui.compose.settings.sections.SectionCard
+import io.music_assistant.client.ui.compose.settings.sections.SectionTitle
 import io.music_assistant.client.ui.theme.HomeMode
 import io.music_assistant.client.ui.theme.HomeSource
 import io.music_assistant.client.ui.theme.HomeThemeRepository

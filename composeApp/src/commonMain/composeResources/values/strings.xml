@@ -247,6 +247,25 @@
   <string name="deep_link_player_not_found">Player %1$s not found, so the link played nothing</string>
   <string name="default_click_dialog_save">Save</string>
   <string name="default_click_dialog_title">Default click action</string>
+  <string name="device_audio_blocked_local_playing">Stop playback on this device first</string>
+  <string name="device_audio_end_connection_lost">The audio connection to the server dropped. The device audio share stopped.</string>
+  <string name="device_audio_end_refused">The server did not accept this device as an audio input. Update the Music Assistant server.</string>
+  <string name="device_audio_end_revoked">The system stopped the audio capture.</string>
+  <string name="device_audio_end_server_stopped">The server stopped the device audio.</string>
+  <string name="device_audio_end_silence">Stopped sharing: no audio for a minute.</string>
+  <string name="device_audio_end_timeout">The device audio did not start. Try again.</string>
+  <string name="device_audio_end_unpaired">Pair this device with the server first. Only a paired device can share its audio. Pair it in the settings, then try again.</string>
+  <string name="device_audio_intro_body">Music Assistant sends the audio that other apps play on this device to the player. Next, Android asks for the microphone permission and for a screen recording. The app uses only the audio. The player is about 2 seconds late, so video is not in sync. Some apps block the capture and give silence.</string>
+  <string name="device_audio_intro_continue">Continue</string>
+  <string name="device_audio_intro_muted">The media sound of this device is muted while the audio is shared, so you hear it only on the player. The sound comes back when the share stops. To hear the device too, press a volume key.</string>
+  <string name="device_audio_intro_title">Play device audio on %1$s</string>
+  <string name="device_audio_local_overlay">Device audio is shared. It plays on %1$s.</string>
+  <string name="device_audio_local_overlay_starting">Device audio is shared.</string>
+  <string name="device_audio_notification_text">Music Assistant plays the audio of this device</string>
+  <string name="device_audio_notification_title">Device audio is shared</string>
+  <string name="device_audio_permission_denied">Without the microphone permission and the capture consent, the app cannot share the device audio.</string>
+  <string name="device_audio_play_here">Play device audio here</string>
+  <string name="device_audio_stop">Stop device audio</string>
   <string name="dialog_interrupting_playback">Interrupting Playback</string>
   <string name="dialog_interrupting_playback_confirm">Continue</string>
   <string name="dialog_interrupting_playback_message">Saving changes to the player will interrupt the current playback and clear the current queue. Are you sure?</string>
@@ -408,6 +427,7 @@
   <string name="players_none_available">No players available</string>
   <string name="players_nothing">Nothing playing</string>
   <string name="players_remote_volume_hint">Volume buttons only work for the local player</string>
+  <string name="players_select_source">Select source</string>
   <string name="players_swipe_hint">Swipe left or right to switch between players</string>
   <string name="players_title">Players</string>
   <string name="playlist_access_collaborative">Collaborative</string>
@@ -493,6 +513,8 @@
   <string name="sendspin_failed_unauthorized">The server did not accept this device as a player. Sign in again.</string>
   <string name="sendspin_failed_unpaired">The server removed this device. Pair it again in the settings.</string>
   <string name="server_id_mismatch_error">Server ID was changed. Re-authentication required.</string>
+  <string name="server_too_old_dialog_message">This Music Assistant server is too old for this app, so some features do not work. Update the server to version 2.10 or newer.</string>
+  <string name="server_too_old_dialog_title">Server update needed</string>
   <string name="settings_about_description">Music Assistant is a free, open-source, self-hosted music server. Connect to your server below to browse your library and control playback throughout your home.</string>
   <string name="settings_about_learn_more">Learn more at music-assistant.io →</string>
   <string name="settings_accent_color">Accent color</string>
@@ -556,6 +578,7 @@
   <string name="settings_history_direct">Direct</string>
   <string name="settings_history_webrtc">WebRTC (Remote Access)</string>
   <string name="settings_host">Host</string>
+  <string name="settings_local_network_onboarding_body_ios">When you connect to your server for the first time, iOS will ask for permission to access your local network. Tap Allow — without it the app cannot find or reach your server.</string>
   <string name="settings_local_network_onboarding_title_ios">Local network access</string>
   <string name="settings_local_network_prompt_ios">iOS asks for permission to use your local network. Tap Allow, because without it the app cannot find or reach your server.</string>
   <string name="settings_local_player">Sendspin Player</string>
@@ -588,7 +611,9 @@
   <string name="settings_server_host_invalid">Enter only the host name or the IP address, without a protocol, a port or a path.</string>
   <string name="settings_share_crash_logs">Share crash logs</string>
   <string name="settings_share_logs">Share logs</string>
+  <string name="settings_logs">Logs</string>
   <string name="settings_ssl_tls">SSL/TLS (wss://)</string>
+  <string name="settings_use_tls">Use TLS (wss://)</string>
   <string name="settings_use_tls_wss">Use secure connection (WSS/TLS)</string>
   <string name="settings_version_info">Version %1$s, Schema %2$s</string>
   <string name="settings_volume_keys_control_player">Volume buttons control the selected player</string>
@@ -684,6 +709,8 @@
   <string name="unsupported_install_description">This server is not installed through one of the supported installation methods. Some features may not work as expected, and issues reported from it may be closed without support.</string>
   <string name="unsupported_install_link">Installation methods</string>
   <string name="unsupported_install_title">Unsupported installation</string>
+  <string name="volume_keys_in_call">During a call, the volume buttons change the call volume.</string>
   <string name="volume_keys_no_volume_control">The volume of %1$s cannot be changed</string>
   <string name="volume_keys_player_off">%1$s is off</string>
+  <string name="volume_keys_setting_off">The volume buttons change the device volume. To control %1$s with them, turn on "%2$s" in Settings.</string>
 </resources>

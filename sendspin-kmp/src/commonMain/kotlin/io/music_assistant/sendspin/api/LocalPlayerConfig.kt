@@ -6,8 +6,8 @@ import kotlinx.coroutines.channels.ReceiveChannel
  * Everything the player needs from the app. Supplied as `StateFlow<LocalPlayerConfig?>`;
  * `null` disables the player and is the only "stop".
  *
- * A change to [endpoint], [deviceName], [codecPreference], [bitDepth], or [bufferSeconds]
- * restarts the connection. The audio pipeline is untouched. [userDelayMs] applies live.
+ * A change to [endpoint], [deviceName], [codecPreference], [bitDepth], [bufferSeconds], or
+ * [source] restarts the connection. The audio pipeline is untouched. [userDelayMs] applies live.
  */
 public data class LocalPlayerConfig(
     val endpoint: Endpoint,
@@ -23,6 +23,8 @@ public data class LocalPlayerConfig(
     val bufferSeconds: Int,
     /** Manual playback lag, added to every chunk's presentation time. */
     val userDelayMs: Int,
+    /** Offers the `source@v1` role next to the player role. Only [WireVersion.SPEC_1_0] has it. */
+    val source: SourceConfig? = null,
 )
 
 public sealed interface Endpoint {
@@ -62,5 +64,14 @@ public interface SendspinTransport {
 
 public sealed interface Frame {
     public data class Text(val text: String) : Frame
-    public class Binary(public val bytes: ByteArray) : Frame
+
+    /**
+     * [receivedAtMicros] is the [SendspinDeps.clock] time at which the connection delivered the
+     * message, taken as close to its arrival as the transport can. The clock filter reads it as
+     * the receive time of a `server/time` reply. Null makes the session take the time when it
+     * reads the frame, which is later by the queue in between.
+     */
+    public class Binary(public val bytes: ByteArray, public val receivedAtMicros: Long?) : Frame {
+        public constructor(bytes: ByteArray) : this(bytes, null)
+    }
 }

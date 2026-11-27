@@ -46,6 +46,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -64,7 +65,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
@@ -123,6 +123,8 @@ private const val BUFFER_TRACK_ALPHA = 0.45f
 fun CompactPlayerItem(
     modifier: Modifier,
     item: PlayerData,
+    // Replaces the type icon where the artwork has no image; the mark of a device audio share.
+    artworkIcon: ImageVector? = null,
     colors: PlayerColors,
     playerAction: (PlayerData, PlayerAction) -> Unit = { _, _ -> },
     onSelectPlayer: (() -> Unit)? = null,
@@ -174,7 +176,7 @@ fun CompactPlayerItem(
                     val placeholder = rememberPlaceholderPainter(
                         backgroundColor = colors.dominant,
                         iconColor = onPrimaryContainer,
-                        icon = TrackIcon,
+                        icon = artworkIcon ?: TrackIcon,
                     )
                     AsyncImage(
                         placeholder = placeholder,
@@ -187,7 +189,7 @@ fun CompactPlayerItem(
                     )
                 } else {
                     Icon(
-                        imageVector = AlbumIcon,
+                        imageVector = artworkIcon ?: AlbumIcon,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = onPrimaryContainer.inactive(),
@@ -319,6 +321,8 @@ private fun trackNameAndContentDescription(title: String?): Pair<String, String>
 fun FullPlayerItem(
     modifier: Modifier,
     item: PlayerData,
+    // Replaces the type icon where the artwork has no image; the mark of a device audio share.
+    artworkIcon: ImageVector? = null,
     colors: PlayerColors,
     playerAction: (PlayerData, PlayerAction) -> Unit,
     // Null hides the heart: the user cannot edit the library.
@@ -382,7 +386,7 @@ fun FullPlayerItem(
                     rememberPlaceholderPainter(
                         backgroundColor = colors.dominant,
                         iconColor = onPrimaryContainer,
-                        icon = currentMedia.defaultIcon,
+                        icon = artworkIcon ?: currentMedia.defaultIcon,
                     )
                 AsyncImage(
                     placeholder = placeholder,
@@ -394,7 +398,7 @@ fun FullPlayerItem(
                     modifier = Modifier.fillMaxSize(),
                 )
             } ?: Icon(
-                imageVector = currentMedia?.defaultIcon ?: AlbumIcon,
+                imageVector = artworkIcon ?: currentMedia?.defaultIcon ?: AlbumIcon,
                 contentDescription = null,
                 modifier = Modifier.size(120.dp),
                 tint = onPrimaryContainer,
@@ -405,7 +409,10 @@ fun FullPlayerItem(
         val poweredOff = item.player.isPoweredOff
         val (trackName, trackContentDescription) = item.player.dormantLabel()
             ?.let { it to it }
-            ?: trackNameAndContentDescription(currentMedia?.title)
+            // An input of the device, such as a TV input, can report no title: name the source.
+            ?: trackNameAndContentDescription(
+                currentMedia?.title ?: item.externalSource?.name?.takeIf { it.isNotBlank() },
+            )
 
         // Powered off: present the "no media" state — disabled slider, empty time labels.
         val duration = if (poweredOff) null else currentMedia?.duration?.takeIf { it > 0 }?.toFloat()
@@ -430,7 +437,7 @@ fun FullPlayerItem(
         val timelinePosition =
             currentChapter?.relativeSec(displayPosition.toDouble())?.toFloat() ?: displayPosition
         // A radio stream cannot seek, not even in a song whose length it reports.
-        val seekable = timelineDuration != null && currentMedia?.mediaType != MediaType.RADIO
+        val seekable = timelineDuration != null && item.canSeekContent
 
         val titleTrack = (item.queueInfo?.currentItem?.track as? Track)?.takeIf { !poweredOff }
         // The title does the overflow's "Go to track".

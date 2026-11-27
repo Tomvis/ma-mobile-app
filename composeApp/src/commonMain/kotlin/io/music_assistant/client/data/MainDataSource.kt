@@ -127,6 +127,17 @@ internal fun radioSongTimings(
             }
     }
 
+/**
+ * Where each player is in the media of its external source, or null; see
+ * [PlayerPositionTracker.setSource]. A queue has its own position.
+ */
+internal fun externalSourceTimings(players: List<Player>): Map<String, Pair<SongTiming, Boolean>?> =
+    players.associate { player ->
+        player.sourcePositionKey to player.currentMedia?.timing
+            ?.takeIf { player.externalSource != null }
+            ?.let { it to player.isPlaying }
+    }
+
 /** Preserve newer event/optimistic state when a delayed full snapshot arrives. */
 internal fun mergeFullQueueSnapshot(
     retained: List<QueueInfo>,
@@ -486,8 +497,8 @@ class MainDataSource(
                 .mapNotNull { (it as? DataState.Data)?.data }
                 .collect { list ->
                     list.forEach { pd ->
-                        pd.queueInfo?.id?.let { queueId ->
-                            positionTracker.setPlaying(queueId, pd.player.isPlaying)
+                        pd.positionKey?.let { key ->
+                            positionTracker.setPlaying(key, pd.player.isPlaying)
                         }
                     }
                 }
@@ -508,6 +519,9 @@ class MainDataSource(
                     // Before the players publish, so every reader of a new song also reads its position.
                     input.players.dataOrNull?.let { radioSongTimings(it, input.queues) }
                         ?.forEach { (queueId, timing) -> positionTracker.setSong(queueId, timing) }
+                    input.players.dataOrNull?.let(::externalSourceTimings)?.forEach { (key, report) ->
+                        positionTracker.setSource(key, report?.first, isPlaying = report?.second == true)
+                    }
                     _playersData.update { oldValues ->
                         fun build(serverPlayers: List<Player>) = DataState.Data(
                             buildPlayerDataList(
@@ -533,7 +547,10 @@ class MainDataSource(
                 }
         }
         launch {
-            apiClient.sessionState.collect { sessionState ->
+            // A server info refresh (`core_state_updated`) makes a new state of the same session.
+            // A re-subscribe would lose the events of the gap, so only a change of the connection,
+            // the auth step or the token counts.
+            apiClient.sessionState.distinctUntilChangedBy(::sessionKey).collect { sessionState ->
                 log.i { "SessionState changed: ${sessionState::class.simpleName}" }
 
                 when (sessionState) {
@@ -1225,17 +1242,22 @@ class MainDataSource(
     override val isReadyForCommands: StateFlow<Boolean>
         get() = apiClient.isReadyForCommands
 
-    override suspend fun sendRemotePlayerAction(data: PlayerData, action: PlayerAction) =
+    override suspend fun sendRemotePlayerAction(data: PlayerData, action: PlayerAction): Boolean =
         sendResolved(data, playerRequestFactory.resolve(data, action))
 
-    private suspend fun sendResolved(data: PlayerData, action: PlayerAction) {
-        val request = playerRequestFactory.buildRequest(data, action) ?: return
+    /** True if the server took the request: it answered, and not with an error. */
+    private suspend fun sendResolved(data: PlayerData, action: PlayerAction): Boolean {
+        val request = playerRequestFactory.buildRequest(data, action) ?: return false
         val result = apiClient.sendRequest(request)
         if (result.isFailure) {
             log.e(
                 result.exceptionOrNull(),
             ) { "Failed to send player action request for ${data.player.name}: $action" }
         }
+        // A received RPC error is still a successful transport response.
+        val taken = result.getOrNull()?.json?.containsKey("error_code") == false
+        if (result.isSuccess && !taken) log.w { "The server rejected $action for ${data.player.name}" }
+        return taken
     }
 
     /**
@@ -1970,9 +1992,20 @@ class MainDataSource(
             }
             // Preserve loaded queue items from previous state
             return (listOfNotNull(local) + remote).map { fresh ->
-                oldPlayers.firstOrNull { it.player.id == fresh.player.id }?.updateFrom(fresh)
+                // An external source replaces the queue: do not keep the queue of before it.
+                oldPlayers.firstOrNull { it.player.id == fresh.player.id }
+                    ?.takeIf { fresh.player.externalSource == null }
+                    ?.updateFrom(fresh)
                     ?: fresh
             }
         }
     }
 }
+
+private fun sessionKey(state: SessionState): Any = (state as? SessionState.Connected)?.let {
+    when (val dcs = it.dataConnectionState) {
+        is DataConnectionState.Authenticated -> it::class to dcs.token
+        is DataConnectionState.AwaitingAuth -> it::class to dcs.authProcessState
+        DataConnectionState.AwaitingServerInfo -> it::class to dcs
+    }
+} ?: state

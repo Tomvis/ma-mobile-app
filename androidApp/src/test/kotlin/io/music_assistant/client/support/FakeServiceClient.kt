@@ -13,6 +13,7 @@ import io.music_assistant.client.data.model.server.AudioProcessingChain
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.EventType
 import io.music_assistant.client.data.model.server.OauthUrl
+import io.music_assistant.client.data.model.server.MIN_SERVER_SCHEMA_VERSION
 import io.music_assistant.client.data.model.server.PlayerState
 import io.music_assistant.client.data.model.server.SERVER_2_11_SCHEMA
 import io.music_assistant.client.data.model.server.Scope
@@ -39,6 +40,7 @@ import io.music_assistant.client.utils.myJson
 import io.music_assistant.client.utils.update
 import io.music_assistant.client.webrtc.DataChannelWrapper
 import io.music_assistant.client.webrtc.model.RemoteId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,11 +92,16 @@ class FakeServiceClient : ServiceClient {
 
     val username = "user"
     val password = "password"
-    val accessToken = "token"
+    var accessToken = "token"
     var serverId = "serverId"
 
-    // 63 (server 2.10.0) and higher turn on the search source picker.
-    var schemaVersion = 39
+    // The oldest supported server (2.10.0). A lower value shows the "server too old" dialog.
+    var schemaVersion = MIN_SERVER_SCHEMA_VERSION
+
+    /**
+     * Allows setting a gate for [authorize] calls to complete
+     */
+    var authorizeGate: CompletableDeferred<Unit>? = null
 
     private val _sessionState: MutableStateFlow<SessionState> =
         MutableStateFlow(SessionState.Disconnected.Initial)
@@ -765,7 +772,7 @@ class FakeServiceClient : ServiceClient {
 
     override suspend fun login(username: String, password: String) {
         if (username == this.username && password == this.password) {
-            authorize(accessToken, true)
+            authorize(accessToken, false)
         } else {
             failAuth("Invalid username or password")
         }
@@ -776,6 +783,9 @@ class FakeServiceClient : ServiceClient {
             failAuth("Invalid or expired token")
             return
         }
+
+        authorizeGate?.await()
+
         _sessionState.update {
             when (it) {
                 is SessionState.Connected.Direct -> {
@@ -784,8 +794,9 @@ class FakeServiceClient : ServiceClient {
                         it.connectionData.copy(
                             authProcessState = AuthProcessState.NotStarted,
                             user = User("-1", username, username, "user"),
-                            wasAutoLogin = true,
+                            wasAutoLogin = isAutoLogin,
                             token = token,
+                            needsServerReauth = false,
                         ),
                     )
                 }
@@ -1077,7 +1088,10 @@ class FakeServiceClient : ServiceClient {
                     is SessionState.Reconnecting.Direct -> {
                         SessionState.Connected.Direct(
                             connectionInfo = it.connectionInfo,
-                            connectionData = it.connectionData,
+                            connectionData = it.connectionData.copy(
+                                needsServerReauth = true,
+                                authProcessState = AuthProcessState.NotStarted,
+                            ),
                         )
                     }
 

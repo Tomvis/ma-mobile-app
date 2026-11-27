@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.music_assistant.client.ui.compose.settings.sections.SectionCard
+import io.music_assistant.client.ui.compose.settings.sections.SectionTitle
 import io.music_assistant.client.ui.language.AppLocales
 import io.music_assistant.client.ui.language.HomeLanguageRepository
 import io.music_assistant.client.ui.language.LanguagePick
